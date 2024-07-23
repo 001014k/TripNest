@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -44,6 +45,20 @@ class MapSampleState extends State<MapSample> {
   FirebaseFirestore.instance.collection('markers');
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
+
+  final String mapStyle = '''
+  [
+    {
+      "featureType": "poi",
+      "elementType": "labels.icon",
+      "stylers": [
+        {
+          "visibility": "off"
+        }
+      ]
+    }
+  ]
+  ''';
 
   @override
   void initState() {
@@ -133,6 +148,7 @@ class MapSampleState extends State<MapSample> {
   void _onMapCreated(GoogleMapController controller) {
     _controller = controller;
     _loadMarkers();
+    _controller!.setMapStyle(mapStyle); // 스타일 적용
     if (_currentLocation != null) {
       _controller!.animateCamera(
         CameraUpdate.newCameraPosition(
