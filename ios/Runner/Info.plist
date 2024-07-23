@@ -50,6 +50,16 @@
     <string>We need your location to show the map correctly.</string>
     <key>NSLocationAlwaysUsageDescription</key>
     <string>We need your location to show the map correctly.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>This app needs access to location when open.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>This app needs access to location at all times.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>This app needs access to location always and when in use.</string>
+    <key>io.flutter.embedded_views_preview</key>
+    <true/>
+    <key>GMSApiKey</key>
+    <string>YOUR_GOOGLE_MAPS_API_KEY</string>
 
 </dict>
 </plist>

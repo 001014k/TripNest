@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:firebase_core/firebase_core.dart';
@@ -34,17 +35,21 @@ class MapSampleState extends State<MapSample> {
   GoogleMapController? _controller;
   Marker? _selectedMarker;
   LatLng? _pendingLatLng;
+  LocationData? _currentLocation;
+  final Location _location = Location();
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   List<Marker> _searchResults = [];
-  CollectionReference markersCollection = FirebaseFirestore.instance.collection('markers');
+  CollectionReference markersCollection =
+  FirebaseFirestore.instance.collection('markers');
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
 
   @override
   void initState() {
     super.initState();
-    _loadMarkers();
+    _loadMarkers(); // 마커 로드
+    _getLocation(); // 위치 정보를 가져오는 메서드 호출
   }
 
   Future<void> _loadMarkers() async {
@@ -61,17 +66,17 @@ class MapSampleState extends State<MapSample> {
             snippet: data['snippet'],
           ),
           icon: data['image'] != null
-              ? BitmapDescriptor.fromBytes(Uint8List.fromList((data['image'] as List<dynamic>).cast<int>()))
+              ? BitmapDescriptor.fromBytes(Uint8List.fromList(
+              (data['image'] as List<dynamic>).cast<int>()))
               : BitmapDescriptor.defaultMarker,
           onTap: () {
-            _onMarkerTapped(MarkerId(doc.id));
+            _onMarkerTapped(context, MarkerId(doc.id));
           },
         );
         _markers.add(marker);
       }
     });
   }
-
 
   Future<void> _saveMarker(Marker marker) async {
     await markersCollection.doc(marker.markerId.value).set({
@@ -98,12 +103,50 @@ class MapSampleState extends State<MapSample> {
     return file.readAsBytes();
   }
 
+  Future<void> _getLocation() async {
+    final hasPermission = await _location.hasPermission();
+    if (hasPermission == PermissionStatus.denied) {
+      final requested = await _location.requestPermission();
+      if (requested != PermissionStatus.granted) {
+        // 권한이 없을 때 처리
+        return;
+      }
+    }
+    _currentLocation = await _location.getLocation();
+    _location.onLocationChanged.listen((LocationData locationData) {
+      setState(() {
+        _currentLocation = locationData;
+      });
+      if (_controller != null) {
+        _controller!.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: LatLng(locationData.latitude!, locationData.longitude!),
+              zoom: 15.0,
+            ),
+          ),
+        );
+      }
+    });
+  }
+
   void _onMapCreated(GoogleMapController controller) {
     _controller = controller;
     _loadMarkers();
+    if (_currentLocation != null) {
+      _controller!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: LatLng(
+                _currentLocation!.latitude!, _currentLocation!.longitude!),
+            zoom: 15.0,
+          ),
+        ),
+      );
+    }
   }
 
-  void _onMarkerTapped(MarkerId markerId) {
+  void _onMarkerTapped(BuildContext context, MarkerId markerId) {
     final marker = _markers.firstWhere(
           (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
@@ -112,17 +155,17 @@ class MapSampleState extends State<MapSample> {
     setState(() {
       _selectedMarker = marker;
     });
-    _showMarkerInfoBottomSheet(marker);
+    _showMarkerInfoBottomSheet(context, marker);
   }
 
-  void _onMapTapped(LatLng latLng) {
+  void _onMapTapped(BuildContext context, LatLng latLng) {
     setState(() {
       _pendingLatLng = latLng;
     });
-    _navigateToMarkerCreationScreen();
+    _navigateToMarkerCreationScreen(context);
   }
 
-  void _navigateToMarkerCreationScreen() async {
+  void _navigateToMarkerCreationScreen(BuildContext context) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -139,7 +182,7 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  void _showMarkerInfoBottomSheet(Marker marker) {
+  void _showMarkerInfoBottomSheet(BuildContext context, Marker marker) {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) => MarkerInfoBottomSheet(
@@ -164,8 +207,8 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  void _addMarker(
-      String? title, String? snippet, Uint8List? imageBytes, LatLng position) {
+  void _addMarker(String? title, String? snippet, Uint8List? imageBytes,
+      LatLng position) {
     final marker = Marker(
       markerId: MarkerId(position.toString()),
       position: position,
@@ -177,7 +220,7 @@ class MapSampleState extends State<MapSample> {
           ? BitmapDescriptor.fromBytes(imageBytes)
           : BitmapDescriptor.defaultMarker,
       onTap: () {
-        _onMarkerTapped(MarkerId(position.toString()));
+        _onMarkerTapped(context, MarkerId(position.toString()));
       },
     );
 
@@ -235,12 +278,17 @@ class MapSampleState extends State<MapSample> {
           GoogleMap(
             onMapCreated: _onMapCreated,
             initialCameraPosition: CameraPosition(
-              target: _seoulCityHall,
-              zoom: 13.0,
+              target: LatLng(
+                _currentLocation?.latitude ?? _seoulCityHall.latitude,
+                _currentLocation?.longitude ?? _seoulCityHall.longitude,
+              ),
+              zoom: 15.0,
             ),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
             markers: Set<Marker>.from(
                 _searchResults.isEmpty ? _markers : _searchResults),
-            onTap: _onMapTapped,
+            onTap: (latLng) => _onMapTapped(context, latLng),
           ),
           if (_searchResults.isNotEmpty) ...[
             Positioned(
@@ -261,7 +309,10 @@ class MapSampleState extends State<MapSample> {
                         _controller?.animateCamera(
                           CameraUpdate.newLatLng(marker.position),
                         );
-                        Navigator.pop(context);
+                        setState(() {
+                          _selectedMarker = marker;
+                        });
+                        _showMarkerInfoBottomSheet(context, marker);
                       },
                     );
                   },
@@ -275,16 +326,26 @@ class MapSampleState extends State<MapSample> {
   }
 }
 
-
 class MarkerCreationScreen extends StatefulWidget {
   @override
-  State<MarkerCreationScreen> createState() => _MarkerCreationScreenState();
+  _MarkerCreationScreenState createState() => _MarkerCreationScreenState();
 }
 
 class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _snippetController = TextEditingController();
+  TextEditingController _titleController = TextEditingController();
+  TextEditingController _snippetController = TextEditingController();
   File? _image;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.getImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _image = File(pickedFile.path);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -295,31 +356,32 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          children: [
+          children: <Widget>[
             TextField(
               controller: _titleController,
-              decoration: InputDecoration(labelText: 'Title'),
+              decoration: InputDecoration(
+                labelText: 'Title',
+              ),
             ),
             TextField(
               controller: _snippetController,
-              decoration: InputDecoration(labelText: 'Snippet'),
+              decoration: InputDecoration(
+                labelText: 'Snippet',
+              ),
             ),
-            SizedBox(height: 16),
-            _image == null
-                ? Text('No image selected.')
-                : Image.file(_image!, height: 200),
+            SizedBox(height: 16.0),
+            _image != null
+                ? Image.file(
+              _image!,
+              height: 200,
+            )
+                : Text('No image selected.'),
+            SizedBox(height: 16.0),
             ElevatedButton(
-              onPressed: () async {
-                final pickedFile = await ImagePicker().getImage(source: ImageSource.gallery);
-                if (pickedFile != null) {
-                  setState(() {
-                    _image = File(pickedFile.path);
-                  });
-                }
-              },
+              onPressed: _pickImage,
               child: Text('Pick Image'),
             ),
-            SizedBox(height: 16),
+            SizedBox(height: 16.0),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context, {
@@ -339,7 +401,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
 
 class MarkerInfoBottomSheet extends StatelessWidget {
   final Marker marker;
-  final void Function(Marker) onEdit;
+  final ValueChanged<Marker> onEdit;
   final VoidCallback onDelete;
 
   MarkerInfoBottomSheet({
@@ -348,63 +410,57 @@ class MarkerInfoBottomSheet extends StatelessWidget {
     required this.onDelete,
   });
 
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _snippetController = TextEditingController();
-  File? _image;
-
   @override
   Widget build(BuildContext context) {
-    _titleController.text = marker.infoWindow.title ?? '';
-    _snippetController.text = marker.infoWindow.snippet ?? '';
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return Container(
+      padding: EdgeInsets.all(16.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _titleController,
-            decoration: InputDecoration(labelText: 'Title'),
+        children: <Widget>[
+          Text(
+            marker.infoWindow.title ?? 'Untitled',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20.0,
+            ),
           ),
-          TextField(
-            controller: _snippetController,
-            decoration: InputDecoration(labelText: 'Snippet'),
-          ),
-          SizedBox(height: 16),
-          _image == null
-              ? Text('No image selected.')
-              : Image.file(_image!, height: 200),
-          ElevatedButton(
-            onPressed: () async {
-              final pickedFile = await ImagePicker().getImage(source: ImageSource.gallery);
-              if (pickedFile != null) {
-                _image = File(pickedFile.path);
-              }
-            },
-            child: Text('Pick Image'),
-          ),
-          SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              final updatedMarker = Marker(
-                markerId: marker.markerId,
-                position: marker.position,
-                infoWindow: InfoWindow(
-                  title: _titleController.text,
-                  snippet: _snippetController.text,
-                ),
-                icon: _image != null
-                    ? BitmapDescriptor.fromBytes(_image!.readAsBytesSync())
-                    : marker.icon,
-              );
-              onEdit(updatedMarker);
-              Navigator.pop(context);
-            },
-            child: Text('Update Marker'),
-          ),
-          ElevatedButton(
-            onPressed: onDelete,
-            child: Text('Delete Marker'),
+          Text(marker.infoWindow.snippet ?? ''),
+          SizedBox(height: 16.0),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: <Widget>[
+              ElevatedButton(
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MarkerCreationScreen(),
+                    ),
+                  );
+
+                  if (result != null) {
+                    final updatedMarker = marker.copyWith(
+                      infoWindowParam: marker.infoWindow.copyWith(
+                        titleParam: result['title'],
+                        snippetParam: result['snippet'],
+                      ),
+                      iconParam: result['image'] != null
+                          ? BitmapDescriptor.fromBytes(
+                          await File(result['image']).readAsBytes())
+                          : marker.icon,
+                    );
+                    onEdit(updatedMarker);
+                    Navigator.pop(context);
+                  }
+                },
+                child: Text('Edit'),
+              ),
+              ElevatedButton(
+                onPressed: onDelete,
+                child: Text('Delete'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              ),
+            ],
           ),
         ],
       ),
