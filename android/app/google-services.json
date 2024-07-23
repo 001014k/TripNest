@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "341897187439",
+    "project_id": "fluttertrip-c3ddb",
+    "storage_bucket": "fluttertrip-c3ddb.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:341897187439:android:e2657bd5f2855c89947d9a",
+        "android_client_info": {
+          "package_name": "com.example.ios.fluttertrip"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBB4kQ6LiRLNdBIlnWTMVAXqh8m4KHXo4k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
