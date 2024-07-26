@@ -273,7 +273,7 @@ class MapSampleState extends State<MapSample> {
         title: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: 'Search...',
+            hintText: '검색...',
             border: InputBorder.none,
             hintStyle: TextStyle(color: Colors.white54),
           ),
@@ -281,13 +281,77 @@ class MapSampleState extends State<MapSample> {
           onChanged: _updateSearchResults,
           onSubmitted: _onSearchSubmitted,
         ),
-        backgroundColor: Colors.green[700],
+        backgroundColor: Colors.blueGrey[700],
         actions: [
           IconButton(
             icon: Icon(Icons.search),
             onPressed: () => _onSearchSubmitted(_searchController.text),
           ),
         ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            UserAccountsDrawerHeader(
+              currentAccountPicture: CircleAvatar(
+                backgroundImage: AssetImage('assets/profile.png'),
+                backgroundColor: Colors.white,
+              ),
+              otherAccountsPictures: <Widget>[
+                CircleAvatar(
+                  backgroundColor: Colors.white,
+                  backgroundImage: AssetImage('assets/profile2.png'),
+                ),
+              ],
+              accountName: Text('kim'),
+              accountEmail: Text('hm4854@email.com'),
+              onDetailsPressed: () {
+                print('arrow is clicked');
+              },
+              decoration: BoxDecoration(
+                color: Colors.blueGrey[200],
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(40.0),
+                  bottomRight: Radius.circular(40.0),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.map,
+                color: Colors.grey[850],
+              ),
+              title: Text('지도'),
+              onTap: () {
+                print('Home is clicked');
+              },
+              trailing: Icon(Icons.add),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.dashboard,
+                color: Colors.grey[850],
+              ),
+              title: Text('게시판'),
+              onTap: () {
+                print('Setting is clicked');
+              },
+              trailing: Icon(Icons.add),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.question_answer,
+                color: Colors.grey[850],
+              ),
+              title: Text('Q&A'),
+              onTap: () {
+                print('Q&A is clicked');
+              },
+              trailing: Icon(Icons.add),
+            ),
+          ],
+        ),
       ),
       body: Stack(
         children: [
@@ -376,13 +440,13 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
             TextField(
               controller: _titleController,
               decoration: InputDecoration(
-                labelText: 'Title',
+                labelText: '이름',
               ),
             ),
             TextField(
               controller: _snippetController,
               decoration: InputDecoration(
-                labelText: 'Snippet',
+                labelText: '주소',
               ),
             ),
             SizedBox(height: 16.0),
