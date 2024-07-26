@@ -43,6 +43,7 @@ class MapSampleState extends State<MapSample> {
   List<Marker> _searchResults = [];
   CollectionReference markersCollection =
   FirebaseFirestore.instance.collection('markers');
+  int _selectedIndex = 0;
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
 
@@ -59,6 +60,19 @@ class MapSampleState extends State<MapSample> {
     }
   ]
   ''';
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    // 구글 맵 화면으로 이동하는 경우 맵 초기화
+    if (index == 0 && _controller != null) {
+      _controller!.animateCamera(
+        CameraUpdate.newLatLngZoom(_seoulCityHall, 15.0),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -324,7 +338,7 @@ class MapSampleState extends State<MapSample> {
               ),
               title: Text('지도'),
               onTap: () {
-                print('Home is clicked');
+                _onItemTapped(0); //구글 맵 화면으로 이동
               },
               trailing: Icon(Icons.add),
             ),
@@ -431,7 +445,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Create Marker'),
+        title: Text('마커생성'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -455,11 +469,11 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
               _image!,
               height: 200,
             )
-                : Text('No image selected.'),
+                : Text('이미지가 선택된게 없습니다.'),
             SizedBox(height: 16.0),
             ElevatedButton(
               onPressed: _pickImage,
-              child: Text('Pick Image'),
+              child: Text('이미지를 고르시오'),
             ),
             SizedBox(height: 16.0),
             ElevatedButton(
@@ -470,7 +484,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                   'image': _image,
                 });
               },
-              child: Text('Save Marker'),
+              child: Text('마커 저장'),
             ),
           ],
         ),
@@ -538,7 +552,6 @@ class MarkerInfoBottomSheet extends StatelessWidget {
               ElevatedButton(
                 onPressed: onDelete,
                 child: Text('Delete'),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               ),
             ],
           ),
