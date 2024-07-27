@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'profile_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -262,7 +263,39 @@ class MapSampleState extends State<MapSample> {
   }
 
   void _onSearchSubmitted(String query) {
+    setState(() {
+      _searchResults = _markers.where((marker){
+        final title = marker.infoWindow.title?.toLowerCase() ?? '';
+        return title.contains(query.toLowerCase());
+      }).toList();
+    });
+    _showSearchResults();
     _updateSearchResults(query);
+  }
+  void _showSearchResults() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          padding: EdgeInsets.all(16.0),
+          child: ListView.builder(
+            itemCount: _searchResults.length,
+            itemBuilder: (context, index) {
+              final marker = _searchResults[index];
+              return ListTile(
+                title: Text(marker.infoWindow.title ?? 'Untitled'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _controller?.animateCamera(
+                    CameraUpdate.newLatLng(marker.position),
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   void _updateSearchResults(String query) {
@@ -284,6 +317,9 @@ class MapSampleState extends State<MapSample> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        iconTheme: IconThemeData(
+          color: Colors.white, //햄버거 아이콘 색상을 화이트 색상으로 변경
+        ),
         title: TextField(
           controller: _searchController,
           decoration: InputDecoration(
@@ -299,6 +335,7 @@ class MapSampleState extends State<MapSample> {
         actions: [
           IconButton(
             icon: Icon(Icons.search),
+            color: Colors.white,
             onPressed: () => _onSearchSubmitted(_searchController.text),
           ),
         ],
@@ -340,18 +377,19 @@ class MapSampleState extends State<MapSample> {
               onTap: () {
                 _onItemTapped(0); //구글 맵 화면으로 이동
               },
-              trailing: Icon(Icons.add),
             ),
             ListTile(
               leading: Icon(
-                Icons.dashboard,
+                Icons.account_circle,
                 color: Colors.grey[850],
               ),
-              title: Text('게시판'),
+              title: Text('마이페이지'),
               onTap: () {
-                print('Setting is clicked');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ProfilePage()),
+                );
               },
-              trailing: Icon(Icons.add),
             ),
             ListTile(
               leading: Icon(
@@ -362,7 +400,6 @@ class MapSampleState extends State<MapSample> {
               onTap: () {
                 print('Q&A is clicked');
               },
-              trailing: Icon(Icons.add),
             ),
           ],
         ),
