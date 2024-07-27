@@ -13,6 +13,7 @@ import 'profile_page.dart';
 import 'login_page.dart';
 import 'signup_page.dart';
 import 'ForgotPassword_page.dart';
+import 'user_list_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => LoginPage(),
         '/signup': (context) => SignupPage(),
         '/forgot_password': (context) => ForgotPasswordPage(),
+        '/user_list': (context) => UserListPage(),
         '/home': (context) => MapSample(),
       },
     );
