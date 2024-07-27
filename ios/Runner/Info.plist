@@ -61,5 +61,29 @@
     <key>GMSApiKey</key>
     <string>YOUR_GOOGLE_MAPS_API_KEY</string>
 
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleTypeRole</key>
+    <string>Editor</string>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>YOUR_REVERSED_CLIENT_ID</string>
+    </array>
+  </dict>
+</array>
+<key>LSApplicationQueriesSchemes</key>
+<array>
+  <string>google</string>
+  <string>googlechrome</string>
+  <string>googleusercontent</string>
+  <string>googledrive</string>
+  <string>googleone</string>
+  <string>googlemaps</string>
+  <string>googlegmail</string>
+  <string>googlenews</string>
+  <string>googlenav</string>
+</array>
+
 </dict>
 </plist>
