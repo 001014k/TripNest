@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'main.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'login_page.dart';
 
 void main() {
   runApp(MyApp());
@@ -39,7 +40,31 @@ class ProfilePage extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.settings),
             color: Colors.white,
-            onPressed: () {},
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: Text('설정'),
+                    content: Text('로그아웃 하실건가요?'),
+                    actions: <Widget>[
+                      ElevatedButton(
+                        child: Text('취소'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                      ElevatedButton(
+                        child: Text('로그아웃'),
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/login');
+                        },
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
         ],
       ),
@@ -48,10 +73,10 @@ class ProfilePage extends StatelessWidget {
           padding: EdgeInsets.zero,
           children: <Widget>[
             UserAccountsDrawerHeader(
-                currentAccountPicture: CircleAvatar(
-                  backgroundImage: AssetImage('asstes/profile.png'),
-                  backgroundColor: Colors.white,
-                ),
+              currentAccountPicture: CircleAvatar(
+                backgroundImage: AssetImage('asstes/profile.png'),
+                backgroundColor: Colors.white,
+              ),
               otherAccountsPictures: <Widget>[
                 CircleAvatar(
                   backgroundColor: Colors.white,
@@ -60,16 +85,13 @@ class ProfilePage extends StatelessWidget {
               ],
               accountName: Text('kim'),
               accountEmail: Text('hm4854@2gmail.com'),
-              onDetailsPressed: () {
-
-              },
+              onDetailsPressed: () {},
               decoration: BoxDecoration(
-                color: Colors.blueGrey[200],
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(40.0),
-                  bottomRight: Radius.circular(40.0),
-                )
-              ),
+                  color: Colors.blueGrey[200],
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(40.0),
+                    bottomRight: Radius.circular(40.0),
+                  )),
             ),
             ListTile(
               leading: Icon(
@@ -78,10 +100,10 @@ class ProfilePage extends StatelessWidget {
               ),
               title: Text('지도'),
               onTap: () {
-               Navigator.push(
-                 context,
-                 MaterialPageRoute(builder: (context) => MapSample()),
-               );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => MapSample()),
+                );
               },
             ),
             ListTile(
@@ -130,7 +152,8 @@ class ProfilePage extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 40,
-                backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+                backgroundImage:
+                    NetworkImage('https://via.placeholder.com/150'),
               ),
               SizedBox(width: 16),
               Expanded(
@@ -239,7 +262,8 @@ class ProfilePage extends StatelessWidget {
       itemBuilder: (context, index) {
         return Container(
           color: Colors.grey[300],
-          child: Image.network('https://via.placeholder.com/150', fit: BoxFit.cover),
+          child: Image.network('https://via.placeholder.com/150',
+              fit: BoxFit.cover),
         );
       },
     );
