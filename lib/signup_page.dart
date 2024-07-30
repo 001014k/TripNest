@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SignupPage extends StatelessWidget {
   final TextEditingController _emailController = TextEditingController();
@@ -21,10 +22,17 @@ class SignupPage extends StatelessWidget {
 
     try {
       // Firebase Auth를 사용하여 회원가입 처리
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+      // Firebase에 사용자 데이터 저장
+      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        'email': email,
+        'createdAt': Timestamp.now(),
+        // 추가로 저장할 사용자 데이터
+      });
+
       // 회원가입 성공 시 로그인 페이지로 이동
       Navigator.pushReplacementNamed(context, '/login');
     } catch (e) {
@@ -38,6 +46,7 @@ class SignupPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
         title: Text('Sign Up'),
       ),
@@ -48,26 +57,32 @@ class SignupPage extends StatelessWidget {
           children: <Widget>[
             TextField(
               controller: _emailController,
+              style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'Email',
+                labelText: '이메일',
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Colors.white),
               ),
             ),
             SizedBox(height: 20),
             TextField(
               controller: _passwordController,
+              style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'Password',
+                labelText: '패스워드',
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Colors.white),
               ),
               obscureText: true,
             ),
             SizedBox(height: 20),
             TextField(
               controller: _confirmPasswordController,
+              style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'Confirm Password',
+                labelText: '패스워드 재입력',
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Colors.white),
               ),
               obscureText: true,
             ),

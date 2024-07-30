@@ -52,6 +52,7 @@ class _LoginPageState extends State<LoginPage> {
           children: <Widget>[
             TextField(
               controller: _emailController,
+              style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: '이메일',
                 border: OutlineInputBorder(),
@@ -61,6 +62,7 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(height: 20),
             TextField(
               controller: _passwordController,
+              style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: '패스워드',
                 border: OutlineInputBorder(),

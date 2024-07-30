@@ -15,6 +15,7 @@ import 'signup_page.dart';
 import 'ForgotPassword_page.dart';
 import 'user_list_page.dart';
 import 'SplashScreen_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,8 +57,7 @@ class MapSampleState extends State<MapSample> {
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   List<Marker> _searchResults = [];
-  CollectionReference markersCollection =
-  FirebaseFirestore.instance.collection('markers');
+  CollectionReference markersCollection = FirebaseFirestore.instance.collection('markers');
   int _selectedIndex = 0;
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
@@ -89,53 +89,86 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadMarkers(); // 마커 로드
-    _getLocation(); // 위치 정보를 가져오는 메서드 호출
-  }
-
-  Future<void> _loadMarkers() async {
-    final QuerySnapshot querySnapshot = await markersCollection.get();
-    setState(() {
-      _markers.clear();
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final marker = Marker(
-          markerId: MarkerId(doc.id),
-          position: LatLng(data['lat'], data['lng']),
-          infoWindow: InfoWindow(
-            title: data['title'],
-            snippet: data['snippet'],
-          ),
-          icon: data['image'] != null
-              ? BitmapDescriptor.fromBytes(Uint8List.fromList(
-              (data['image'] as List<dynamic>).cast<int>()))
-              : BitmapDescriptor.defaultMarker,
-          onTap: () {
-            _onMarkerTapped(context, MarkerId(doc.id));
-          },
-        );
-        _markers.add(marker);
+  void _checkUserStatus() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user == null) {
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        _loadMarkers(); // 사용자 인증 후 마커 로드
+        _getLocation(); // 사용자 인증 후 위치 정보 가져오기
       }
     });
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _checkUserStatus();
+  }
+
+  Future<void> _loadMarkers() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userMarkersCollection = FirebaseFirestore.instance
+          .collection('markers')
+          .doc(user.uid)
+          .collection('user_markers');
+
+      final QuerySnapshot querySnapshot = await userMarkersCollection.get();
+      setState(() {
+        _markers.clear();
+        for (var doc in querySnapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final marker = Marker(
+            markerId: MarkerId(doc.id),
+            position: LatLng(data['lat'], data['lng']),
+            infoWindow: InfoWindow(
+              title: data['title'],
+              snippet: data['snippet'],
+            ),
+            icon: data['image'] != null
+                ? BitmapDescriptor.fromBytes(Uint8List.fromList(
+                (data['image'] as List<dynamic>).cast<int>()))
+                : BitmapDescriptor.defaultMarker,
+            onTap: () {
+              _onMarkerTapped(context, MarkerId(doc.id));
+            },
+          );
+          _markers.add(marker);
+        }
+      });
+    }
+  }
+
   Future<void> _saveMarker(Marker marker) async {
-    await markersCollection.doc(marker.markerId.value).set({
-      'title': marker.infoWindow.title,
-      'snippet': marker.infoWindow.snippet,
-      'lat': marker.position.latitude,
-      'lng': marker.position.longitude,
-      'image': marker.icon != BitmapDescriptor.defaultMarker
-          ? await _bitmapDescriptorToBytes(marker.icon)
-          : null,
-    });
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userMarkersCollection = FirebaseFirestore.instance
+          .collection('markers')
+          .doc(user.uid)
+          .collection('user_markers');
+
+      await userMarkersCollection.doc(marker.markerId.value).set({
+        'title': marker.infoWindow.title,
+        'snippet': marker.infoWindow.snippet,
+        'lat': marker.position.latitude,
+        'lng': marker.position.longitude,
+        'image': marker.icon != BitmapDescriptor.defaultMarker
+            ? await _bitmapDescriptorToBytes(marker.icon)
+            : null,
+      });
+    }
   }
 
   Future<void> _deleteMarker(Marker marker) async {
-    await markersCollection.doc(marker.markerId.value).delete();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userMarkersCollection = FirebaseFirestore.instance
+          .collection('markers')
+          .doc(user.uid)
+          .collection('user_markers');
+      await userMarkersCollection.doc(marker.markerId.value).delete();
+    }
   }
 
   Future<Uint8List> _bitmapDescriptorToBytes(BitmapDescriptor descriptor) async {
