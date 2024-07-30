@@ -14,6 +14,7 @@ import 'login_page.dart';
 import 'signup_page.dart';
 import 'ForgotPassword_page.dart';
 import 'user_list_page.dart';
+import 'SplashScreen_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,8 +29,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      initialRoute: '/login',
+      initialRoute: '/splash',
       routes: {
+        '/splash': (context) => SplashScreen(),
         '/login': (context) => LoginPage(),
         '/signup': (context) => SignupPage(),
         '/forgot_password': (context) => ForgotPasswordPage(),

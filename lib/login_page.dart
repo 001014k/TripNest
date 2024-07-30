@@ -41,8 +41,9 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text('Login'),
+        title: Text('FlutterTrip'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -52,35 +53,37 @@ class _LoginPageState extends State<LoginPage> {
             TextField(
               controller: _emailController,
               decoration: InputDecoration(
-                labelText: 'Email',
+                labelText: '이메일',
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Colors.white),
               ),
             ),
             SizedBox(height: 20),
             TextField(
               controller: _passwordController,
               decoration: InputDecoration(
-                labelText: 'Password',
+                labelText: '패스워드',
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Colors.white),
               ),
               obscureText: true,
             ),
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => _login(context),
-              child: Text('Login'),
+              child: Text('로그인'),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () {
                 Navigator.pushNamed(context, '/signup');
               },
-              child: Text('Sign up'),
+              child: Text('회원가입'),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () {
                 Navigator.pushNamed(context, '/forgot_password');
               },
-              child: Text('Forgot Password'),
+              child: Text('비밀번호 찾기'),
             ),
           ],
         ),
