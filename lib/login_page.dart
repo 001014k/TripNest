@@ -18,6 +18,7 @@ class _LoginPageState extends State<LoginPage> {
     final password = _passwordController.text.trim();
 
     try {
+      //firebaseauth를 이용해 로그인을 처리하는 기능
       final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
