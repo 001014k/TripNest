@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'main.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'login_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() {
   runApp(MyApp());
@@ -46,7 +48,7 @@ class ProfilePage extends StatelessWidget {
                 builder: (BuildContext context) {
                   return AlertDialog(
                     title: Text('설정'),
-                    content: Text('로그아웃 하실건가요?'),
+                    content: Text('로그아웃 또는 회원 탈퇴를 하시겠습니까?'),
                     actions: <Widget>[
                       ElevatedButton(
                         child: Text('취소'),
@@ -60,6 +62,12 @@ class ProfilePage extends StatelessWidget {
                           Navigator.pushNamed(context, '/login');
                         },
                       ),
+                      ElevatedButton(
+                        child: Text('회원 탈퇴'),
+                        onPressed: () async {
+                          await _deleteUser(context);
+                        },
+                      )
                     ],
                   );
                 },
@@ -267,5 +275,36 @@ class ProfilePage extends StatelessWidget {
         );
       },
     );
+  }
+  
+  Future<void> _deleteUser(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if(user != null) {
+      try {
+        // firestore에서 사용자 데이터 삭제
+        final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+        await userDoc.delete();
+
+        // markers 컬렉션에서 사용자 데이터 삭제
+        final userMarkersCollection = FirebaseFirestore.instance.collection('markers').doc(user.uid).collection('user_markers');
+        final userMarkerSnapshot = await userMarkersCollection.get();
+        for (var doc in userMarkerSnapshot.docs) {
+          await doc.reference.delete();
+        }
+
+        // Firebase Auth에서 사용자 삭제
+        await user.delete();
+
+        // 로그아웃 및 로그인 페이지로 이동
+        await FirebaseAuth.instance.signOut();
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      } catch (e) {
+        print ('회원 탈퇴 중 오류 발생 : $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('회원 탈퇴 중 오류가 발생함: $e'),
+          ),
+        );
+      }
+    }
   }
 }

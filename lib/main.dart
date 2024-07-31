@@ -57,7 +57,7 @@ class MapSampleState extends State<MapSample> {
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   List<Marker> _searchResults = [];
-  CollectionReference markersCollection = FirebaseFirestore.instance.collection('markers');
+  CollectionReference markersCollection = FirebaseFirestore.instance.collection('users');
   int _selectedIndex = 0;
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
@@ -104,13 +104,14 @@ class MapSampleState extends State<MapSample> {
   void initState() {
     super.initState();
     _checkUserStatus();
+    _loadMarkers();
   }
 
   Future<void> _loadMarkers() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
-          .collection('markers')
+          .collection('users')
           .doc(user.uid)
           .collection('user_markers');
 
@@ -144,7 +145,7 @@ class MapSampleState extends State<MapSample> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
-          .collection('markers')
+          .collection('users')
           .doc(user.uid)
           .collection('user_markers');
 
@@ -164,7 +165,7 @@ class MapSampleState extends State<MapSample> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
-          .collection('markers')
+          .collection('users')
           .doc(user.uid)
           .collection('user_markers');
       await userMarkersCollection.doc(marker.markerId.value).delete();

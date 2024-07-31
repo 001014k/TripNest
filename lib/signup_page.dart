@@ -6,6 +6,8 @@ class SignupPage extends StatelessWidget {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<void> _signup(BuildContext context) async {
     final email = _emailController.text.trim();
@@ -22,19 +24,28 @@ class SignupPage extends StatelessWidget {
 
     try {
       // Firebase Auth를 사용하여 회원가입 처리
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      // Firebase에 사용자 데이터 저장
-      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-        'email': email,
-        'createdAt': Timestamp.now(),
-        // 추가로 저장할 사용자 데이터
-      });
+      User? user = userCredential.user;
 
-      // 회원가입 성공 시 로그인 페이지로 이동
-      Navigator.pushReplacementNamed(context, '/login');
+      if (user != null) {
+        // Firebase에 사용자 데이터 저장
+        DocumentReference userDocRef = _firestore.collection('users').doc(user.uid);
+        await userDocRef.set({
+          'email': email,
+          'createdAt': Timestamp.now(),
+        });
+
+        final userMarkersCollection = userDocRef.collection('user_markers');
+        await userMarkersCollection.doc('init').set({
+          'initialized': true,
+        });
+
+        // 회원가입 성공 시 로그인 페이지로 이동
+        Navigator.pushReplacementNamed(context, '/login');
+      }
     } catch (e) {
       // 회원가입 실패 시 에러 메시지 표시
       ScaffoldMessenger.of(context).showSnackBar(

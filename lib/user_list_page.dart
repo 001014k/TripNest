@@ -12,8 +12,6 @@ class UserListPage extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () {
-              // Firebase 로그아웃
-              FirebaseAuth.instance.signOut();
               // 로그인 페이지로 이동
               Navigator.pushReplacementNamed(context, '/login');
             },
