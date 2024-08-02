@@ -13,6 +13,9 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  bool _isPasswordVisible = false;
+  bool _rememberMe = false;
+
   Future<void> _login(BuildContext context) async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -52,7 +55,7 @@ class _LoginPageState extends State<LoginPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             CircleAvatar(
-              radius: 50,
+              radius: 100,
               backgroundImage: AssetImage('assets/kmj.png'),
             ),
             SizedBox(height: 20),
@@ -61,6 +64,8 @@ class _LoginPageState extends State<LoginPage> {
               style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: '이메일',
+                hintText: '이메일을 입력하세요',
+                prefixIcon: Icon(Icons.email_outlined,color: Colors.white,),
                 border: OutlineInputBorder(),
                 labelStyle: TextStyle(color: Colors.white),
               ),
@@ -69,17 +74,51 @@ class _LoginPageState extends State<LoginPage> {
             TextField(
               controller: _passwordController,
               style: TextStyle(color: Colors.white),
+              obscureText: !_isPasswordVisible,
               decoration: InputDecoration(
-                labelText: '패스워드',
-                border: OutlineInputBorder(),
+                labelText: '비밀번호',
+                hintText: '비밀번호를 입력하세요',
+                prefixIcon: const Icon(Icons.lock_outline_rounded,color: Colors.white,),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_isPasswordVisible
+                      ? Icons.visibility_off
+                      : Icons.visibility,
+                  color: Colors.white),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                ),
                 labelStyle: TextStyle(color: Colors.white),
               ),
-              obscureText: true,
             ),
             SizedBox(height: 20),
+            CheckboxListTile(
+              checkColor: Colors.white,
+              value: _rememberMe,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _rememberMe = value;
+                });
+              },
+              title: const Text(
+                'Remeber Me',
+                style: TextStyle(color: Colors.white),
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              contentPadding: const EdgeInsets.all(0),
+            ),
             SizedBox(
               width: 400,
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                ),
                 onPressed: () => _login(context),
                 child: Text('로그인'),
               ),
@@ -87,6 +126,10 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(
               width: 400,
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                ),
                 onPressed: () {
                   Navigator.pushNamed(context, '/signup');
                 },
@@ -96,6 +139,10 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(
               width: 400,
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                ),
                 onPressed: () {
                   Navigator.pushNamed(context, '/forgot_password');
                 },

@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class SignupPage extends StatelessWidget {
+class SignupPage extends StatefulWidget {
+  @override
+  _SignupPageState createState() => _SignupPageState();
+}
+
+class _SignupPageState extends State<SignupPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  bool _isPasswordVisible = false;
 
   Future<void> _signup(BuildContext context) async {
     final email = _emailController.text.trim();
@@ -71,7 +78,8 @@ class SignupPage extends StatelessWidget {
               style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: '이메일',
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.email_outlined,color: Colors.white,),
+                border: const OutlineInputBorder(),
                 labelStyle: TextStyle(color: Colors.white),
               ),
             ),
@@ -79,28 +87,56 @@ class SignupPage extends StatelessWidget {
             TextField(
               controller: _passwordController,
               style: TextStyle(color: Colors.white),
+              obscureText: !_isPasswordVisible,
               decoration: InputDecoration(
-                labelText: '패스워드',
-                border: OutlineInputBorder(),
+                labelText: '비밀번호',
+                prefixIcon: const Icon(Icons.lock_outline_rounded,color: Colors.white,),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_isPasswordVisible
+                      ? Icons.visibility_off
+                      : Icons.visibility,
+                  color: Colors.white,),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                ),
                 labelStyle: TextStyle(color: Colors.white),
               ),
-              obscureText: true,
             ),
             SizedBox(height: 20),
             TextField(
               controller: _confirmPasswordController,
               style: TextStyle(color: Colors.white),
+              obscureText: !_isPasswordVisible,
               decoration: InputDecoration(
-                labelText: '패스워드 재입력',
-                border: OutlineInputBorder(),
+                labelText: '비밀번호 재입력',
+                prefixIcon: const Icon(Icons.lock_outline_rounded,color: Colors.white,),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_isPasswordVisible
+                  ? Icons.visibility_off
+                  : Icons.visibility,
+                  color: Colors.white,),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible =!_isPasswordVisible;
+                    });
+                  },
+                ),
                 labelStyle: TextStyle(color: Colors.white),
               ),
-              obscureText: true,
             ),
             SizedBox(height: 20),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
               onPressed: () => _signup(context),
-              child: Text('Sign up'),
+              child: Text('회원가입'),
             ),
           ],
         ),

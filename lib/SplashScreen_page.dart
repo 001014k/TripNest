@@ -48,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircleAvatar(
-              radius: 50.0,
+              radius: 75.0,
               backgroundImage: AssetImage('assets/kmj.png'),
             ),
             SizedBox(height: 20,),
