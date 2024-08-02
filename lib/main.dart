@@ -363,6 +363,8 @@ class MapSampleState extends State<MapSample> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
         iconTheme: IconThemeData(
@@ -404,7 +406,7 @@ class MapSampleState extends State<MapSample> {
                 ),
               ],
               accountName: Text('kim'),
-              accountEmail: Text('hm4854@email.com'),
+              accountEmail: Text(user != null ? user.email ?? 'No email' : 'Not logged in'),
               onDetailsPressed: () {
                 print('arrow is clicked');
               },

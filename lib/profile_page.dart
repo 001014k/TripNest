@@ -23,6 +23,8 @@ enum Menu { itemOne, itemTwo, itemThree }
 class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
         iconTheme: IconThemeData(
@@ -157,7 +159,7 @@ class ProfilePage extends StatelessWidget {
                 ),
               ],
               accountName: Text('kim'),
-              accountEmail: Text('hm4854@2gmail.com'),
+              accountEmail: Text(user != null ? user.email ?? 'No email' : 'Not logged in'),
               onDetailsPressed: () {},
               decoration: BoxDecoration(
                   color: Colors.blueGrey[200],
@@ -217,6 +219,8 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _buildProfileHeader() {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -242,7 +246,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                     SizedBox(height: 16),
                     Text(
-                      'Username',
+                      user != null ? user.email ?? 'No email' : 'Not logged in',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
