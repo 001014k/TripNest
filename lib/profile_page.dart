@@ -18,6 +18,8 @@ class MyApp extends StatelessWidget {
   }
 }
 
+enum Menu { itemOne, itemTwo, itemThree }
+
 class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -39,40 +41,80 @@ class ProfilePage extends StatelessWidget {
         ),
         backgroundColor: Colors.blueGrey[700],
         actions: [
-          IconButton(
-            icon: Icon(Icons.settings),
+          PopupMenuButton<Menu>(
+            icon: const Icon(Icons.person),
+            offset: const Offset(0, 40),
             color: Colors.white,
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: Text('설정'),
-                    content: Text('로그아웃 또는 회원 탈퇴를 하시겠습니까?'),
-                    actions: <Widget>[
-                      ElevatedButton(
-                        child: Text('취소'),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                      ElevatedButton(
-                        child: Text('로그아웃'),
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/login');
-                        },
-                      ),
-                      ElevatedButton(
-                        child: Text('회원 탈퇴'),
-                        onPressed: () async {
-                          await _deleteUser(context);
-                        },
-                      )
-                    ],
+            onSelected: (Menu item) {
+              switch (item) {
+                case Menu.itemOne:
+                  //Account 메뉴 선택 시 처리
+                  break;
+                case Menu.itemTwo:
+                  // Setting 메뉴 선택 시 처리
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text('설정'),
+                        content: Text('로그아웃 또는 회원 탈퇴를 하시겠습니까?'),
+                        actions: <Widget>[
+                          ElevatedButton(
+                            child: Text('취소'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                          ElevatedButton(
+                            child: Text('회원 탈퇴'),
+                            onPressed: () async {
+                              await _deleteUser(context);
+                            },
+                          )
+                        ],
+                      );
+                    },
                   );
-                },
-              );
+                  break;
+                case Menu.itemThree:
+                  // sign out 메뉴 선택 시 처리
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text('로그아웃'),
+                        content: Text('로그아웃 하시겠습니까?'),
+                        actions: <Widget>[
+                          ElevatedButton(
+                            child: Text('로그아웃'),
+                            onPressed: () async {
+                              // 로그아웃 기능
+                              await FirebaseAuth.instance.signOut();
+                              // 로그인 페이지로 이동
+                              Navigator.pushNamed(context, '/login');
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                  break;
+              }
             },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<Menu>>[
+              const PopupMenuItem<Menu>(
+                value: Menu.itemOne,
+                child: Text('Account'),
+              ),
+              const PopupMenuItem<Menu>(
+                value: Menu.itemTwo,
+                child: Text('Setting'),
+              ),
+              const PopupMenuItem<Menu>(
+                value: Menu.itemThree,
+                child: Text('Sign Out'),
+              ),
+            ],
           ),
         ],
       ),
@@ -276,17 +318,21 @@ class ProfilePage extends StatelessWidget {
       },
     );
   }
-  
+
   Future<void> _deleteUser(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
-    if(user != null) {
+    if (user != null) {
       try {
         // firestore에서 사용자 데이터 삭제
-        final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+        final userDoc =
+            FirebaseFirestore.instance.collection('users').doc(user.uid);
         await userDoc.delete();
 
         // markers 컬렉션에서 사용자 데이터 삭제
-        final userMarkersCollection = FirebaseFirestore.instance.collection('markers').doc(user.uid).collection('user_markers');
+        final userMarkersCollection = FirebaseFirestore.instance
+            .collection('markers')
+            .doc(user.uid)
+            .collection('user_markers');
         final userMarkerSnapshot = await userMarkersCollection.get();
         for (var doc in userMarkerSnapshot.docs) {
           await doc.reference.delete();
@@ -299,9 +345,10 @@ class ProfilePage extends StatelessWidget {
         await FirebaseAuth.instance.signOut();
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       } catch (e) {
-        print ('회원 탈퇴 중 오류 발생 : $e');
+        print('회원 탈퇴 중 오류 발생 : $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('회원 탈퇴 중 오류가 발생함: $e'),
+          SnackBar(
+            content: Text('회원 탈퇴 중 오류가 발생함: $e'),
           ),
         );
       }
