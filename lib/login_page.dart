@@ -51,6 +51,11 @@ class _LoginPageState extends State<LoginPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            CircleAvatar(
+              radius: 50,
+              backgroundImage: AssetImage('assets/kmj.png'),
+            ),
+            SizedBox(height: 20),
             TextField(
               controller: _emailController,
               style: TextStyle(color: Colors.white),
@@ -72,21 +77,30 @@ class _LoginPageState extends State<LoginPage> {
               obscureText: true,
             ),
             SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => _login(context),
-              child: Text('로그인'),
+            SizedBox(
+              width: 400,
+              child: ElevatedButton(
+                onPressed: () => _login(context),
+                child: Text('로그인'),
+              ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/signup');
-              },
-              child: Text('회원가입'),
+            SizedBox(
+              width: 400,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/signup');
+                },
+                child: Text('회원가입'),
+              ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/forgot_password');
-              },
-              child: Text('비밀번호 찾기'),
+            SizedBox(
+              width: 400,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/forgot_password');
+                },
+                child: Text('비밀번호 찾기'),
+              ),
             ),
           ],
         ),

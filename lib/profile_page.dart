@@ -57,18 +57,18 @@ class ProfilePage extends StatelessWidget {
                     builder: (BuildContext context) {
                       return AlertDialog(
                         title: Text('설정'),
-                        content: Text('로그아웃 또는 회원 탈퇴를 하시겠습니까?'),
+                        content: Text('회원 탈퇴를 하시겠습니까?'),
                         actions: <Widget>[
-                          ElevatedButton(
-                            child: Text('취소'),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                          ),
                           ElevatedButton(
                             child: Text('회원 탈퇴'),
                             onPressed: () async {
                               await _deleteUser(context);
+                            },
+                          ),
+                          ElevatedButton(
+                            child: Text('취소'),
+                            onPressed: () async {
+                              Navigator.of(context).pop();
                             },
                           )
                         ],
@@ -91,9 +91,15 @@ class ProfilePage extends StatelessWidget {
                               // 로그아웃 기능
                               await FirebaseAuth.instance.signOut();
                               // 로그인 페이지로 이동
-                              Navigator.pushNamed(context, '/login');
+                              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
                             },
                           ),
+                          ElevatedButton(
+                            child: Text('취소'),
+                            onPressed: () async {
+                              Navigator.of(context).pop();
+                            },
+                          )
                         ],
                       );
                     },
@@ -104,15 +110,15 @@ class ProfilePage extends StatelessWidget {
             itemBuilder: (BuildContext context) => <PopupMenuEntry<Menu>>[
               const PopupMenuItem<Menu>(
                 value: Menu.itemOne,
-                child: Text('Account'),
+                child: Text('계정'),
               ),
               const PopupMenuItem<Menu>(
                 value: Menu.itemTwo,
-                child: Text('Setting'),
+                child: Text('설정'),
               ),
               const PopupMenuItem<Menu>(
                 value: Menu.itemThree,
-                child: Text('Sign Out'),
+                child: Text('로그아웃'),
               ),
             ],
           ),
