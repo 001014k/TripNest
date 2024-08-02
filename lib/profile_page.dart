@@ -60,12 +60,20 @@ class ProfilePage extends StatelessWidget {
                         content: Text('회원 탈퇴를 하시겠습니까?'),
                         actions: <Widget>[
                           ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                            ),
                             child: Text('회원 탈퇴'),
                             onPressed: () async {
                               await _deleteUser(context);
                             },
                           ),
                           ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                            ),
                             child: Text('취소'),
                             onPressed: () async {
                               Navigator.of(context).pop();
@@ -86,15 +94,24 @@ class ProfilePage extends StatelessWidget {
                         content: Text('로그아웃 하시겠습니까?'),
                         actions: <Widget>[
                           ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                            ),
                             child: Text('로그아웃'),
                             onPressed: () async {
                               // 로그아웃 기능
                               await FirebaseAuth.instance.signOut();
                               // 로그인 페이지로 이동
-                              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                              Navigator.pushNamedAndRemoveUntil(
+                                  context, '/login', (route) => false);
                             },
                           ),
                           ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                            ),
                             child: Text('취소'),
                             onPressed: () async {
                               Navigator.of(context).pop();
@@ -223,22 +240,26 @@ class ProfilePage extends StatelessWidget {
                         _buildStatColumn('Following', '789'),
                       ],
                     ),
-                    SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () {},
-                      child: Text('Edit Profile'),
+                    SizedBox(height: 16),
+                    Text(
+                      'Username',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          SizedBox(height: 16),
-          Text(
-            'Username',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          SizedBox(height: 8),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () {},
+            child: Text('프로필 수정'),
           ),
-          Text('Bio goes here'),
         ],
       ),
     );
