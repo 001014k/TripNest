@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:fluttertrip/Dashboard_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:image_picker/image_picker.dart';
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/forgot_password': (context) => ForgotPasswordPage(),
         '/user_list': (context) => UserListPage(),
         '/home': (context) => MapSample(),
+        '/dashboard' : (context) => DashboardScreen(),
       },
     );
   }

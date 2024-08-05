@@ -1,52 +1,93 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fluttertrip/Dashboard_page.dart';
+import 'package:fluttertrip/user_list_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class UserListPage extends StatelessWidget {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+}
+
+class DashboardScreen extends StatefulWidget {
+  @override
+  _DashboardScreenState createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  int totalUsers = 0;
+  int totalMarkers = 0;
+  Map<String, int> userMarkersCount = {};
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDashboardData();
+  }
+
+  Future<void> fetchDashboardData() async {
+    QuerySnapshot usersSnapshot =
+        await FirebaseFirestore.instance.collection('users').get();
+    totalUsers = usersSnapshot.docs.length;
+
+    for (var userDoc in usersSnapshot.docs) {
+      String email = userDoc['email'];
+      QuerySnapshot markersSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userDoc.id)
+          .collection('user_markers')
+          .get();
+
+      int userMarkerCount = markersSnapshot.docs.length;
+      totalMarkers += userMarkerCount;
+      userMarkersCount[email] = userMarkerCount;
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('User List'),
+        title: Text('Dashboard'),
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () async {
-              // 로그아웃 기능
+              //로그아웃 가능
               await FirebaseAuth.instance.signOut();
-              // 로그인 페이지로 이동
+              //로그인 페이지로 이동
               Navigator.pushReplacementNamed(context, '/login');
             },
           ),
         ],
       ),
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance.collection('users').snapshots(),
-        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text('No users found'));
-          }
-
-          final users = snapshot.data!.docs;
-
-          return ListView.builder(
-            itemCount: users.length,
-            itemBuilder: (context, index) {
-              final user = users[index].data() as Map<String, dynamic>;
-              final email = user['email'] ?? 'No email';
-              return ListTile(
-                title: Text(email),
-              );
-            },
-          );
-        },
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Total Users: $totalUsers'),
+            Text('Total Markers: $totalMarkers'),
+            SizedBox(height: 20),
+            Expanded(
+              child: ListView.builder(
+                itemCount: userMarkersCount.keys.length,
+                itemBuilder: (context, index) {
+                  String email = userMarkersCount.keys.elementAt(index);
+                  int markerCount = userMarkersCount[email]!;
+                  return ListTile(
+                    title: Text('User: $email'),
+                    subtitle: Text('Markers: $markerCount'),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -59,9 +100,9 @@ class UserListPage extends StatelessWidget {
               ),
               otherAccountsPictures: <Widget>[
                 CircleAvatar(
-                  backgroundColor: Colors.white,
                   backgroundImage: AssetImage('assets/profile.png'),
-                ),
+                  backgroundColor: Colors.white,
+                )
               ],
               accountName: Text('admin'),
               accountEmail: Text(user != null ? user.email ?? 'No email' : 'Not logged in'),
@@ -84,7 +125,6 @@ class UserListPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => UserListPage()),
-                  // 회원 관리 페이지로 이동하게 하는 로직 추가
                 );
               },
             ),
@@ -98,7 +138,6 @@ class UserListPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => DashboardScreen()),
-                  // 대시보드로 이동하게 하는 로직 추가
                 );
               },
             )
