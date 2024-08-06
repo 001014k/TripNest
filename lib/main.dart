@@ -383,7 +383,7 @@ class MapSampleState extends State<MapSample> {
           onChanged: _updateSearchResults,
           onSubmitted: _onSearchSubmitted,
         ),
-        backgroundColor: Colors.blueGrey[700],
+        backgroundColor: Colors.black,
         actions: [
           IconButton(
             icon: Icon(Icons.search),
@@ -413,7 +413,7 @@ class MapSampleState extends State<MapSample> {
                 print('arrow is clicked');
               },
               decoration: BoxDecoration(
-                color: Colors.blueGrey[200],
+                color: Colors.black,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(40.0),
                   bottomRight: Radius.circular(40.0),
@@ -474,6 +474,7 @@ class MapSampleState extends State<MapSample> {
             onTap: (latLng) => _onMapTapped(context, latLng),
           ),
           if (_searchResults.isNotEmpty) ...[
+            // 화면 하단에 검색 결과를 표시하는 기능
             Positioned(
               bottom: 0,
               left: 0,
@@ -503,11 +504,57 @@ class MapSampleState extends State<MapSample> {
               ),
             ),
           ],
+          Positioned(
+            top: 20.0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 40.0,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: keywords.length,
+                itemBuilder: (context, index) {
+                  return Container(
+                    margin: EdgeInsets.symmetric(horizontal: 5.0),
+                    // 키워드 버튼 간격 조정
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 20.0, vertical: 10),
+                        // horizontal : 가로 방향에 각각 몇 픽셀의 패딩을 추가
+                        // vertical: 세로 방향에 각각 몇 픽셀의 패딩을 추가 (Textstyle에 값과 비슷하게 설정할것)
+                      ),
+                      onPressed: () {
+                        // 키워드 버튼 클릭 시 실행할 동작
+                        print('Clicked: ${keywords[index]}');
+                        // 여기에서 키워드에 따른 검색 결과를 _searchResults에 추가하는 로직 구현
+                      },
+                      child: Text(
+                        keywords[index],
+                        style: TextStyle(color: Colors.black, fontSize: 12), // 글씨 크기 조정
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
+
+const List<String> keywords = [
+  '카페',
+  '호텔',
+  '사진',
+  '음식점',
+  '전시회'
+];
 
 class MarkerCreationScreen extends StatefulWidget {
   @override
