@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
         '/forgot_password': (context) => ForgotPasswordPage(),
         '/user_list': (context) => UserListPage(),
         '/home': (context) => MapSample(),
-        '/dashboard': (context) => DashboardScreen(),
+        '/dashboard' : (context) => DashboardScreen(),
       },
     );
   }
@@ -59,8 +59,7 @@ class MapSampleState extends State<MapSample> {
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   List<Marker> _searchResults = [];
-  CollectionReference markersCollection =
-      FirebaseFirestore.instance.collection('users');
+  CollectionReference markersCollection = FirebaseFirestore.instance.collection('users');
   int _selectedIndex = 0;
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
@@ -132,7 +131,7 @@ class MapSampleState extends State<MapSample> {
             ),
             icon: data['image'] != null
                 ? BitmapDescriptor.fromBytes(Uint8List.fromList(
-                    (data['image'] as List<dynamic>).cast<int>()))
+                (data['image'] as List<dynamic>).cast<int>()))
                 : BitmapDescriptor.defaultMarker,
             onTap: () {
               _onMarkerTapped(context, MarkerId(doc.id));
@@ -175,8 +174,7 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  Future<Uint8List> _bitmapDescriptorToBytes(
-      BitmapDescriptor descriptor) async {
+  Future<Uint8List> _bitmapDescriptorToBytes(BitmapDescriptor descriptor) async {
     // BitmapDescriptor를 바이트로 변환하는 로직을 추가해야 합니다.
     return Uint8List(0);
   }
@@ -231,7 +229,7 @@ class MapSampleState extends State<MapSample> {
 
   void _onMarkerTapped(BuildContext context, MarkerId markerId) {
     final marker = _markers.firstWhere(
-      (m) => m.markerId == markerId,
+          (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
 
@@ -258,7 +256,7 @@ class MapSampleState extends State<MapSample> {
 
     if (result != null && _pendingLatLng != null) {
       final imageBytes =
-          result['image'] != null ? await _fileToBytes(result['image']) : null;
+      result['image'] != null ? await _fileToBytes(result['image']) : null;
       _addMarker(
           result['title'], result['snippet'], imageBytes, _pendingLatLng!);
       _pendingLatLng = null;
@@ -290,8 +288,8 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  void _addMarker(
-      String? title, String? snippet, Uint8List? imageBytes, LatLng position) {
+  void _addMarker(String? title, String? snippet, Uint8List? imageBytes,
+      LatLng position) {
     final marker = Marker(
       markerId: MarkerId(position.toString()),
       position: position,
@@ -316,7 +314,7 @@ class MapSampleState extends State<MapSample> {
 
   void _onSearchSubmitted(String query) {
     setState(() {
-      _searchResults = _markers.where((marker) {
+      _searchResults = _markers.where((marker){
         final title = marker.infoWindow.title?.toLowerCase() ?? '';
         return title.contains(query.toLowerCase());
       }).toList();
@@ -374,25 +372,18 @@ class MapSampleState extends State<MapSample> {
         iconTheme: IconThemeData(
           color: Colors.white, //햄버거 아이콘 색상을 화이트 색상으로 변경
         ),
-        title: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30), // 둥글게 설정
+        title: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: '검색...',
+            border: InputBorder.none,
+            hintStyle: TextStyle(color: Colors.white54),
           ),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: '검색...',
-              border: InputBorder.none,
-              hintStyle: TextStyle(color: Colors.black),
-              contentPadding: EdgeInsets.symmetric(horizontal: 15) //텍스트 필드의 여백 설정
-            ),
-            style: TextStyle(color: Colors.black),
-            onChanged: _updateSearchResults,
-            onSubmitted: _onSearchSubmitted,
-          ),
+          style: TextStyle(color: Colors.white),
+          onChanged: _updateSearchResults,
+          onSubmitted: _onSearchSubmitted,
         ),
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.blueGrey[700],
         actions: [
           IconButton(
             icon: Icon(Icons.search),
@@ -417,13 +408,12 @@ class MapSampleState extends State<MapSample> {
                 ),
               ],
               accountName: Text('kim'),
-              accountEmail: Text(
-                  user != null ? user.email ?? 'No email' : 'Not logged in'),
+              accountEmail: Text(user != null ? user.email ?? 'No email' : 'Not logged in'),
               onDetailsPressed: () {
                 print('arrow is clicked');
               },
               decoration: BoxDecoration(
-                color: Colors.black,
+                color: Colors.blueGrey[200],
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(40.0),
                   bottomRight: Radius.circular(40.0),
@@ -484,7 +474,6 @@ class MapSampleState extends State<MapSample> {
             onTap: (latLng) => _onMapTapped(context, latLng),
           ),
           if (_searchResults.isNotEmpty) ...[
-            // 화면 하단에 검색 결과를 표시하는 기능
             Positioned(
               bottom: 0,
               left: 0,
@@ -514,57 +503,11 @@ class MapSampleState extends State<MapSample> {
               ),
             ),
           ],
-          Positioned(
-            top: 20.0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 40.0,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: keywords.length,
-                itemBuilder: (context, index) {
-                  return Container(
-                    margin: EdgeInsets.symmetric(horizontal: 5.0),
-                    // 키워드 버튼 간격 조정
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(50),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 20.0, vertical: 10),
-                        // horizontal : 가로 방향에 각각 몇 픽셀의 패딩을 추가
-                        // vertical: 세로 방향에 각각 몇 픽셀의 패딩을 추가 (Textstyle에 값과 비슷하게 설정할것)
-                      ),
-                      onPressed: () {
-                        // 키워드 버튼 클릭 시 실행할 동작
-                        print('Clicked: ${keywords[index]}');
-                        // 여기에서 키워드에 따른 검색 결과를 _searchResults에 추가하는 로직 구현
-                      },
-                      child: Text(
-                        keywords[index],
-                        style: TextStyle(color: Colors.black, fontSize: 12), // 글씨 크기 조정
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 }
-
-const List<String> keywords = [
-  '카페',
-  '호텔',
-  '사진',
-  '음식점',
-  '전시회'
-];
 
 class MarkerCreationScreen extends StatefulWidget {
   @override
@@ -612,9 +555,9 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
             SizedBox(height: 16.0),
             _image != null
                 ? Image.file(
-                    _image!,
-                    height: 200,
-                  )
+              _image!,
+              height: 200,
+            )
                 : Text('이미지가 선택된게 없습니다.'),
             SizedBox(height: 16.0),
             ElevatedButton(
@@ -686,7 +629,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                       ),
                       iconParam: result['image'] != null
                           ? BitmapDescriptor.fromBytes(
-                              await File(result['image']).readAsBytes())
+                          await File(result['image']).readAsBytes())
                           : marker.icon,
                     );
                     onEdit(updatedMarker);

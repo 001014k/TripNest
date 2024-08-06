@@ -31,7 +31,6 @@ class ProfilePage extends StatelessWidget {
           color: Colors.white,
         ),
         title: Text('프로필'),
-        titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
         leading: Builder(
           builder: (context) {
             return IconButton(
@@ -42,7 +41,7 @@ class ProfilePage extends StatelessWidget {
             );
           },
         ),
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.blueGrey[700],
         actions: [
           PopupMenuButton<Menu>(
             icon: const Icon(Icons.person),
@@ -160,11 +159,10 @@ class ProfilePage extends StatelessWidget {
                 ),
               ],
               accountName: Text('kim'),
-              accountEmail: Text(
-                  user != null ? user.email ?? 'No email' : 'Not logged in'),
+              accountEmail: Text(user != null ? user.email ?? 'No email' : 'Not logged in'),
               onDetailsPressed: () {},
               decoration: BoxDecoration(
-                  color: Colors.black,
+                  color: Colors.blueGrey[200],
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(40.0),
                     bottomRight: Radius.circular(40.0),
