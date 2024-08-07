@@ -51,6 +51,10 @@ class MapSample extends StatefulWidget {
 }
 
 class MapSampleState extends State<MapSample> {
+  final Map<MarkerId, String> _markerKeywords = {}; //마커의 키워드 저장
+  Set<Marker> _allMarkers = {}; // 모든 마커 저장
+  Set<Marker> _filteredMarkers = {}; // 필터링된 마커 저장
+  Set<String> _activeKeywords = {}; //활성화 된 키워드 저장
   GoogleMapController? _controller;
   Marker? _selectedMarker;
   LatLng? _pendingLatLng;
@@ -77,6 +81,28 @@ class MapSampleState extends State<MapSample> {
     }
   ]
   ''';
+
+  void _toggleKeyword(String keyword) {
+    setState(() {
+      if (_activeKeywords.contains(keyword)) {
+        _activeKeywords.remove(keyword);
+        if (_activeKeywords.isEmpty) {
+          _filteredMarkers = _allMarkers;
+        } else {
+          _filteredMarkers = _allMarkers.where((marker) {
+            final markerKeyword = _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
+            return _activeKeywords.contains(markerKeyword);
+          }).toSet();
+        }
+      } else {
+        _activeKeywords.add(keyword);
+        _filteredMarkers = _allMarkers.where((marker) {
+          final markerKeyword = _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
+          return _activeKeywords.contains(markerKeyword);
+        }).toSet();
+      }
+    });
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -120,6 +146,7 @@ class MapSampleState extends State<MapSample> {
       final QuerySnapshot querySnapshot = await userMarkersCollection.get();
       setState(() {
         _markers.clear();
+        _allMarkers.clear();
         for (var doc in querySnapshot.docs) {
           final data = doc.data() as Map<String, dynamic>;
           final marker = Marker(
@@ -138,12 +165,15 @@ class MapSampleState extends State<MapSample> {
             },
           );
           _markers.add(marker);
+          _allMarkers.add(marker); //모든 마커 저장
+          _markerKeywords[marker.markerId] = data['keyword'] ?? '';
         }
+        _filteredMarkers = _allMarkers; //초기상태에서 모든 마커 표시
       });
     }
   }
 
-  Future<void> _saveMarker(Marker marker) async {
+  Future<void> _saveMarker(Marker marker, String keyword) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
@@ -156,6 +186,7 @@ class MapSampleState extends State<MapSample> {
         'snippet': marker.infoWindow.snippet,
         'lat': marker.position.latitude,
         'lng': marker.position.longitude,
+        'keyword': keyword,
         'image': marker.icon != BitmapDescriptor.defaultMarker
             ? await _bitmapDescriptorToBytes(marker.icon)
             : null,
@@ -255,10 +286,9 @@ class MapSampleState extends State<MapSample> {
     );
 
     if (result != null && _pendingLatLng != null) {
-      final imageBytes =
-      result['image'] != null ? await _fileToBytes(result['image']) : null;
-      _addMarker(
-          result['title'], result['snippet'], imageBytes, _pendingLatLng!);
+      final imageBytes = result['image'] != null ? await _fileToBytes(result['image']) : null;
+      final keyword = result['keyword'] ?? 'default'; //키워드가 없을 경우 기본값 설정
+      _addMarker(result['title'], result['snippet'], imageBytes, _pendingLatLng!, keyword);
       _pendingLatLng = null;
     }
   }
@@ -272,7 +302,6 @@ class MapSampleState extends State<MapSample> {
           setState(() {
             _markers.remove(marker);
             _markers.add(updatedMarker);
-            _saveMarker(updatedMarker);
             _updateSearchResults(_searchController.text);
           });
         },
@@ -289,7 +318,7 @@ class MapSampleState extends State<MapSample> {
   }
 
   void _addMarker(String? title, String? snippet, Uint8List? imageBytes,
-      LatLng position) {
+      LatLng position, String keyword) {
     final marker = Marker(
       markerId: MarkerId(position.toString()),
       position: position,
@@ -307,7 +336,9 @@ class MapSampleState extends State<MapSample> {
 
     setState(() {
       _markers.add(marker);
-      _saveMarker(marker);
+      _allMarkers.add(marker); //모든 마커 저장
+      _markerKeywords[marker.markerId] = keyword; //키워드 저장
+      _saveMarker(marker, keyword); //키워드를 포함한 마커 저장
       _updateSearchResults(_searchController.text);
     });
   }
@@ -469,8 +500,7 @@ class MapSampleState extends State<MapSample> {
             ),
             myLocationEnabled: true,
             myLocationButtonEnabled: true,
-            markers: Set<Marker>.from(
-                _searchResults.isEmpty ? _markers : _searchResults),
+            markers: Set<Marker>.from(_filteredMarkers),
             onTap: (latLng) => _onMapTapped(context, latLng),
           ),
           if (_searchResults.isNotEmpty) ...[
@@ -528,9 +558,7 @@ class MapSampleState extends State<MapSample> {
                         // vertical: 세로 방향에 각각 몇 픽셀의 패딩을 추가 (Textstyle에 값과 비슷하게 설정할것)
                       ),
                       onPressed: () {
-                        // 키워드 버튼 클릭 시 실행할 동작
-                        print('Clicked: ${keywords[index]}');
-                        // 여기에서 키워드에 따른 검색 결과를 _searchResults에 추가하는 로직 구현
+                        _toggleKeyword(keywords[index]);
                       },
                       child: Text(
                         keywords[index],
@@ -564,6 +592,7 @@ class MarkerCreationScreen extends StatefulWidget {
 class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
   TextEditingController _titleController = TextEditingController();
   TextEditingController _snippetController = TextEditingController();
+  TextEditingController _keywordController = TextEditingController();
   File? _image;
 
   Future<void> _pickImage() async {
@@ -599,6 +628,12 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                 labelText: '주소',
               ),
             ),
+            TextField(
+              controller: _keywordController,
+              decoration: InputDecoration(
+                labelText: '키워드',
+              ),
+            ),
             SizedBox(height: 16.0),
             _image != null
                 ? Image.file(
@@ -617,6 +652,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                 Navigator.pop(context, {
                   'title': _titleController.text,
                   'snippet': _snippetController.text,
+                  'keyword': _keywordController.text, // 키워드 포함
                   'image': _image,
                 });
               },
