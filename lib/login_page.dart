@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'user_list_page.dart'; // 사용자 리스트 페이지
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -16,6 +17,36 @@ class _LoginPageState extends State<LoginPage> {
   bool _isPasswordVisible = false;
   bool _rememberMe = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _rememberMe = prefs.getBool('remember_me') ?? false;
+      if(_rememberMe) {
+        _emailController.text = prefs.getString('email') ?? '';
+        _passwordController.text = prefs.getString('password') ?? '';
+      }
+    });
+  }
+
+  Future<void> _savePreferenced() async {
+    final prefs = await SharedPreferences.getInstance();
+    if(_rememberMe) {
+      prefs.setBool('remember_me', true);
+      prefs.setString('email', _emailController.text);
+      prefs.setString('password', _passwordController.text);
+    } else {
+      prefs.remove('remeber_me');
+      prefs.remove('email');
+      prefs.remove('password');
+    }
+  }
+
   Future<void> _login(BuildContext context) async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -28,6 +59,8 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (userCredential.user != null) {
+        await _savePreferenced();
+
         // 어드민 계정 로그인 확인
         if (email == 'hm4854@gmail.com') {
           Navigator.pushReplacementNamed(context, '/user_list');
