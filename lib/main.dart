@@ -337,10 +337,11 @@ class MapSampleState extends State<MapSample> {
     setState(() {
       _markers.add(marker);
       _allMarkers.add(marker); //모든 마커 저장
-      _markerKeywords[marker.markerId] = keyword; //키워드 저장
+      _markerKeywords[marker.markerId] = keyword ?? ''; //키워드 저장
       _saveMarker(marker, keyword); //키워드를 포함한 마커 저장
       _updateSearchResults(_searchController.text);
     });
+    _saveMarker(marker, keyword); //키워드도 함께저장
   }
 
   void _onSearchSubmitted(String query) {
@@ -592,7 +593,7 @@ class MarkerCreationScreen extends StatefulWidget {
 class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
   TextEditingController _titleController = TextEditingController();
   TextEditingController _snippetController = TextEditingController();
-  TextEditingController _keywordController = TextEditingController();
+  String? _selectedKeyword; // 드롭다운 메뉴를 통해 키워드 선택
   File? _image;
 
   Future<void> _pickImage() async {
@@ -628,11 +629,21 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                 labelText: '주소',
               ),
             ),
-            TextField(
-              controller: _keywordController,
-              decoration: InputDecoration(
-                labelText: '키워드',
-              ),
+            SizedBox(height: 16),
+            DropdownButton<String>(
+              value: _selectedKeyword,
+              hint: Text('키워드 선택'),
+              items: keywords.map((String keyword){
+                return DropdownMenuItem <String>(
+                  value: keyword,
+                  child: Text(keyword),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedKeyword = newValue;
+                });
+              },
             ),
             SizedBox(height: 16.0),
             _image != null
@@ -652,7 +663,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                 Navigator.pop(context, {
                   'title': _titleController.text,
                   'snippet': _snippetController.text,
-                  'keyword': _keywordController.text, // 키워드 포함
+                  'keyword': _selectedKeyword, // 키워드 포함
                   'image': _image,
                 });
               },
