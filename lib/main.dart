@@ -84,18 +84,15 @@ class MapSampleState extends State<MapSample> {
 
   void _toggleKeyword(String keyword) {
     setState(() {
-      if (_activeKeywords.contains(keyword)) {
+      if (_activeKeywords.contains(keyword)){
         _activeKeywords.remove(keyword);
-        if (_activeKeywords.isEmpty) {
-          _filteredMarkers = _allMarkers;
-        } else {
-          _filteredMarkers = _allMarkers.where((marker) {
-            final markerKeyword = _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
-            return _activeKeywords.contains(markerKeyword);
-          }).toSet();
-        }
       } else {
         _activeKeywords.add(keyword);
+      }
+
+      if (_activeKeywords.isEmpty) {
+        _filteredMarkers = _allMarkers;
+      } else {
         _filteredMarkers = _allMarkers.where((marker) {
           final markerKeyword = _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
           return _activeKeywords.contains(markerKeyword);
@@ -168,7 +165,7 @@ class MapSampleState extends State<MapSample> {
           _allMarkers.add(marker); //모든 마커 저장
           _markerKeywords[marker.markerId] = data['keyword'] ?? '';
         }
-        _filteredMarkers = _allMarkers; //초기상태에서 모든 마커 표시
+        _filteredMarkers = _allMarkers; //초기 상태에서 모든 마커 표시
       });
     }
   }
@@ -501,7 +498,7 @@ class MapSampleState extends State<MapSample> {
             ),
             myLocationEnabled: true,
             myLocationButtonEnabled: true,
-            markers: Set<Marker>.from(_filteredMarkers),
+            markers: Set<Marker>.from(_filteredMarkers), //필터링된 마커를 사용
             onTap: (latLng) => _onMapTapped(context, latLng),
           ),
           if (_searchResults.isNotEmpty) ...[
@@ -545,11 +542,14 @@ class MapSampleState extends State<MapSample> {
                 scrollDirection: Axis.horizontal,
                 itemCount: keywords.length,
                 itemBuilder: (context, index) {
+                  final keyword = keywords[index];
+                  final isActive = _activeKeywords.contains(keyword);
                   return Container(
                     margin: EdgeInsets.symmetric(horizontal: 5.0),
                     // 키워드 버튼 간격 조정
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: isActive ? Colors.grey : Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(50),
                         ),
@@ -559,10 +559,10 @@ class MapSampleState extends State<MapSample> {
                         // vertical: 세로 방향에 각각 몇 픽셀의 패딩을 추가 (Textstyle에 값과 비슷하게 설정할것)
                       ),
                       onPressed: () {
-                        _toggleKeyword(keywords[index]);
+                        _toggleKeyword(keyword);
                       },
                       child: Text(
-                        keywords[index],
+                        keyword,
                         style: TextStyle(color: Colors.black, fontSize: 12), // 글씨 크기 조정
                       ),
                     ),
