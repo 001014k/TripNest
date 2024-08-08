@@ -340,6 +340,7 @@ class MapSampleState extends State<MapSample> {
     setState(() {
       _markers.add(marker);
       _allMarkers.add(marker); //모든 마커 저장
+      _filteredMarkers = _allMarkers; // 모든 마커를 필터링된 마커로 설정
       _markerKeywords[marker.markerId] = keyword ?? ''; //키워드 저장
       _saveMarker(marker, keyword); //키워드를 포함한 마커 저장
       _updateSearchResults(_searchController.text);
