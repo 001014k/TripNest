@@ -199,6 +199,12 @@ class MapSampleState extends State<MapSample> {
           .doc(user.uid)
           .collection('user_markers');
       await userMarkersCollection.doc(marker.markerId.value).delete();
+
+      setState(() {
+        _markers.remove(marker);
+        _allMarkers.remove(marker);
+        _filteredMarkers = _filteredMarkers.where((m) => m.markerId != marker.markerId).toSet();
+      });
     }
   }
 
