@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
         '/forgot_password': (context) => ForgotPasswordPage(),
         '/user_list': (context) => UserListPage(),
         '/home': (context) => MapSample(),
-        '/dashboard' : (context) => DashboardScreen(),
+        '/dashboard': (context) => DashboardScreen(),
       },
     );
   }
@@ -63,7 +63,8 @@ class MapSampleState extends State<MapSample> {
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   List<Marker> _searchResults = [];
-  CollectionReference markersCollection = FirebaseFirestore.instance.collection('users');
+  CollectionReference markersCollection =
+      FirebaseFirestore.instance.collection('users');
   int _selectedIndex = 0;
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
@@ -84,7 +85,7 @@ class MapSampleState extends State<MapSample> {
 
   void _toggleKeyword(String keyword) {
     setState(() {
-      if (_activeKeywords.contains(keyword)){
+      if (_activeKeywords.contains(keyword)) {
         _activeKeywords.remove(keyword);
       } else {
         _activeKeywords.add(keyword);
@@ -94,7 +95,8 @@ class MapSampleState extends State<MapSample> {
         _filteredMarkers = _allMarkers;
       } else {
         _filteredMarkers = _allMarkers.where((marker) {
-          final markerKeyword = _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
+          final markerKeyword =
+              _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
           return _activeKeywords.contains(markerKeyword);
         }).toSet();
       }
@@ -128,7 +130,7 @@ class MapSampleState extends State<MapSample> {
   @override
   void initState() {
     super.initState();
-    _checkUserStatus();
+    _getLocation();
     _loadMarkers();
   }
 
@@ -155,7 +157,7 @@ class MapSampleState extends State<MapSample> {
             ),
             icon: data['image'] != null
                 ? BitmapDescriptor.fromBytes(Uint8List.fromList(
-                (data['image'] as List<dynamic>).cast<int>()))
+                    (data['image'] as List<dynamic>).cast<int>()))
                 : BitmapDescriptor.defaultMarker,
             onTap: () {
               _onMarkerTapped(context, MarkerId(doc.id));
@@ -168,6 +170,17 @@ class MapSampleState extends State<MapSample> {
         _filteredMarkers = _allMarkers; //초기 상태에서 모든 마커 표시
       });
     }
+  }
+
+  Future<void> _showMarkersInVisibleRegion() async {
+    if (_controller == null) return;
+    LatLngBounds bounds = await _controller!.getVisibleRegion();
+
+    setState(() {
+      _filteredMarkers = _allMarkers.where((marker) {
+        return bounds.contains(marker.position);
+      }).toSet();
+    });
   }
 
   Future<void> _saveMarker(Marker marker, String keyword) async {
@@ -203,12 +216,15 @@ class MapSampleState extends State<MapSample> {
       setState(() {
         _markers.remove(marker);
         _allMarkers.remove(marker);
-        _filteredMarkers = _filteredMarkers.where((m) => m.markerId != marker.markerId).toSet();
+        _filteredMarkers = _filteredMarkers
+            .where((m) => m.markerId != marker.markerId)
+            .toSet();
       });
     }
   }
 
-  Future<Uint8List> _bitmapDescriptorToBytes(BitmapDescriptor descriptor) async {
+  Future<Uint8List> _bitmapDescriptorToBytes(
+      BitmapDescriptor descriptor) async {
     // BitmapDescriptor를 바이트로 변환하는 로직을 추가해야 합니다.
     return Uint8List(0);
   }
@@ -263,7 +279,7 @@ class MapSampleState extends State<MapSample> {
 
   void _onMarkerTapped(BuildContext context, MarkerId markerId) {
     final marker = _markers.firstWhere(
-          (m) => m.markerId == markerId,
+      (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
 
@@ -289,9 +305,11 @@ class MapSampleState extends State<MapSample> {
     );
 
     if (result != null && _pendingLatLng != null) {
-      final imageBytes = result['image'] != null ? await _fileToBytes(result['image']) : null;
+      final imageBytes =
+          result['image'] != null ? await _fileToBytes(result['image']) : null;
       final keyword = result['keyword'] ?? 'default'; //키워드가 없을 경우 기본값 설정
-      _addMarker(result['title'], result['snippet'], imageBytes, _pendingLatLng!, keyword);
+      _addMarker(result['title'], result['snippet'], imageBytes,
+          _pendingLatLng!, keyword);
       _pendingLatLng = null;
     }
   }
@@ -350,7 +368,7 @@ class MapSampleState extends State<MapSample> {
 
   void _onSearchSubmitted(String query) {
     setState(() {
-      _searchResults = _markers.where((marker){
+      _searchResults = _markers.where((marker) {
         final title = marker.infoWindow.title?.toLowerCase() ?? '';
         return title.contains(query.toLowerCase());
       }).toList();
@@ -358,6 +376,7 @@ class MapSampleState extends State<MapSample> {
     _showSearchResults();
     _updateSearchResults(query);
   }
+
   void _showSearchResults() {
     showModalBottomSheet(
       context: context,
@@ -444,7 +463,8 @@ class MapSampleState extends State<MapSample> {
                 ),
               ],
               accountName: Text('kim'),
-              accountEmail: Text(user != null ? user.email ?? 'No email' : 'Not logged in'),
+              accountEmail: Text(
+                  user != null ? user.email ?? 'No email' : 'Not logged in'),
               onDetailsPressed: () {
                 print('arrow is clicked');
               },
@@ -495,7 +515,22 @@ class MapSampleState extends State<MapSample> {
       body: Stack(
         children: [
           GoogleMap(
-            onMapCreated: _onMapCreated,
+            onMapCreated: (GoogleMapController controller) {
+              _controller = controller;
+              _loadMarkers();
+              _controller!.setMapStyle(mapStyle);
+              if (_currentLocation != null) {
+                _controller!.animateCamera(
+                  CameraUpdate.newCameraPosition(
+                    CameraPosition(
+                      target: LatLng(_currentLocation!.latitude!,
+                          _currentLocation!.longitude!),
+                      zoom: 15,
+                    ),
+                  ),
+                );
+              }
+            },
             initialCameraPosition: CameraPosition(
               target: LatLng(
                 _currentLocation?.latitude ?? _seoulCityHall.latitude,
@@ -505,7 +540,8 @@ class MapSampleState extends State<MapSample> {
             ),
             myLocationEnabled: true,
             myLocationButtonEnabled: true,
-            markers: Set<Marker>.from(_filteredMarkers), //필터링된 마커를 사용
+            markers: Set<Marker>.from(_filteredMarkers),
+            //필터링된 마커를 사용
             onTap: (latLng) => _onMapTapped(context, latLng),
           ),
           if (_searchResults.isNotEmpty) ...[
@@ -570,7 +606,8 @@ class MapSampleState extends State<MapSample> {
                       },
                       child: Text(
                         keyword,
-                        style: TextStyle(color: Colors.black, fontSize: 12), // 글씨 크기 조정
+                        style: TextStyle(
+                            color: Colors.black, fontSize: 12), // 글씨 크기 조정
                       ),
                     ),
                   );
@@ -578,19 +615,22 @@ class MapSampleState extends State<MapSample> {
               ),
             ),
           ),
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton(
+              onPressed: _showMarkersInVisibleRegion,
+              child: Icon(Icons.search),
+              tooltip: '현 지도에서 재검색',
+            ),
+          )
         ],
       ),
     );
   }
 }
 
-const List<String> keywords = [
-  '카페',
-  '호텔',
-  '사진',
-  '음식점',
-  '전시회'
-];
+const List<String> keywords = ['카페', '호텔', '사진', '음식점', '전시회'];
 
 class MarkerCreationScreen extends StatefulWidget {
   @override
@@ -640,8 +680,8 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
             DropdownButton<String>(
               value: _selectedKeyword,
               hint: Text('키워드 선택'),
-              items: keywords.map((String keyword){
-                return DropdownMenuItem <String>(
+              items: keywords.map((String keyword) {
+                return DropdownMenuItem<String>(
                   value: keyword,
                   child: Text(keyword),
                 );
@@ -655,9 +695,9 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
             SizedBox(height: 16.0),
             _image != null
                 ? Image.file(
-              _image!,
-              height: 200,
-            )
+                    _image!,
+                    height: 200,
+                  )
                 : Text('이미지가 선택된게 없습니다.'),
             SizedBox(height: 16.0),
             ElevatedButton(
@@ -730,7 +770,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                       ),
                       iconParam: result['image'] != null
                           ? BitmapDescriptor.fromBytes(
-                          await File(result['image']).readAsBytes())
+                              await File(result['image']).readAsBytes())
                           : marker.icon,
                     );
                     onEdit(updatedMarker);
