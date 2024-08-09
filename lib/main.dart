@@ -116,17 +116,6 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  void _checkUserStatus() {
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      if (user == null) {
-        Navigator.pushReplacementNamed(context, '/login');
-      } else {
-        _loadMarkers(); // 사용자 인증 후 마커 로드
-        _getLocation(); // 사용자 인증 후 위치 정보 가져오기
-      }
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -234,43 +223,36 @@ class MapSampleState extends State<MapSample> {
   }
 
   Future<void> _getLocation() async {
-    final hasPermission = await _location.hasPermission();
-    if (hasPermission == PermissionStatus.denied) {
-      final requested = await _location.requestPermission();
-      if (requested != PermissionStatus.granted) {
-        // 권한이 없을 때 처리
-        return;
+      final hasPermission = await _location.hasPermission();
+      if (hasPermission == PermissionStatus.denied) {
+        final requested = await _location.requestPermission();
+        if (requested != PermissionStatus.granted) {
+          // 권한이 없을 때 처리
+          return;
+        }
       }
-    }
-    _currentLocation = await _location.getLocation();
-    _location.onLocationChanged.listen((LocationData locationData) {
-      setState(() {
-        _currentLocation = locationData;
+      _currentLocation = await _location.getLocation();
+      _location.onLocationChanged.listen((LocationData locationData) {
+        setState(() {
+          _currentLocation = locationData;
+        });
       });
-      if (_controller != null) {
-        _controller!.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target: LatLng(locationData.latitude!, locationData.longitude!),
-              zoom: 15.0,
-            ),
-          ),
-        );
-      }
-    });
   }
 
   void _onMapCreated(GoogleMapController controller) {
     _controller = controller;
-    _loadMarkers();
-    _controller!.setMapStyle(mapStyle); // 스타일 적용
-    if (_currentLocation != null) {
+  }
+
+  void _moveToCurrentLocation() {
+    if (_controller != null && _currentLocation != null) {
       _controller!.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(
             target: LatLng(
-                _currentLocation!.latitude!, _currentLocation!.longitude!),
-            zoom: 15.0,
+              _currentLocation!.latitude!,
+              _currentLocation!.longitude!,
+            ),
+            zoom: 15,
           ),
         ),
       );
@@ -523,8 +505,10 @@ class MapSampleState extends State<MapSample> {
                 _controller!.animateCamera(
                   CameraUpdate.newCameraPosition(
                     CameraPosition(
-                      target: LatLng(_currentLocation!.latitude!,
-                          _currentLocation!.longitude!),
+                      target: LatLng(
+                          _currentLocation!.latitude!,
+                          _currentLocation!.longitude!
+                      ),
                       zoom: 15,
                     ),
                   ),
@@ -539,7 +523,9 @@ class MapSampleState extends State<MapSample> {
               zoom: 15.0,
             ),
             myLocationEnabled: true,
-            myLocationButtonEnabled: true,
+            // 내 위치 아이콘 표시 여부
+            myLocationButtonEnabled: false,
+            //GPS 버튼 비활성화
             markers: Set<Marker>.from(_filteredMarkers),
             //필터링된 마커를 사용
             onTap: (latLng) => _onMapTapped(context, latLng),
@@ -618,12 +604,19 @@ class MapSampleState extends State<MapSample> {
           Positioned(
             bottom: 16,
             right: 16,
-            child: FloatingActionButton(
-              onPressed: _showMarkersInVisibleRegion,
-              child: Icon(Icons.search),
-              tooltip: '현 지도에서 재검색',
+            child: Column(
+              children: [
+                FloatingActionButton(
+                  onPressed: _moveToCurrentLocation,
+                  child: Icon(Icons.my_location),
+                ),
+                SizedBox(height: 16),
+                FloatingActionButton(
+                    onPressed: _showMarkersInVisibleRegion,
+                    child: Icon(Icons.search)),
+              ],
             ),
-          )
+          ),
         ],
       ),
     );
