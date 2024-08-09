@@ -602,18 +602,20 @@ class MapSampleState extends State<MapSample> {
             ),
           ),
           Positioned(
-            bottom: 16,
+            bottom: 40,
             right: 16,
             child: Column(
               children: [
                 FloatingActionButton(
                   onPressed: _moveToCurrentLocation,
+                  backgroundColor: Colors.white,
                   child: Icon(Icons.my_location),
                 ),
                 SizedBox(height: 16),
                 FloatingActionButton(
                     onPressed: _showMarkersInVisibleRegion,
-                    child: Icon(Icons.search)),
+                    backgroundColor: Colors.white,
+                    child: Icon(Icons.place)),
               ],
             ),
           ),
