@@ -150,13 +150,13 @@ class ProfilePage extends StatelessWidget {
           children: <Widget>[
             UserAccountsDrawerHeader(
               currentAccountPicture: CircleAvatar(
-                backgroundImage: AssetImage('asstes/profile.png'),
+                backgroundImage: AssetImage('assets/cad.png'),
                 backgroundColor: Colors.white,
               ),
               otherAccountsPictures: <Widget>[
                 CircleAvatar(
                   backgroundColor: Colors.white,
-                  backgroundImage: AssetImage('assets/profile.png'),
+                  backgroundImage: AssetImage('assets/cad.png'),
                 ),
               ],
               accountName: Text('kim'),

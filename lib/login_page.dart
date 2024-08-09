@@ -89,6 +89,7 @@ class _LoginPageState extends State<LoginPage> {
           children: <Widget>[
             CircleAvatar(
               radius: 100,
+              backgroundColor: Colors.black,
               backgroundImage: AssetImage('assets/kmj.png'),
             ),
             SizedBox(height: 20),

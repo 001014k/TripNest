@@ -435,13 +435,13 @@ class MapSampleState extends State<MapSample> {
           children: <Widget>[
             UserAccountsDrawerHeader(
               currentAccountPicture: CircleAvatar(
-                backgroundImage: AssetImage('assets/4000.png'),
                 backgroundColor: Colors.white,
+                backgroundImage: AssetImage('assets/cad.png'),
               ),
               otherAccountsPictures: <Widget>[
                 CircleAvatar(
                   backgroundColor: Colors.white,
-                  backgroundImage: AssetImage('assets/4000.png'),
+                  backgroundImage: AssetImage('assets/cad.png'),
                 ),
               ],
               accountName: Text('kim'),
