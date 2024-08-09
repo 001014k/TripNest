@@ -435,13 +435,13 @@ class MapSampleState extends State<MapSample> {
           children: <Widget>[
             UserAccountsDrawerHeader(
               currentAccountPicture: CircleAvatar(
-                backgroundImage: AssetImage('assets/profile.png'),
+                backgroundImage: AssetImage('assets/4000.png'),
                 backgroundColor: Colors.white,
               ),
               otherAccountsPictures: <Widget>[
                 CircleAvatar(
                   backgroundColor: Colors.white,
-                  backgroundImage: AssetImage('assets/profile2.png'),
+                  backgroundImage: AssetImage('assets/4000.png'),
                 ),
               ],
               accountName: Text('kim'),
@@ -652,6 +652,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('마커생성'),
+        titleTextStyle: TextStyle(color: Colors.black,fontSize: 20,fontWeight: FontWeight.bold),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -694,11 +695,19 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                 : Text('이미지가 선택된게 없습니다.'),
             SizedBox(height: 16.0),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
               onPressed: _pickImage,
               child: Text('이미지를 고르시오'),
             ),
             SizedBox(height: 16.0),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
               onPressed: () {
                 Navigator.pop(context, {
                   'title': _titleController.text,
@@ -747,6 +756,10 @@ class MarkerInfoBottomSheet extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: <Widget>[
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                ),
                 onPressed: () async {
                   final result = await Navigator.push(
                     context,
@@ -770,11 +783,15 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                     Navigator.pop(context);
                   }
                 },
-                child: Text('Edit'),
+                child: Text('수정'),
               ),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                ),
                 onPressed: onDelete,
-                child: Text('Delete'),
+                child: Text('삭제'),
               ),
             ],
           ),
