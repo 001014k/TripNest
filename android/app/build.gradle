@@ -46,7 +46,6 @@ android {
         }
     }
 
-
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.ios.fluttertrip"
@@ -74,10 +73,10 @@ flutter {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
-    implementation 'com.google.android.gms:play-services-auth:19.2.0' // 최신 버전으로 수정
+    implementation 'com.google.android.gms:play-services-auth:19.2.0'
     implementation 'com.google.android.gms:play-services-maps:19.0.0'
     implementation 'com.google.android.gms:play-services-location:21.3.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-    implementation 'com.google.android.gms:play-services-base:17.6.0'
+    implementation 'com.google.android.gms:play-services-base:18.5.0'
 }
 

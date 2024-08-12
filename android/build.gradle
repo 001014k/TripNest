@@ -6,13 +6,18 @@ buildscript {
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "com.android.tools.build:gradle:8.1.2"
+        classpath "com.android.tools.build:gradle:8.5.0"
     }
 }
 allprojects {
     repositories {
         google()
         mavenCentral()
+        configurations.all {
+            resolutionStrategy {
+                force "com.google.android.gms:play-services-location:21.3.0"
+            }
+        }
     }
 }
 

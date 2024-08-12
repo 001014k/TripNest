@@ -12,7 +12,12 @@
           "package_name": "com.example.ios.fluttertrip"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "341897187439-525rd3gdh5irvmic4272or8177c9vjpf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBB4kQ6LiRLNdBIlnWTMVAXqh8m4KHXo4k"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "341897187439-525rd3gdh5irvmic4272or8177c9vjpf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "341897187439-jg6m0e88if7e6j655k1ig67pvr9f6g73.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.ios.fluttertrip"
+              }
+            }
+          ]
         }
       }
     }

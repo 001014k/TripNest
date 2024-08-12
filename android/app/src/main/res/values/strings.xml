@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">fluttertrip</string>
+    <string name="google_maps_key" templateMergeStrategy="preserve" translatable="false">AIzaSyC1SzkvJpkZgQU4Nxp6g_cTYeINbrTf_os</string>
+</resources>
