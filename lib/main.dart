@@ -66,6 +66,13 @@ class MapSampleState extends State<MapSample> {
   CollectionReference markersCollection =
   FirebaseFirestore.instance.collection('users');
   int _selectedIndex = 0;
+  final Map<String, double> keywordHues = {
+    '카페': BitmapDescriptor.hueGreen,
+    '호텔': BitmapDescriptor.hueBlue,
+    '사진': BitmapDescriptor.hueViolet,
+    '음식점': BitmapDescriptor.hueRed,
+    '전시회': BitmapDescriptor.hueYellow,
+  };
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
 
@@ -137,6 +144,10 @@ class MapSampleState extends State<MapSample> {
         _allMarkers.clear();
         for (var doc in querySnapshot.docs) {
           final data = doc.data() as Map<String, dynamic>;
+          final hue = data['hue'] != null
+              ? (data['hue'] as num).toDouble()
+              : BitmapDescriptor.hueOrange; // 기본값은 Orange
+
           final marker = Marker(
             markerId: MarkerId(doc.id),
             position: LatLng(data['lat'], data['lng']),
@@ -144,10 +155,7 @@ class MapSampleState extends State<MapSample> {
               title: data['title'],
               snippet: data['snippet'],
             ),
-            icon: data['image'] != null
-                ? BitmapDescriptor.fromBytes(Uint8List.fromList(
-                (data['image'] as List<dynamic>).cast<int>()))
-                : BitmapDescriptor.defaultMarker,
+            icon: BitmapDescriptor.defaultMarkerWithHue(hue),
             onTap: () {
               _onMarkerTapped(context, MarkerId(doc.id));
             },
@@ -172,7 +180,7 @@ class MapSampleState extends State<MapSample> {
     });
   }
 
-  Future<void> _saveMarker(Marker marker, String keyword) async {
+  Future<void> _saveMarker(Marker marker, String keyword, double hue) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
@@ -186,6 +194,7 @@ class MapSampleState extends State<MapSample> {
         'lat': marker.position.latitude,
         'lng': marker.position.longitude,
         'keyword': keyword,
+        'hue': hue,
         'image': marker.icon != BitmapDescriptor.defaultMarker
             ? await _bitmapDescriptorToBytes(marker.icon)
             : null,
@@ -320,8 +329,12 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  void _addMarker(String? title, String? snippet, Uint8List? imageBytes,
+  void _addMarker(String? title, String? snippet,Uint8List? imageBytes,
       LatLng position, String keyword) {
+    final hue = keywordHues[keyword] ?? BitmapDescriptor.hueOrange; // 기본값은 Orange
+
+    final markerIcon = BitmapDescriptor.defaultMarkerWithHue(hue);
+
     final marker = Marker(
       markerId: MarkerId(position.toString()),
       position: position,
@@ -329,9 +342,7 @@ class MapSampleState extends State<MapSample> {
         title: title,
         snippet: snippet,
       ),
-      icon: imageBytes != null
-          ? BitmapDescriptor.fromBytes(imageBytes)
-          : BitmapDescriptor.defaultMarker,
+      icon: markerIcon,
       onTap: () {
         _onMarkerTapped(context, MarkerId(position.toString()));
       },
@@ -342,10 +353,9 @@ class MapSampleState extends State<MapSample> {
       _allMarkers.add(marker); //모든 마커 저장
       _filteredMarkers = _allMarkers; // 모든 마커를 필터링된 마커로 설정
       _markerKeywords[marker.markerId] = keyword ?? ''; //키워드 저장
-      _saveMarker(marker, keyword); //키워드를 포함한 마커 저장
+      _saveMarker(marker, keyword, hue); //키워드와 hue 값을 포함한 마커 저장
       _updateSearchResults(_searchController.text);
     });
-    _saveMarker(marker, keyword); //키워드도 함께저장
   }
 
   void _onSearchSubmitted(String query) {
