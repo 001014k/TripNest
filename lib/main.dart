@@ -52,6 +52,7 @@ class MapSample extends StatefulWidget {
 
 class MapSampleState extends State<MapSample> {
   final Map<MarkerId, String> _markerKeywords = {}; //마커의 키워드 저장
+  final Map<String, BitmapDescriptor> _markerIcons = {};
   Set<Marker> _allMarkers = {}; // 모든 마커 저장
   Set<Marker> _filteredMarkers = {}; // 필터링된 마커 저장
   Set<String> _activeKeywords = {}; //활성화 된 키워드 저장
@@ -121,6 +122,7 @@ class MapSampleState extends State<MapSample> {
     super.initState();
     _getLocation();
     _loadMarkers();
+    _initializeMarkerIcons();
   }
 
   Future<void> _loadMarkers() async {
@@ -320,6 +322,14 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
+  void _initializeMarkerIcons() {
+    _markerIcons['카페'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+    _markerIcons['호텔'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+    _markerIcons['사진'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
+    _markerIcons['음식점'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+    _markerIcons['전시회'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+  }
+
   void _addMarker(String? title, String? snippet, Uint8List? imageBytes,
       LatLng position, String keyword) {
     final marker = Marker(
@@ -329,9 +339,7 @@ class MapSampleState extends State<MapSample> {
         title: title,
         snippet: snippet,
       ),
-      icon: imageBytes != null
-          ? BitmapDescriptor.fromBytes(imageBytes)
-          : BitmapDescriptor.defaultMarker,
+      icon: _markerIcons[keyword] ?? BitmapDescriptor.defaultMarker,
       onTap: () {
         _onMarkerTapped(context, MarkerId(position.toString()));
       },
