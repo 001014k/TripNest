@@ -52,7 +52,6 @@ class MapSample extends StatefulWidget {
 
 class MapSampleState extends State<MapSample> {
   final Map<MarkerId, String> _markerKeywords = {}; //마커의 키워드 저장
-  final Map<String, BitmapDescriptor> _markerIcons = {};
   Set<Marker> _allMarkers = {}; // 모든 마커 저장
   Set<Marker> _filteredMarkers = {}; // 필터링된 마커 저장
   Set<String> _activeKeywords = {}; //활성화 된 키워드 저장
@@ -65,7 +64,7 @@ class MapSampleState extends State<MapSample> {
   final TextEditingController _searchController = TextEditingController();
   List<Marker> _searchResults = [];
   CollectionReference markersCollection =
-      FirebaseFirestore.instance.collection('users');
+  FirebaseFirestore.instance.collection('users');
   int _selectedIndex = 0;
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
@@ -122,7 +121,6 @@ class MapSampleState extends State<MapSample> {
     super.initState();
     _getLocation();
     _loadMarkers();
-    _initializeMarkerIcons();
   }
 
   Future<void> _loadMarkers() async {
@@ -148,7 +146,7 @@ class MapSampleState extends State<MapSample> {
             ),
             icon: data['image'] != null
                 ? BitmapDescriptor.fromBytes(Uint8List.fromList(
-                    (data['image'] as List<dynamic>).cast<int>()))
+                (data['image'] as List<dynamic>).cast<int>()))
                 : BitmapDescriptor.defaultMarker,
             onTap: () {
               _onMarkerTapped(context, MarkerId(doc.id));
@@ -225,20 +223,20 @@ class MapSampleState extends State<MapSample> {
   }
 
   Future<void> _getLocation() async {
-      final hasPermission = await _location.hasPermission();
-      if (hasPermission == PermissionStatus.denied) {
-        final requested = await _location.requestPermission();
-        if (requested != PermissionStatus.granted) {
-          // 권한이 없을 때 처리
-          return;
-        }
+    final hasPermission = await _location.hasPermission();
+    if (hasPermission == PermissionStatus.denied) {
+      final requested = await _location.requestPermission();
+      if (requested != PermissionStatus.granted) {
+        // 권한이 없을 때 처리
+        return;
       }
-      _currentLocation = await _location.getLocation();
-      _location.onLocationChanged.listen((LocationData locationData) {
-        setState(() {
-          _currentLocation = locationData;
-        });
+    }
+    _currentLocation = await _location.getLocation();
+    _location.onLocationChanged.listen((LocationData locationData) {
+      setState(() {
+        _currentLocation = locationData;
       });
+    });
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -263,7 +261,7 @@ class MapSampleState extends State<MapSample> {
 
   void _onMarkerTapped(BuildContext context, MarkerId markerId) {
     final marker = _markers.firstWhere(
-      (m) => m.markerId == markerId,
+          (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
 
@@ -290,7 +288,7 @@ class MapSampleState extends State<MapSample> {
 
     if (result != null && _pendingLatLng != null) {
       final imageBytes =
-          result['image'] != null ? await _fileToBytes(result['image']) : null;
+      result['image'] != null ? await _fileToBytes(result['image']) : null;
       final keyword = result['keyword'] ?? 'default'; //키워드가 없을 경우 기본값 설정
       _addMarker(result['title'], result['snippet'], imageBytes,
           _pendingLatLng!, keyword);
@@ -322,14 +320,6 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  void _initializeMarkerIcons() {
-    _markerIcons['카페'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-    _markerIcons['호텔'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-    _markerIcons['사진'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
-    _markerIcons['음식점'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
-    _markerIcons['전시회'] = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
-  }
-
   void _addMarker(String? title, String? snippet, Uint8List? imageBytes,
       LatLng position, String keyword) {
     final marker = Marker(
@@ -339,7 +329,9 @@ class MapSampleState extends State<MapSample> {
         title: title,
         snippet: snippet,
       ),
-      icon: _markerIcons[keyword] ?? BitmapDescriptor.defaultMarker,
+      icon: imageBytes != null
+          ? BitmapDescriptor.fromBytes(imageBytes)
+          : BitmapDescriptor.defaultMarker,
       onTap: () {
         _onMarkerTapped(context, MarkerId(position.toString()));
       },
@@ -699,9 +691,9 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
             SizedBox(height: 16.0),
             _image != null
                 ? Image.file(
-                    _image!,
-                    height: 200,
-                  )
+              _image!,
+              height: 200,
+            )
                 : Text('이미지가 선택된게 없습니다.'),
             SizedBox(height: 16.0),
             ElevatedButton(
@@ -786,7 +778,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                       ),
                       iconParam: result['image'] != null
                           ? BitmapDescriptor.fromBytes(
-                              await File(result['image']).readAsBytes())
+                          await File(result['image']).readAsBytes())
                           : marker.icon,
                     );
                     onEdit(updatedMarker);
