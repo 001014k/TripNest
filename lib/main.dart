@@ -195,9 +195,6 @@ class MapSampleState extends State<MapSample> {
         'lng': marker.position.longitude,
         'keyword': keyword,
         'hue': hue,
-        'image': marker.icon != BitmapDescriptor.defaultMarker
-            ? await _bitmapDescriptorToBytes(marker.icon)
-            : null,
       });
     }
   }
@@ -296,11 +293,13 @@ class MapSampleState extends State<MapSample> {
     );
 
     if (result != null && _pendingLatLng != null) {
-      final imageBytes =
-      result['image'] != null ? await _fileToBytes(result['image']) : null;
       final keyword = result['keyword'] ?? 'default'; //키워드가 없을 경우 기본값 설정
-      _addMarker(result['title'], result['snippet'], imageBytes,
-          _pendingLatLng!, keyword);
+      _addMarker(
+          result['title'],
+          result['snippet'], // String? 타입
+          _pendingLatLng!, // LatLng 타입
+          keyword // String 타입
+      );
       _pendingLatLng = null;
     }
   }
@@ -329,8 +328,7 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  void _addMarker(String? title, String? snippet,Uint8List? imageBytes,
-      LatLng position, String keyword) {
+  void _addMarker(String? title, String? snippet, LatLng position, String keyword) {
     final hue = keywordHues[keyword] ?? BitmapDescriptor.hueOrange; // 기본값은 Orange
 
     final markerIcon = BitmapDescriptor.defaultMarkerWithHue(hue);
