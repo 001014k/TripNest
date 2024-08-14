@@ -53,11 +53,11 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
           children: [
             TextField(
               controller: _titleController,
-              decoration: InputDecoration(labelText: '제목'),
+              decoration: InputDecoration(labelText: '이름'),
             ),
             TextField(
               controller: _snippetController,
-              decoration: InputDecoration(labelText: '설명'),
+              decoration: InputDecoration(labelText: '주소'),
             ),
             SizedBox(height: 20),
             ElevatedButton(
