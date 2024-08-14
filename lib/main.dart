@@ -17,6 +17,7 @@ import 'ForgotPassword_page.dart';
 import 'user_list_page.dart';
 import 'SplashScreen_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'markerdetail_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -180,6 +181,26 @@ class MapSampleState extends State<MapSample> {
     });
   }
 
+  void onEdit(Marker updatedMarker) {
+    setState(() {
+      // 기존 마커를 업데이트
+      _markers.removeWhere((m) => m.markerId == updatedMarker.markerId);
+      _markers.add(updatedMarker);
+      _allMarkers.removeWhere((m) => m.markerId == updatedMarker.markerId);
+      _allMarkers.add(updatedMarker);
+    });
+
+    // Firebase Firestore에 수정된 마커 정보 업데이트
+    final keyword = _markerKeywords[updatedMarker.markerId] ?? 'default';
+    final hue = keywordHues[keyword] ?? BitmapDescriptor.hueOrange;
+    _updateMarker(updatedMarker, keyword, hue);
+  }
+
+  // 파이어베이스: 'set' vs 'update'
+  // set: 기존 문서를 덮어 쓰거나 문서가 없을 경우 새로 생성
+  // update: 문서가 이미 존재하는 경우에만 특정 필드를 수정하며 문서가 존재하지 않으면 에러를 발생
+
+  // 새 마커 생성
   Future<void> _saveMarker(Marker marker, String keyword, double hue) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -193,6 +214,24 @@ class MapSampleState extends State<MapSample> {
         'snippet': marker.infoWindow.snippet,
         'lat': marker.position.latitude,
         'lng': marker.position.longitude,
+        'keyword': keyword,
+        'hue': hue,
+      });
+    }
+  }
+
+  // 기존 마커 수정
+  Future<void> _updateMarker(Marker updatedMarker,String keyword, double hue) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if(user != null) {
+      final userMarkersCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('user_markers');
+
+      await userMarkersCollection.doc(updatedMarker.markerId.value).update({
+        'title': updatedMarker.infoWindow.title,
+        'snippet': updatedMarker.infoWindow.snippet,
         'keyword': keyword,
         'hue': hue,
       });
@@ -270,7 +309,6 @@ class MapSampleState extends State<MapSample> {
           (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
-
     setState(() {
       _selectedMarker = marker;
     });
@@ -311,10 +349,16 @@ class MapSampleState extends State<MapSample> {
         marker: marker,
         onEdit: (updatedMarker) {
           setState(() {
-            _markers.remove(marker);
+            // 기존 마커를 리스트에서 제거하고 업데이트된 마커를 추가
+            _markers.removeWhere((m) => m.markerId == marker.markerId);
             _markers.add(updatedMarker);
+            // 검색 결과 갱신
             _updateSearchResults(_searchController.text);
           });
+          // Firestore에 수정된 마커를 반영
+          final keyword = _markerKeywords[updatedMarker.markerId] ?? 'default';
+          final hue = keywordHues[keyword] ?? BitmapDescriptor.hueOrange;
+          _updateMarker(updatedMarker, keyword, hue);
         },
         onDelete: () {
           setState(() {
@@ -771,26 +815,21 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                   foregroundColor: Colors.black,
                 ),
                 onPressed: () async {
-                  final result = await Navigator.push(
+                  final updatedMarker = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => MarkerCreationScreen(),
+                      builder: (context) => MarkerDetailPage(
+                        marker: marker,
+                        onSave: (updatedMarker) {
+                          //onSave 콜백에서 수정된 마커를 처리
+                          Navigator.pop(context, updatedMarker);
+                        }
+                      ),
                     ),
                   );
-
-                  if (result != null) {
-                    final updatedMarker = marker.copyWith(
-                      infoWindowParam: marker.infoWindow.copyWith(
-                        titleParam: result['title'],
-                        snippetParam: result['snippet'],
-                      ),
-                      iconParam: result['image'] != null
-                          ? BitmapDescriptor.fromBytes(
-                          await File(result['image']).readAsBytes())
-                          : marker.icon,
-                    );
+                  if (updatedMarker != null) {
+                    // 수정된 마커가 반환되면 onEdit 콜백을 호출하여 처리
                     onEdit(updatedMarker);
-                    Navigator.pop(context);
                   }
                 },
                 child: Text('수정'),
