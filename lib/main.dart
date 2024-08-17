@@ -825,7 +825,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
             TextField(
               controller: _snippetController,
               decoration: InputDecoration(
-                labelText: '주소',
+                labelText: '설명',
               ),
             ),
             SizedBox(height: 16),

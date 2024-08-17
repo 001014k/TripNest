@@ -57,7 +57,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
             ),
             TextField(
               controller: _snippetController,
-              decoration: InputDecoration(labelText: '주소'),
+              decoration: InputDecoration(labelText: '설명'),
             ),
             SizedBox(height: 20),
             ElevatedButton(
