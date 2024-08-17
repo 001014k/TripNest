@@ -455,7 +455,7 @@ class MapSampleState extends State<MapSample> {
             CameraUpdate.newCameraPosition(
               CameraPosition(
                 target: latlng,
-                zoom: 10, // 확대 비율
+                zoom: 20, // 확대 비율
               ),
             ),
           );
