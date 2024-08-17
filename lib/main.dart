@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart';
 import 'package:fluttertrip/Dashboard_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:location/location.dart';
+import 'package:location/location.dart' as location;
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:firebase_core/firebase_core.dart';
@@ -59,10 +61,12 @@ class MapSampleState extends State<MapSample> {
   GoogleMapController? _controller;
   Marker? _selectedMarker;
   LatLng? _pendingLatLng;
-  LocationData? _currentLocation;
-  final Location _location = Location();
+  location.LocationData? _currentLocation;
+  final location.Location _location = location.Location();
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
+  late GoogleMapController _mapController;
+  String? _result;
   List<Marker> _searchResults = [];
   CollectionReference markersCollection =
   FirebaseFirestore.instance.collection('users');
@@ -269,15 +273,15 @@ class MapSampleState extends State<MapSample> {
 
   Future<void> _getLocation() async {
     final hasPermission = await _location.hasPermission();
-    if (hasPermission == PermissionStatus.denied) {
+    if (hasPermission == location.PermissionStatus.denied) {
       final requested = await _location.requestPermission();
-      if (requested != PermissionStatus.granted) {
+      if (requested != location.PermissionStatus.granted) {
         // 권한이 없을 때 처리
         return;
       }
     }
     _currentLocation = await _location.getLocation();
-    _location.onLocationChanged.listen((LocationData locationData) {
+    _location.onLocationChanged.listen((location.LocationData locationData) {
       setState(() {
         _currentLocation = locationData;
       });
@@ -400,15 +404,51 @@ class MapSampleState extends State<MapSample> {
     });
   }
 
-  void _onSearchSubmitted(String query) {
+  void _onSearchSubmitted(String query) async {
+    //1. 기존 마커 제목 검색기능
     setState(() {
       _searchResults = _markers.where((marker) {
         final title = marker.infoWindow.title?.toLowerCase() ?? '';
         return title.contains(query.toLowerCase());
       }).toList();
     });
-    _showSearchResults();
-    _updateSearchResults(query);
+
+    // 2. geocoding API를 사용하여 주소반환
+    try {
+      List<geocoding.Location> locations = await geocoding.locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        final location = locations.first;
+        final latlng = LatLng(location.latitude, location.longitude);
+
+        //지도 위치 이동
+        if (_controller != null) {
+          _controller!.animateCamera(
+            CameraUpdate.newCameraPosition(
+              CameraPosition(
+                target: latlng,
+                zoom: 20, // 확대 비율
+              ),
+            ),
+          );
+        }
+
+        setState(() {
+          _searchResults = [
+            Marker(
+              markerId: MarkerId('searchLocation'),
+              position: latlng,
+              infoWindow: InfoWindow(title: query),
+            )
+          ];
+        });
+        // 모든 마커에 대한 검색을 새로 고침
+        //_updateSearchResults(query);
+        // 3. 검색 결과를 화면에 표시
+        _showSearchResults();
+      }
+    } catch (e) {
+      print('Erroe: $e');
+    }
   }
 
   void _showSearchResults() {

@@ -30,8 +30,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  geocoding: ^2.0.4
   google_maps_flutter: ^2.0.6
   google_maps_flutter_web: ^0.3.0+1
+  http: ^0.13.4
   location: ^4.3.0
   path: ^1.8.0
   image_picker: ^0.8.7+3
