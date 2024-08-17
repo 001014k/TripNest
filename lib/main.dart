@@ -78,6 +78,7 @@ class MapSampleState extends State<MapSample> {
     '음식점': BitmapDescriptor.hueRed,
     '전시회': BitmapDescriptor.hueYellow,
   };
+  String _address = 'Fetching address...'; // Default value
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
 
@@ -135,19 +136,21 @@ class MapSampleState extends State<MapSample> {
     _loadMarkers();
   }
 
-  Future<String> _getAddressFromCoordinates(
-      double latitude, double longitude) async {
-    // 죄표로부터 주소를 가져오는 함수
+  Future<String> _getAddressFromCoordinates(double latitude, double longitude) async {
     try {
-      List<geocoding.Placemark> placemarks =
-          await geocoding.placemarkFromCoordinates(latitude, longitude);
+      List<geocoding.Placemark> placemarks = await geocoding.placemarkFromCoordinates(
+        latitude,
+        longitude,
+      );
       if (placemarks.isNotEmpty) {
-        return placemarks.first.name ?? '';
+          final placemark = placemarks.first;
+          return '${placemark.country ?? ''} ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
       }
+      return 'Unknown Address';
     } catch (e) {
       print('Error getting address: $e');
+      return 'Error fetching address'; // Error message
     }
-    return '';
   }
 
   Future<void> _loadMarkers() async {
@@ -763,19 +766,23 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
   @override
   void initState() {
     super.initState();
-    _getAddressFromCoordinates();
+    _getAddressFromCoordinates(
+      widget.initialLatLng.latitude,
+      widget.initialLatLng.longitude,
+    );
   }
 
-  Future<void> _getAddressFromCoordinates() async {
+  Future<void> _getAddressFromCoordinates(double latitude, double longitude) async {
     try {
       List<geocoding.Placemark> placemarks =
           await geocoding.placemarkFromCoordinates(
-            widget.initialLatLng.latitude,
-            widget.initialLatLng.longitude,
+            latitude,
+            longitude,
       );
       if (placemarks.isNotEmpty) {
         setState(() {
-          _address = placemarks.first.name ?? 'Unknown Address';
+          final placemark = placemarks.first;
+          _address = '${placemark.country ?? ''} ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
         });
       }
     } catch (e) {
