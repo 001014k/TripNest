@@ -69,7 +69,7 @@ class MapSampleState extends State<MapSample> {
   String? _result;
   List<Marker> _searchResults = [];
   CollectionReference markersCollection =
-  FirebaseFirestore.instance.collection('users');
+      FirebaseFirestore.instance.collection('users');
   int _selectedIndex = 0;
   final Map<String, double> keywordHues = {
     '카페': BitmapDescriptor.hueGreen,
@@ -133,6 +133,21 @@ class MapSampleState extends State<MapSample> {
     super.initState();
     _getLocation();
     _loadMarkers();
+  }
+
+  Future<String> _getAddressFromCoordinates(
+      double latitude, double longitude) async {
+    // 죄표로부터 주소를 가져오는 함수
+    try {
+      List<geocoding.Placemark> placemarks =
+          await geocoding.placemarkFromCoordinates(latitude, longitude);
+      if (placemarks.isNotEmpty) {
+        return placemarks.first.name ?? '';
+      }
+    } catch (e) {
+      print('Error getting address: $e');
+    }
+    return '';
   }
 
   Future<void> _loadMarkers() async {
@@ -213,11 +228,18 @@ class MapSampleState extends State<MapSample> {
           .doc(user.uid)
           .collection('user_markers');
 
+      // 좌표로부터 주소를 가져온다
+      String address = await _getAddressFromCoordinates(
+        marker.position.latitude,
+        marker.position.longitude,
+      );
+
       await userMarkersCollection.doc(marker.markerId.value).set({
         'title': marker.infoWindow.title,
         'snippet': marker.infoWindow.snippet,
         'lat': marker.position.latitude,
         'lng': marker.position.longitude,
+        'address': address,
         'keyword': keyword,
         'hue': hue,
       });
@@ -225,9 +247,10 @@ class MapSampleState extends State<MapSample> {
   }
 
   // 기존 마커 수정
-  Future<void> _updateMarker(Marker updatedMarker,String keyword, double hue) async {
+  Future<void> _updateMarker(
+      Marker updatedMarker, String keyword, double hue) async {
     final user = FirebaseAuth.instance.currentUser;
-    if(user != null) {
+    if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -310,7 +333,7 @@ class MapSampleState extends State<MapSample> {
 
   void _onMarkerTapped(BuildContext context, MarkerId markerId) {
     final marker = _markers.firstWhere(
-          (m) => m.markerId == markerId,
+      (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
     setState(() {
@@ -323,14 +346,14 @@ class MapSampleState extends State<MapSample> {
     setState(() {
       _pendingLatLng = latLng;
     });
-    _navigateToMarkerCreationScreen(context);
+    _navigateToMarkerCreationScreen(context, latLng);
   }
 
-  void _navigateToMarkerCreationScreen(BuildContext context) async {
+  void _navigateToMarkerCreationScreen(BuildContext context, LatLng latLng) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (BuildContext context) => MarkerCreationScreen(),
+        builder: (BuildContext context) => MarkerCreationScreen(initialLatLng: latLng),
       ),
     );
 
@@ -341,7 +364,7 @@ class MapSampleState extends State<MapSample> {
           result['snippet'], // String? 타입
           _pendingLatLng!, // LatLng 타입
           keyword // String 타입
-      );
+          );
       _pendingLatLng = null;
     }
   }
@@ -376,8 +399,10 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  void _addMarker(String? title, String? snippet, LatLng position, String keyword) {
-    final hue = keywordHues[keyword] ?? BitmapDescriptor.hueOrange; // 기본값은 Orange
+  void _addMarker(
+      String? title, String? snippet, LatLng position, String keyword) {
+    final hue =
+        keywordHues[keyword] ?? BitmapDescriptor.hueOrange; // 기본값은 Orange
 
     final markerIcon = BitmapDescriptor.defaultMarkerWithHue(hue);
 
@@ -415,7 +440,8 @@ class MapSampleState extends State<MapSample> {
 
     // 2. geocoding API를 사용하여 주소반환
     try {
-      List<geocoding.Location> locations = await geocoding.locationFromAddress(query);
+      List<geocoding.Location> locations =
+          await geocoding.locationFromAddress(query);
       if (locations.isNotEmpty) {
         final location = locations.first;
         final latlng = LatLng(location.latitude, location.longitude);
@@ -426,7 +452,7 @@ class MapSampleState extends State<MapSample> {
             CameraUpdate.newCameraPosition(
               CameraPosition(
                 target: latlng,
-                zoom: 20, // 확대 비율
+                zoom: 10, // 확대 비율
               ),
             ),
           );
@@ -597,10 +623,8 @@ class MapSampleState extends State<MapSample> {
                 _controller!.animateCamera(
                   CameraUpdate.newCameraPosition(
                     CameraPosition(
-                      target: LatLng(
-                          _currentLocation!.latitude!,
-                          _currentLocation!.longitude!
-                      ),
+                      target: LatLng(_currentLocation!.latitude!,
+                          _currentLocation!.longitude!),
                       zoom: 15,
                     ),
                   ),
@@ -720,6 +744,11 @@ class MapSampleState extends State<MapSample> {
 const List<String> keywords = ['카페', '호텔', '사진', '음식점', '전시회'];
 
 class MarkerCreationScreen extends StatefulWidget {
+  final LatLng initialLatLng;
+
+  MarkerCreationScreen({required this.initialLatLng}); //생성자에서 LatLng 받기
+
+
   @override
   _MarkerCreationScreenState createState() => _MarkerCreationScreenState();
 }
@@ -729,6 +758,33 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
   TextEditingController _snippetController = TextEditingController();
   String? _selectedKeyword; // 드롭다운 메뉴를 통해 키워드 선택
   File? _image;
+  String _address = 'Fetching address...';
+
+  @override
+  void initState() {
+    super.initState();
+    _getAddressFromCoordinates();
+  }
+
+  Future<void> _getAddressFromCoordinates() async {
+    try {
+      List<geocoding.Placemark> placemarks =
+          await geocoding.placemarkFromCoordinates(
+            widget.initialLatLng.latitude,
+            widget.initialLatLng.longitude,
+      );
+      if (placemarks.isNotEmpty) {
+        setState(() {
+          _address = placemarks.first.name ?? 'Unknown Address';
+        });
+      }
+    } catch (e) {
+      print('Error getting address: $e');
+      setState(() {
+        _address = 'Error fetching address';
+      });
+    }
+  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -746,7 +802,8 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('마커생성'),
-        titleTextStyle: TextStyle(color: Colors.black,fontSize: 20,fontWeight: FontWeight.bold),
+        titleTextStyle: TextStyle(
+            color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -764,6 +821,8 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                 labelText: '주소',
               ),
             ),
+            SizedBox(height: 16),
+            Text('주소: $_address'), // 주소 표시
             SizedBox(height: 16),
             DropdownButton<String>(
               value: _selectedKeyword,
@@ -783,9 +842,9 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
             SizedBox(height: 16.0),
             _image != null
                 ? Image.file(
-              _image!,
-              height: 200,
-            )
+                    _image!,
+                    height: 200,
+                  )
                 : Text('이미지가 선택된게 없습니다.'),
             SizedBox(height: 16.0),
             ElevatedButton(
@@ -859,12 +918,11 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => MarkerDetailPage(
-                        marker: marker,
-                        onSave: (updatedMarker) {
-                          //onSave 콜백에서 수정된 마커를 처리
-                          Navigator.pop(context, updatedMarker);
-                        }
-                      ),
+                          marker: marker,
+                          onSave: (updatedMarker) {
+                            //onSave 콜백에서 수정된 마커를 처리
+                            Navigator.pop(context, updatedMarker);
+                          }),
                     ),
                   );
                   if (updatedMarker != null) {
