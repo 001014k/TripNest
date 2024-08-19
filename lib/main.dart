@@ -419,13 +419,25 @@ class MapSampleState extends State<MapSample> {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
-        return ListView.builder(
+        return ListView.separated(
           itemCount: markersInVisibleRegion.length,
           itemBuilder: (context, index) {
+            // 마커 정보 가져오기
             final marker = markersInVisibleRegion[index];
+            // 키워드 가져오기 (marker.infowindow.snippet은 설명을 가져오는것)
+            final keyword = marker.infoWindow.snippet ?? '키워드 없음';
             return ListTile(
               leading: Icon(Icons.location_on),
-              title: Text(marker.infoWindow.title ?? '제목 없음'),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween, // 제목과 키워드를 양쪽 끝으로 정렬
+                children: [
+                  Text(marker.infoWindow.title ?? '제목 없음'),
+                  Text(
+                    keyword,
+                    style: TextStyle(color: Colors.grey, fontSize: 12), //키워드 스타일 설정
+                  ),
+                ],
+              ),
               subtitle: Text(marker.infoWindow.snippet ?? '설명 없음'),
               onTap: () {
                 Navigator.pop(context); //bottom sheet 열기
@@ -435,6 +447,12 @@ class MapSampleState extends State<MapSample> {
               },
             );
           },
+          separatorBuilder: (context, index) {
+            return Divider(
+              color: Colors.grey,
+              thickness: 1,
+            );
+          }
         );
       },
     );
