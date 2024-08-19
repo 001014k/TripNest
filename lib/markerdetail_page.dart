@@ -27,6 +27,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   late TextEditingController _titleController;
   late String? _keyword;
   String? _address;
+  bool _isBookmarked = false; // 북마크 상태를 추적하는 변수
+  List<Marker> bookmarkedMarkers = [];
 
   void _openGoogleMaps() async {
     final String googleMapsUrl =
@@ -68,7 +70,35 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
       widget.marker.position.latitude,
       widget.marker.position.longitude,
     );
+
+    //초기 상태에서 북마크 여부확인
+    _isBookmarked = _checkIfBookmarked();
   }
+
+  bool _checkIfBookmarked() {
+    //북마크 리스트에서 현재 마커가 있는지 확인하는 로직을 구현
+  // 이 예시에서는 단순히 false를 반환
+  return bookmarkedMarkers.contains(widget.marker);
+}
+
+void _bookmarkLocation() {
+  setState(() {
+    if (_checkIfBookmarked()) {
+      // 이미 북마크 되어 있는 경우 북마크 해제
+      bookmarkedMarkers.remove(widget.marker);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('북마크가 해제되었습니다.')),
+      );
+    } else {
+      // 북마크 되어 있지 않은 경우 북마크 추가
+      bookmarkedMarkers.add(widget.marker);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('북마크에 추가되었습니다.')),
+      );
+    }
+    _isBookmarked = _checkIfBookmarked(); // 북마크 상태 업데이트
+  });
+}
 
   Future<void> _getAddressFromCoordinates(
       double latitude, double longitude) async {
@@ -92,14 +122,6 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
         _address = '주소를 가져오는 중 오류 발생';
       });
     }
-  }
-
-  void _bookmarkLocation() {
-    widget.onBookmark(widget.marker); // 북마크 추가시 콜백 호출
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('북마크에 추가되었습니다.')),
-    );
   }
 
   @override
@@ -286,17 +308,21 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.zero, // 네모난 모서리
                       ),
+                      backgroundColor: _isBookmarked ? Colors.grey[300] : Colors.white, // 버튼 배경 색상 변경
                     ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.bookmark, color: Colors.black), // 북마크 아이콘
+                      Icon(
+                          Icons.bookmark,
+                        color: _isBookmarked ? Colors.grey : Colors.black, // 아이콘 색상 변경
+                      ),
                       SizedBox(width: 8),
                       Text(
-                        '북마크',
+                        _isBookmarked ? '북마크 해제' : '북마크', // 텍스트 변경
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: _isBookmarked ? Colors.black : Colors.black, // 텍스트 색상 변경
                         ),
                       ),
                     ],
