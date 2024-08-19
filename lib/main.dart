@@ -995,21 +995,32 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                 ),
               );
             },
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.location_on,
-                  color: Colors.black,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      color: Colors.red,
+                    ),
+                    SizedBox(width: 8), // 아이콘과 텍스트 사이의 간격
+                    Text(
+                      marker.infoWindow.title ?? '제목 없음',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20.0,
+                        color: Colors.black, //제목을 강조하기 위해 색상 적용
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 8), // 아이콘과 텍스트 사이의 간격
-                Text(
-                  marker.infoWindow.title ?? 'Untitled',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20.0,
-                    color: Colors.black, //제목을 강조하기 위해 색상 적용
-                  ),
-                ),
+                SizedBox(height: 4), // 제목과 언더바 사이의 간격
+                Container(
+                  height: 2, //언더바의 두께
+                  color: Colors.black, // 언더바의 색상
+                  width: double.infinity, // 언더바의 길이를 화면 너비에 맞춤
+                )
               ],
             ),
           ),
