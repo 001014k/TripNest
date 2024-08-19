@@ -695,7 +695,7 @@ class MapSampleState extends State<MapSample> {
                 final result = await Navigator.push(
                     context,
                   MaterialPageRoute(
-                    builder: (context) => BookmarkPage(bookmarks: bookmarkedMarkers),
+                    builder: (context) => BookmarkPage(),
                   ),
                     );
                 if (result != null && result is Marker) {

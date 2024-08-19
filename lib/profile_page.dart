@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'login_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'Bookmark_page.dart';
 
 void main() {
   runApp(MyApp());
@@ -200,9 +201,18 @@ class ProfilePage extends StatelessWidget {
                 Icons.question_answer,
                 color: Colors.grey[850],
               ),
-              title: Text('Q&A'),
-              onTap: () {
-                // Handle navigation to the Q&A page
+              title: Text('북마크'),
+              onTap: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BookmarkPage(),
+                  ),
+                );
+                if (result != null && result is Marker) {
+
+                }
+                print('북마크 is clicked');
               },
             ),
           ],
