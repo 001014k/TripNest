@@ -379,29 +379,13 @@ class MapSampleState extends State<MapSample> {
   void _showMarkerInfoBottomSheet(BuildContext context, Marker marker) {
     showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) => MarkerInfoBottomSheet(
-        marker: marker,
-        onEdit: (updatedMarker) {
-          setState(() {
-            // 기존 마커를 리스트에서 제거하고 업데이트된 마커를 추가
-            _markers.removeWhere((m) => m.markerId == marker.markerId);
-            _markers.add(updatedMarker);
-            // 검색 결과 갱신
-            _updateSearchResults(_searchController.text);
-          });
-          // Firestore에 수정된 마커를 반영
-          final keyword = _markerKeywords[updatedMarker.markerId] ?? 'default';
-          final hue = keywordHues[keyword] ?? BitmapDescriptor.hueOrange;
-          _updateMarker(updatedMarker, keyword, hue);
-        },
-        onDelete: () {
-          setState(() {
-            _markers.remove(marker);
-            _deleteMarker(marker);
-            _updateSearchResults(_searchController.text);
-          });
-          Navigator.pop(context); // Close the bottom sheet
-        },
+      isScrollControlled: true, //하단시트에서 스크롤
+      builder: (BuildContext context) => Container(
+        width: MediaQuery.of(context).size.width, //화면 전체 너비 사용
+        padding: EdgeInsets.all(16.0),
+        child: MarkerInfoBottomSheet(
+          marker: marker,
+        ),
       ),
     );
   }
@@ -420,40 +404,41 @@ class MapSampleState extends State<MapSample> {
       context: context,
       builder: (BuildContext context) {
         return ListView.separated(
-          itemCount: markersInVisibleRegion.length,
-          itemBuilder: (context, index) {
-            // 마커 정보 가져오기
-            final marker = markersInVisibleRegion[index];
-            // 키워드 가져오기 (marker.infowindow.snippet은 설명을 가져오는것)
-            final keyword = marker.infoWindow.snippet ?? '키워드 없음';
-            return ListTile(
-              leading: Icon(Icons.location_on),
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween, // 제목과 키워드를 양쪽 끝으로 정렬
-                children: [
-                  Text(marker.infoWindow.title ?? '제목 없음'),
-                  Text(
-                    keyword,
-                    style: TextStyle(color: Colors.grey, fontSize: 12), //키워드 스타일 설정
-                  ),
-                ],
-              ),
-              subtitle: Text(marker.infoWindow.snippet ?? '설명 없음'),
-              onTap: () {
-                Navigator.pop(context); //bottom sheet 열기
-                _controller!.animateCamera(
-                  CameraUpdate.newLatLng(marker.position),
-                );
-              },
-            );
-          },
-          separatorBuilder: (context, index) {
-            return Divider(
-              color: Colors.grey,
-              thickness: 1,
-            );
-          }
-        );
+            itemCount: markersInVisibleRegion.length,
+            itemBuilder: (context, index) {
+              // 마커 정보 가져오기
+              final marker = markersInVisibleRegion[index];
+              // 키워드 가져오기 (marker.infowindow.snippet은 설명을 가져오는것)
+              final keyword = marker.infoWindow.snippet ?? '키워드 없음';
+              return ListTile(
+                leading: Icon(Icons.location_on),
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // 제목과 키워드를 양쪽 끝으로 정렬
+                  children: [
+                    Text(marker.infoWindow.title ?? '제목 없음'),
+                    Text(
+                      keyword,
+                      style: TextStyle(
+                          color: Colors.grey, fontSize: 12), //키워드 스타일 설정
+                    ),
+                  ],
+                ),
+                subtitle: Text(marker.infoWindow.snippet ?? '설명 없음'),
+                onTap: () {
+                  Navigator.pop(context); //bottom sheet 열기
+                  _controller!.animateCamera(
+                    CameraUpdate.newLatLng(marker.position),
+                  );
+                },
+              );
+            },
+            separatorBuilder: (context, index) {
+              return Divider(
+                color: Colors.grey,
+                thickness: 1,
+              );
+            });
       },
     );
   }
@@ -963,13 +948,9 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
 
 class MarkerInfoBottomSheet extends StatelessWidget {
   final Marker marker;
-  final ValueChanged<Marker> onEdit;
-  final VoidCallback onDelete;
 
   MarkerInfoBottomSheet({
     required this.marker,
-    required this.onEdit,
-    required this.onDelete,
   });
 
   @override
@@ -979,52 +960,31 @@ class MarkerInfoBottomSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text(
-            marker.infoWindow.title ?? 'Untitled',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20.0,
+          GestureDetector(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MarkerDetailPage(
+                    marker: marker,
+                    onSave: (updatedMarker) {
+                      //MarkerDetailPage에서 돌아올때 마커 업데이트를 처리
+                      Navigator.pop(context, updatedMarker);
+                    },
+                  ),
+                ),
+              );
+            },
+            child: Text(
+              marker.infoWindow.title ?? 'Untitled',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20.0,
+                color: Colors.black, //제목을 강조하기 위해 색상 적용
+              ),
             ),
           ),
           Text(marker.infoWindow.snippet ?? ''),
-          SizedBox(height: 16.0),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: <Widget>[
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                ),
-                onPressed: () async {
-                  final updatedMarker = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MarkerDetailPage(
-                          marker: marker,
-                          onSave: (updatedMarker) {
-                            //onSave 콜백에서 수정된 마커를 처리
-                            Navigator.pop(context, updatedMarker);
-                          }),
-                    ),
-                  );
-                  if (updatedMarker != null) {
-                    // 수정된 마커가 반환되면 onEdit 콜백을 호출하여 처리
-                    onEdit(updatedMarker);
-                  }
-                },
-                child: Text('수정'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                ),
-                onPressed: onDelete,
-                child: Text('삭제'),
-              ),
-            ],
-          ),
         ],
       ),
     );
