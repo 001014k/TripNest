@@ -121,12 +121,12 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
             ),
             SizedBox(height: 20),
               Text(
-                '키워드: $_keyword',
+                '$_keyword',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             SizedBox(height: 20),
             _address != null
-                ? Text('주소: $_address',
+                ? Text('$_address',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
                 : CircularProgressIndicator(), // 주소를 로드 중일 때 로딩 표시
           ],

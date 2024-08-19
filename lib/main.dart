@@ -378,7 +378,8 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  void _showMarkerInfoBottomSheet(BuildContext context, Marker marker, Function(Marker) onDelete) {
+  void _showMarkerInfoBottomSheet(
+      BuildContext context, Marker marker, Function(Marker) onDelete) {
     final String keyword = _markerKeywords[marker.markerId] ?? '';
 
     showModalBottomSheet(
@@ -389,7 +390,7 @@ class MapSampleState extends State<MapSample> {
         padding: EdgeInsets.all(16.0),
         child: MarkerInfoBottomSheet(
           marker: marker,
-          onSave: (updatedMarker,keyword) async {
+          onSave: (updatedMarker, keyword) async {
             await _saveMarker(updatedMarker, keyword, 0.0);
           },
           onDelete: onDelete,
@@ -735,7 +736,8 @@ class MapSampleState extends State<MapSample> {
                         setState(() {
                           _selectedMarker = marker;
                         });
-                        _showMarkerInfoBottomSheet(context, marker, (Marker markerToDelte) {
+                        _showMarkerInfoBottomSheet(context, marker,
+                            (Marker markerToDelte) {
                           // 여기에 마커 삭제 로직 추가
                         });
                       },
@@ -993,21 +995,38 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                 ),
               );
             },
-            child: Text(
-              marker.infoWindow.title ?? 'Untitled',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20.0,
-                color: Colors.black, //제목을 강조하기 위해 색상 적용
-              ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.location_on,
+                  color: Colors.black,
+                ),
+                SizedBox(width: 8), // 아이콘과 텍스트 사이의 간격
+                Text(
+                  marker.infoWindow.title ?? 'Untitled',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20.0,
+                    color: Colors.black, //제목을 강조하기 위해 색상 적용
+                  ),
+                ),
+              ],
             ),
           ),
           Text(marker.infoWindow.snippet ?? ''),
-          SizedBox(height: 10),
-          Text(
-              '키워드: $keyword',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+          Row(
+            children: [
+              Icon(
+                Icons.label, // 키워드 옆에 표시할 아이콘
+                color: Colors.blue, // 아이콘 색상 설정
+              ),
+              SizedBox(height: 10),
+              Text(
+                '$keyword',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          )
         ],
       ),
     );
