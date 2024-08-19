@@ -1013,6 +1013,12 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                         color: Colors.black, //제목을 강조하기 위해 색상 적용
                       ),
                     ),
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.touch_app, //터치 힌트 아이콘
+                      color: Colors.grey,
+                      size: 20,
+                    )
                   ],
                 ),
                 SizedBox(height: 4), // 제목과 언더바 사이의 간격
@@ -1020,7 +1026,15 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                   height: 2, //언더바의 두께
                   color: Colors.black, // 언더바의 색상
                   width: double.infinity, // 언더바의 길이를 화면 너비에 맞춤
-                )
+                ),
+                SizedBox(height: 8), // 언더바와 힌트 텍스트 사이의 간격
+                Text(
+                  '클릭하여 자세히 보기',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
               ],
             ),
           ),
