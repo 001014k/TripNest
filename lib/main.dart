@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:fluttertrip/Bookmark_page.dart';
 import 'package:http/http.dart';
 import 'package:fluttertrip/Dashboard_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -20,6 +21,7 @@ import 'user_list_page.dart';
 import 'SplashScreen_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'markerdetail_page.dart';
+import 'Bookmark_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +70,7 @@ class MapSampleState extends State<MapSample> {
   late GoogleMapController _mapController;
   String? _result;
   List<Marker> _searchResults = [];
+  List<Marker> bookmarkedMarkers = [];
   CollectionReference markersCollection =
       FirebaseFirestore.instance.collection('users');
   int _selectedIndex = 0;
@@ -378,6 +381,18 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
+
+  void _bookmarkLocation(Marker marker) {
+    setState(() {
+      bookmarkedMarkers.add(marker); // 마커를 북마크 리스트에 추가
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('북마크에 추가되었습니다.')),
+    );
+  }
+
+
   void _showMarkerInfoBottomSheet(
       BuildContext context, Marker marker, Function(Marker) onDelete) {
     final String keyword = _markerKeywords[marker.markerId] ?? '';
@@ -395,6 +410,9 @@ class MapSampleState extends State<MapSample> {
           },
           onDelete: onDelete,
           keyword: keyword,
+          onBookmark: (marker) {
+            _bookmarkLocation(marker);
+          },
         ),
       ),
     );
@@ -588,6 +606,7 @@ class MapSampleState extends State<MapSample> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    List<Marker> bookmarkedMarkers = [];
 
     return Scaffold(
       appBar: AppBar(
@@ -671,9 +690,18 @@ class MapSampleState extends State<MapSample> {
                 Icons.question_answer,
                 color: Colors.grey[850],
               ),
-              title: Text('Q&A'),
-              onTap: () {
-                print('Q&A is clicked');
+              title: Text('북마크'),
+              onTap: () async {
+                final result = await Navigator.push(
+                    context,
+                  MaterialPageRoute(
+                    builder: (context) => BookmarkPage(bookmarks: bookmarkedMarkers),
+                  ),
+                    );
+                if (result != null && result is Marker) {
+
+                }
+                print('북마크 is clicked');
               },
             ),
           ],
@@ -963,12 +991,14 @@ class MarkerInfoBottomSheet extends StatelessWidget {
   final Marker marker;
   final Function(Marker, String) onSave;
   final Function(Marker) onDelete;
+  final Function(Marker) onBookmark;
   final String keyword;
 
   MarkerInfoBottomSheet({
     required this.marker,
     required this.onSave,
     required this.onDelete,
+    required this.onBookmark,
     required this.keyword,
   });
 
@@ -990,6 +1020,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                       Navigator.pop(context, updatedMarker);
                     },
                     onDelete: onDelete,
+                    onBookmark: onBookmark,
                     keyword: keyword,
                   ),
                 ),
