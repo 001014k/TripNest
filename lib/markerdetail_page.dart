@@ -27,13 +27,14 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.marker.infoWindow.title);
+    _titleController =
+        TextEditingController(text: widget.marker.infoWindow.title);
     _keyword = widget.keyword;
 
     // 좌표로 부터 주소 가져오기
     _getAddressFromCoordinates(
-        widget.marker.position.latitude,
-        widget.marker.position.longitude,
+      widget.marker.position.latitude,
+      widget.marker.position.longitude,
     );
   }
 
@@ -82,7 +83,6 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     Navigator.pop(context);
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,14 +120,28 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
               decoration: InputDecoration(labelText: '이름'),
             ),
             SizedBox(height: 20),
-              Text(
-                '$_keyword',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+            Row(
+              children: [
+                Icon(Icons.label, color: Colors.blue), // 키워드 옆에 아이콘 추가
+                SizedBox(width: 8),
+                Text(
+                  '$_keyword',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
             SizedBox(height: 20),
             _address != null
-                ? Text('$_address',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
+                ? Row(
+                    children: [
+                      Icon(Icons.location_on,
+                          color: Colors.red), // 주소 옆에 아이콘 추가
+                      SizedBox(width: 8),
+                      Text('$_address',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  )
                 : CircularProgressIndicator(), // 주소를 로드 중일 때 로딩 표시
           ],
         ),
