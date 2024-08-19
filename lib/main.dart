@@ -136,15 +136,17 @@ class MapSampleState extends State<MapSample> {
     _loadMarkers();
   }
 
-  Future<String> _getAddressFromCoordinates(double latitude, double longitude) async {
+  Future<String> _getAddressFromCoordinates(
+      double latitude, double longitude) async {
     try {
-      List<geocoding.Placemark> placemarks = await geocoding.placemarkFromCoordinates(
+      List<geocoding.Placemark> placemarks =
+          await geocoding.placemarkFromCoordinates(
         latitude,
         longitude,
       );
       if (placemarks.isNotEmpty) {
-          final placemark = placemarks.first;
-          return '${placemark.country ?? ''} ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
+        final placemark = placemarks.first;
+        return '${placemark.country ?? ''} ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
       }
       return 'Unknown Address';
     } catch (e) {
@@ -352,11 +354,13 @@ class MapSampleState extends State<MapSample> {
     _navigateToMarkerCreationScreen(context, latLng);
   }
 
-  void _navigateToMarkerCreationScreen(BuildContext context, LatLng latLng) async {
+  void _navigateToMarkerCreationScreen(
+      BuildContext context, LatLng latLng) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (BuildContext context) => MarkerCreationScreen(initialLatLng: latLng),
+        builder: (BuildContext context) =>
+            MarkerCreationScreen(initialLatLng: latLng),
       ),
     );
 
@@ -399,6 +403,40 @@ class MapSampleState extends State<MapSample> {
           Navigator.pop(context); // Close the bottom sheet
         },
       ),
+    );
+  }
+
+  void _showAllMarkersInfo() async {
+    List<Marker> markersInVisibleRegion = await _getMarkersInVisibleRegion();
+
+    if (markersInVisibleRegion.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('현재 화면에 표시되는 마커가 없습니다')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return ListView.builder(
+          itemCount: markersInVisibleRegion.length,
+          itemBuilder: (context, index) {
+            final marker = markersInVisibleRegion[index];
+            return ListTile(
+              leading: Icon(Icons.location_on),
+              title: Text(marker.infoWindow.title ?? '제목 없음'),
+              subtitle: Text(marker.infoWindow.snippet ?? '설명 없음'),
+              onTap: () {
+                Navigator.pop(context); //bottom sheet 열기
+                _controller!.animateCamera(
+                  CameraUpdate.newLatLng(marker.position),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -519,6 +557,19 @@ class MapSampleState extends State<MapSample> {
         }).toList();
       });
     }
+  }
+
+  Future<List<Marker>> _getMarkersInVisibleRegion() async {
+    if (_controller == null) return [];
+
+    //현재 보이는 영역 가져오기
+    LatLngBounds visibleRegion = await _controller!.getVisibleRegion();
+
+    //영역 내의 포함되는 마커 필터링
+    List<Marker> visibleMarkers = _markers.where((marker) {
+      return visibleRegion.contains(marker.position);
+    }).toList();
+    return visibleMarkers;
   }
 
   @override
@@ -735,6 +786,12 @@ class MapSampleState extends State<MapSample> {
                     onPressed: _showMarkersInVisibleRegion,
                     backgroundColor: Colors.white,
                     child: Icon(Icons.place)),
+                SizedBox(height: 16),
+                FloatingActionButton(
+                  onPressed: _showAllMarkersInfo,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.list),
+                )
               ],
             ),
           ),
@@ -750,7 +807,6 @@ class MarkerCreationScreen extends StatefulWidget {
   final LatLng initialLatLng;
 
   MarkerCreationScreen({required this.initialLatLng}); //생성자에서 LatLng 받기
-
 
   @override
   _MarkerCreationScreenState createState() => _MarkerCreationScreenState();
@@ -772,17 +828,19 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
     );
   }
 
-  Future<void> _getAddressFromCoordinates(double latitude, double longitude) async {
+  Future<void> _getAddressFromCoordinates(
+      double latitude, double longitude) async {
     try {
       List<geocoding.Placemark> placemarks =
           await geocoding.placemarkFromCoordinates(
-            latitude,
-            longitude,
+        latitude,
+        longitude,
       );
       if (placemarks.isNotEmpty) {
         setState(() {
           final placemark = placemarks.first;
-          _address = '${placemark.country ?? ''} ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
+          _address =
+              '${placemark.country ?? ''} ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
         });
       }
     } catch (e) {
