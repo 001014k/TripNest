@@ -1001,8 +1001,8 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.location_on,
-                      color: Colors.red,
+                      Icons.title,
+                      color: Colors.black,
                     ),
                     SizedBox(width: 8), // 아이콘과 텍스트 사이의 간격
                     Text(

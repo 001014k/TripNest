@@ -113,11 +113,26 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, // 왼쪽 정렬
           children: [
-            TextField(
-              controller: _titleController,
-              readOnly: true, //이름 필드를 읽기 전용으로 설정
-              decoration: InputDecoration(labelText: '이름'),
+            Row(
+              children: [
+                Icon(Icons.title, color: Colors.black), // 이름 옆에 아이콘 추가
+                SizedBox(width: 8),
+                Text(
+                  widget.marker.infoWindow.title ?? '제목 없음',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              ],
+            ),
+            SizedBox(height: 4),
+            Container(
+              height: 2, //언더바의 두께
+              color: Colors.black,
+              width: double.infinity, // 화면 전체 너비로 언더바 확장
             ),
             SizedBox(height: 20),
             Row(
