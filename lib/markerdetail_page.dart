@@ -4,9 +4,16 @@ import 'package:geocoding/geocoding.dart';
 
 class MarkerDetailPage extends StatefulWidget {
   final Marker marker;
-  final Function(Marker) onSave;
+  final Function(Marker, String) onSave;
+  final Function(Marker) onDelete;
+  final String keyword;
 
-  MarkerDetailPage({required this.marker, required this.onSave});
+  MarkerDetailPage({
+    required this.marker,
+    required this.onSave,
+    required this.onDelete,
+    required this.keyword,
+  });
 
   @override
   _MarkerDetailPageState createState() => _MarkerDetailPageState();
@@ -14,21 +21,20 @@ class MarkerDetailPage extends StatefulWidget {
 
 class _MarkerDetailPageState extends State<MarkerDetailPage> {
   late TextEditingController _titleController;
-  late TextEditingController _snippetController;
-  String? _selectedKeyword;
+  late String? _keyword;
   String? _address;
 
   @override
   void initState() {
     super.initState();
-    _titleController =
-        TextEditingController(text: widget.marker.infoWindow.title);
-    _snippetController =
-        TextEditingController(text: widget.marker.infoWindow.snippet);
+    _titleController = TextEditingController(text: widget.marker.infoWindow.title);
+    _keyword = widget.keyword;
 
     // 좌표로 부터 주소 가져오기
     _getAddressFromCoordinates(
-        widget.marker.position.latitude, widget.marker.position.longitude);
+        widget.marker.position.latitude,
+        widget.marker.position.longitude,
+    );
   }
 
   Future<void> _getAddressFromCoordinates(
@@ -58,7 +64,6 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   @override
   void dispose() {
     _titleController.dispose();
-    _snippetController.dispose();
     super.dispose();
   }
 
@@ -66,18 +71,44 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     final updatedMarker = widget.marker.copyWith(
       infoWindowParam: widget.marker.infoWindow.copyWith(
         titleParam: _titleController.text,
-        snippetParam: _snippetController.text,
       ),
     );
-    widget.onSave(updatedMarker);
+    widget.onSave(updatedMarker, _keyword ?? '');
     Navigator.pop(context);
   }
+
+  void _deleteMarker() {
+    widget.onDelete(widget.marker);
+    Navigator.pop(context);
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('마커 세부 사항'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == '수정') {
+                _saveMarker();
+              } else if (value == '삭제') {
+                _deleteMarker();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: '수정',
+                child: Text('수정'),
+              ),
+              PopupMenuItem(
+                value: '삭제',
+                child: Text('삭제'),
+              ),
+            ],
+          )
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -85,21 +116,19 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
           children: [
             TextField(
               controller: _titleController,
+              readOnly: true, //이름 필드를 읽기 전용으로 설정
               decoration: InputDecoration(labelText: '이름'),
             ),
-            TextField(
-              controller: _snippetController,
-              decoration: InputDecoration(labelText: '설명'),
-            ),
+            SizedBox(height: 20),
+              Text(
+                '키워드: $_keyword',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             SizedBox(height: 20),
             _address != null
                 ? Text('주소: $_address',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
                 : CircularProgressIndicator(), // 주소를 로드 중일 때 로딩 표시
-            ElevatedButton(
-              onPressed: _saveMarker,
-              child: Text('저장'),
-            ),
           ],
         ),
       ),

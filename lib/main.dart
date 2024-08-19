@@ -344,7 +344,9 @@ class MapSampleState extends State<MapSample> {
     setState(() {
       _selectedMarker = marker;
     });
-    _showMarkerInfoBottomSheet(context, marker);
+    _showMarkerInfoBottomSheet(context, marker, (Marker markerToDelete) {
+      // 마커 삭제 로직 추가
+    });
   }
 
   void _onMapTapped(BuildContext context, LatLng latLng) {
@@ -376,7 +378,9 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  void _showMarkerInfoBottomSheet(BuildContext context, Marker marker) {
+  void _showMarkerInfoBottomSheet(BuildContext context, Marker marker, Function(Marker) onDelete) {
+    final String keyword = _markerKeywords[marker.markerId] ?? '';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true, //하단시트에서 스크롤
@@ -385,6 +389,11 @@ class MapSampleState extends State<MapSample> {
         padding: EdgeInsets.all(16.0),
         child: MarkerInfoBottomSheet(
           marker: marker,
+          onSave: (updatedMarker,keyword) async {
+            await _saveMarker(updatedMarker, keyword, 0.0);
+          },
+          onDelete: onDelete,
+          keyword: keyword,
         ),
       ),
     );
@@ -726,7 +735,9 @@ class MapSampleState extends State<MapSample> {
                         setState(() {
                           _selectedMarker = marker;
                         });
-                        _showMarkerInfoBottomSheet(context, marker);
+                        _showMarkerInfoBottomSheet(context, marker, (Marker markerToDelte) {
+                          // 여기에 마커 삭제 로직 추가
+                        });
                       },
                     );
                   },
@@ -948,9 +959,15 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
 
 class MarkerInfoBottomSheet extends StatelessWidget {
   final Marker marker;
+  final Function(Marker, String) onSave;
+  final Function(Marker) onDelete;
+  final String keyword;
 
   MarkerInfoBottomSheet({
     required this.marker,
+    required this.onSave,
+    required this.onDelete,
+    required this.keyword,
   });
 
   @override
@@ -967,10 +984,11 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (context) => MarkerDetailPage(
                     marker: marker,
-                    onSave: (updatedMarker) {
-                      //MarkerDetailPage에서 돌아올때 마커 업데이트를 처리
+                    onSave: (updatedMarker, keyword) {
                       Navigator.pop(context, updatedMarker);
                     },
+                    onDelete: onDelete,
+                    keyword: keyword,
                   ),
                 ),
               );
@@ -985,6 +1003,11 @@ class MarkerInfoBottomSheet extends StatelessWidget {
             ),
           ),
           Text(marker.infoWindow.snippet ?? ''),
+          SizedBox(height: 10),
+          Text(
+              '키워드: $keyword',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
