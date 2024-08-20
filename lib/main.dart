@@ -760,6 +760,7 @@ class MapSampleState extends State<MapSample> {
               ),
               zoom: 15.0,
             ),
+            zoomControlsEnabled: false, // 확대/축소 버튼 숨기기
             myLocationEnabled: true,
             // 내 위치 아이콘 표시 여부
             myLocationButtonEnabled: false,
