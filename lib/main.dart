@@ -272,7 +272,7 @@ class MapSampleState extends State<MapSample> {
   }
 
   // 마커 세부사항 페이지로 들어가 새로고침 하는 로직
-  void _navigateToMarkerDetailPage(BuildContext context,Marker marker) async {
+  void _navigateToMarkerDetailPage(BuildContext context, Marker marker) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -283,7 +283,8 @@ class MapSampleState extends State<MapSample> {
               // UI에서 마커 업데이트
               _markers.removeWhere((m) => m.markerId == updatedMarker.markerId);
               _markers.add(updatedMarker);
-              _allMarkers.removeWhere((m) => m.markerId == updatedMarker.markerId);
+              _allMarkers
+                  .removeWhere((m) => m.markerId == updatedMarker.markerId);
               _allMarkers.add(updatedMarker);
 
               // 키워드 업데이트
@@ -302,7 +303,8 @@ class MapSampleState extends State<MapSample> {
             setState(() {
               // 마커를 UI에서 제거
               _markers.removeWhere((m) => m.markerId == deletedMarker.markerId);
-              _allMarkers.removeWhere((m) => m.markerId == deletedMarker.markerId);
+              _allMarkers
+                  .removeWhere((m) => m.markerId == deletedMarker.markerId);
             });
           },
         ),
@@ -314,7 +316,6 @@ class MapSampleState extends State<MapSample> {
       _loadMarkers();
     }
   }
-
 
   Future<Uint8List> _bitmapDescriptorToBytes(
       BitmapDescriptor descriptor) async {
@@ -947,8 +948,17 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
             TextField(
               controller: _titleController,
               decoration: InputDecoration(
-                labelText: '이름',
-              ),
+                  label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.title, color: Colors.black),
+                  SizedBox(width: 2),
+                  Text(
+                    '이름',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              )),
             ),
             TextField(
               controller: _snippetController,
@@ -957,22 +967,50 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
               ),
             ),
             SizedBox(height: 16),
-            Text('주소: $_address'), // 주소 표시
-            SizedBox(height: 16),
-            DropdownButton<String>(
-              value: _selectedKeyword,
-              hint: Text('키워드 선택'),
-              items: keywords.map((String keyword) {
-                return DropdownMenuItem<String>(
-                  value: keyword,
-                  child: Text(keyword),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedKeyword = newValue;
-                });
-              },
+            Row(
+              children: [
+                Icon(Icons.location_on, color: Colors.red),
+                SizedBox(width: 8),
+                Text(
+                  '$_address',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.label, color: Colors.blue),
+                  SizedBox(height: 8),
+                  Expanded(
+                    child: DropdownButton<String>(
+                      value: _selectedKeyword,
+                      hint: Text('키워드 선택'),
+                      items: keywords.map((String keyword) {
+                        return DropdownMenuItem<String>(
+                          value: keyword,
+                          child: Text(keyword),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedKeyword = newValue;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 16.0),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
+              onPressed: _pickImage,
+              child: Text('이미지를 고르시오'),
             ),
             SizedBox(height: 16.0),
             _image != null
@@ -987,15 +1025,6 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
               ),
-              onPressed: _pickImage,
-              child: Text('이미지를 고르시오'),
-            ),
-            SizedBox(height: 16.0),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-              ),
               onPressed: () {
                 Navigator.pop(context, {
                   'title': _titleController.text,
@@ -1004,7 +1033,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                   'image': _image,
                 });
               },
-              child: Text('마커 저장'),
+              child: Text('SAVE'),
             ),
           ],
         ),
@@ -1029,6 +1058,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
     required this.keyword,
     required this.navigateToMarkerDetailPage,
   });
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1038,8 +1068,8 @@ class MarkerInfoBottomSheet extends StatelessWidget {
         children: <Widget>[
           GestureDetector(
             onTap: () {
-                Navigator.pop(context);
-                navigateToMarkerDetailPage(context, marker);
+              Navigator.pop(context);
+              navigateToMarkerDetailPage(context, marker);
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
