@@ -240,11 +240,11 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
         // onDelete 콜백 호출
         widget.onDelete(_marker);
 
-        // 이전 페이지를 제거하고 MapSample 페이지로 이동
-        // 이동하질 않음 나중에 고칠것
-        Navigator.of(context).pushAndRemoveUntil(
+        // 페이지 전환 코드
+        Navigator.pushAndRemoveUntil(
+          context,
           MaterialPageRoute(builder: (context) => MapSample()),
-              (route) => false,  // 모든 기존 페이지를 제거
+          ModalRoute.withName('/'), // 홈 화면으로 이동
         );
       } catch(e) {
         //삭제중 오류가 발생한 경우
