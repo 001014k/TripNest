@@ -222,6 +222,24 @@ class MapSampleState extends State<MapSample> {
     _updateMarker(updatedMarker, keyword, hue);
   }
 
+  // 기존 마커 수정
+  Future<void> _updateMarker(Marker marker, String keyword, double hue) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userMarkersCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('user_markers');
+
+      await userMarkersCollection.doc(marker.markerId.value).update({
+        'title': marker.infoWindow.title,
+        'snippet': marker.infoWindow.snippet,
+        'keyword': keyword,
+        'hue': hue,
+      });
+    }
+  }
+
   // 파이어베이스: 'set' vs 'update'
   // set: 기존 문서를 덮어 쓰거나 문서가 없을 경우 새로 생성
   // update: 문서가 이미 존재하는 경우에만 특정 필드를 수정하며 문서가 존재하지 않으면 에러를 발생
@@ -253,24 +271,50 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  // 기존 마커 수정
-  Future<void> _updateMarker(
-      Marker updatedMarker, String keyword, double hue) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final userMarkersCollection = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('user_markers');
+  // 마커 세부사항 페이지로 들어가 새로고침 하는 로직
+  void _navigateToMarkerDetailPage(BuildContext context,Marker marker) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MarkerDetailPage(
+          marker: marker,
+          onSave: (Marker updatedMarker, String updatedKeyword) {
+            setState(() {
+              // UI에서 마커 업데이트
+              _markers.removeWhere((m) => m.markerId == updatedMarker.markerId);
+              _markers.add(updatedMarker);
+              _allMarkers.removeWhere((m) => m.markerId == updatedMarker.markerId);
+              _allMarkers.add(updatedMarker);
 
-      await userMarkersCollection.doc(updatedMarker.markerId.value).update({
-        'title': updatedMarker.infoWindow.title,
-        'snippet': updatedMarker.infoWindow.snippet,
-        'keyword': keyword,
-        'hue': hue,
-      });
+              // 키워드 업데이트
+              _markerKeywords[updatedMarker.markerId] = updatedKeyword;
+            });
+
+            // Firestore에 마커 정보 업데이트
+            final hue = BitmapDescriptor.hueOrange;
+            _updateMarker(updatedMarker, updatedKeyword, hue);
+          },
+          keyword: _markerKeywords[marker.markerId] ?? 'default',
+          onBookmark: (Marker bookmarkedMarker) {
+            // 북마크 처리 로직
+          },
+          onDelete: (Marker deletedMarker) {
+            setState(() {
+              // 마커를 UI에서 제거
+              _markers.removeWhere((m) => m.markerId == deletedMarker.markerId);
+              _allMarkers.removeWhere((m) => m.markerId == deletedMarker.markerId);
+            });
+          },
+        ),
+      ),
+    );
+
+    // 마커 세부 페이지에서 돌아온 후 마커를 다시 로드
+    if (result == true) {
+      _loadMarkers();
     }
   }
+
 
   Future<Uint8List> _bitmapDescriptorToBytes(
       BitmapDescriptor descriptor) async {
@@ -328,7 +372,7 @@ class MapSampleState extends State<MapSample> {
       _selectedMarker = marker;
     });
     _showMarkerInfoBottomSheet(context, marker, (Marker markerToDelete) {
-      // 마커 삭제 로직 추가
+      // 마커 누르면 하단 창 나옴
     });
   }
 
@@ -391,6 +435,7 @@ class MapSampleState extends State<MapSample> {
           onBookmark: (marker) {
             _bookmarkLocation(marker);
           },
+          navigateToMarkerDetailPage: _navigateToMarkerDetailPage,
         ),
       ),
     );
@@ -974,6 +1019,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
   final Function(Marker) onDelete;
   final Function(Marker) onBookmark;
   final String keyword;
+  final Function(BuildContext, Marker) navigateToMarkerDetailPage;
 
   MarkerInfoBottomSheet({
     required this.marker,
@@ -981,8 +1027,8 @@ class MarkerInfoBottomSheet extends StatelessWidget {
     required this.onDelete,
     required this.onBookmark,
     required this.keyword,
+    required this.navigateToMarkerDetailPage,
   });
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -991,21 +1037,9 @@ class MarkerInfoBottomSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           GestureDetector(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MarkerDetailPage(
-                    marker: marker,
-                    onSave: (updatedMarker, keyword) {
-                      Navigator.pop(context, updatedMarker);
-                    },
-                    onDelete: onDelete,
-                    onBookmark: onBookmark,
-                    keyword: keyword,
-                  ),
-                ),
-              );
+            onTap: () {
+                Navigator.pop(context);
+                navigateToMarkerDetailPage(context, marker);
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

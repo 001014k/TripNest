@@ -6,6 +6,7 @@ import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'bookmark_provider.dart';
+import 'main.dart';
 
 class MarkerDetailPage extends StatefulWidget {
   final Marker marker;
@@ -235,16 +236,22 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('마커가 삭제되었습니다.')),
         );
-        Navigator.pop(context);
+
+        // onDelete 콜백 호출
+        widget.onDelete(_marker);
+
+        // 이전 페이지를 제거하고 MapSample 페이지로 이동
+        // 이동하질 않음 나중에 고칠것
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => MapSample()),
+              (route) => false,  // 모든 기존 페이지를 제거
+        );
       } catch(e) {
         //삭제중 오류가 발생한 경우
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('오류 발생: ${e.toString()}')),
         );
       }
-
-      // 마커 삭제후 이전 페이지로 이동
-      Navigator.pop(context);
     }
   }
 
