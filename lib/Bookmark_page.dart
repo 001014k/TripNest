@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'markerdetail_page.dart';
 
 class BookmarkPage extends StatelessWidget {
   Future<List<Marker>> loadBookmarks() async {
@@ -15,9 +16,11 @@ class BookmarkPage extends StatelessWidget {
       final snapshot = await userMarkersCollection.get();
       return snapshot.docs.map((doc) {
         //필드가 없을 경우 대비하여 기본값 설정
-        String title = doc.data().containsKey('title') ? doc ['title'] : '이름 없음';
-        String keyword = doc.data().containsKey('keyword') ? doc ['keyword'] : '키워드 없음';
-        String address = doc.data().containsKey('address') ? doc ['address'] : '주소 없음';
+        String title = doc.data().containsKey('title') ? doc['title'] : '이름 없음';
+        String keyword =
+            doc.data().containsKey('keyword') ? doc['keyword'] : '키워드 없음';
+        String address =
+            doc.data().containsKey('address') ? doc['address'] : '주소 없음';
 
         return Marker(
           markerId: MarkerId(doc.id),
@@ -67,14 +70,14 @@ class BookmarkPage extends StatelessWidget {
             itemCount: markers.length,
             itemBuilder: (context, index) {
               final marker = markers[index];
-              final details = marker.infoWindow.snippet?.split('\n') ?? ['',''];
+              final details =
+                  marker.infoWindow.snippet?.split('\n') ?? ['', ''];
               final keyword = details[0];
-              final address = details[1];
 
               return ListTile(
                 title: Row(
                   children: [
-                    Icon(Icons.location_on,color: Colors.red),
+                    Icon(Icons.location_on, color: Colors.red),
                     SizedBox(width: 8),
                     Text(
                       marker.infoWindow.title ?? '이름 없음',
@@ -90,7 +93,7 @@ class BookmarkPage extends StatelessWidget {
                         Icon(Icons.label, color: Colors.blue),
                         SizedBox(width: 8),
                         Text(
-                          '$keyword',
+                          '$keyword', // 키워드
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -98,9 +101,23 @@ class BookmarkPage extends StatelessWidget {
                     Divider(),
                   ],
                 ),
-                onTap: () {
-                  // 선택한 마커에 대한 추가 작업 가능
-                },
+                trailing: IconButton(
+                  icon: Icon(Icons.info_outline),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MarkerDetailPage(
+                          marker: marker,
+                          keyword: keyword,
+                          onSave: (Marker marker, String keyword) {},
+                          onDelete: (Marker marker) {},
+                          onBookmark: (Marker marker) {},
+                        ),
+                      ),
+                    );
+                  },
+                ),
               );
             },
           );

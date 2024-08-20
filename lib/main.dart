@@ -21,7 +21,6 @@ import 'user_list_page.dart';
 import 'SplashScreen_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'markerdetail_page.dart';
-import 'Bookmark_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
