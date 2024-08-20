@@ -377,6 +377,7 @@ class MapSampleState extends State<MapSample> {
     });
   }
 
+  //구글 마커 생성 클릭 이벤트
   void _onMapTapped(BuildContext context, LatLng latLng) {
     setState(() {
       _pendingLatLng = latLng;
