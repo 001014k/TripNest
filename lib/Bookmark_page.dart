@@ -67,13 +67,38 @@ class BookmarkPage extends StatelessWidget {
             itemCount: markers.length,
             itemBuilder: (context, index) {
               final marker = markers[index];
+              final details = marker.infoWindow.snippet?.split('\n') ?? ['',''];
+              final keyword = details[0];
+              final address = details[1];
+
               return ListTile(
-                title: Text(marker.infoWindow.title ?? '이름 없음'),
+                title: Row(
+                  children: [
+                    Icon(Icons.location_on),
+                    SizedBox(width: 8),
+                    Text(
+                      marker.infoWindow.title ?? '이름 없음',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('키워드: ${marker.infoWindow.snippet?.split('\n')[0] ?? '키워드 없음'}'),
-                    Text('주소: ${marker.infoWindow.snippet?.split('\n')[1] ?? '주소 없음'}'),
+                    Row(
+                      children: [
+                        Icon(Icons.label),
+                        SizedBox(width: 8),
+                        Text('키워드: $keyword'),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Icon(Icons.label),
+                        SizedBox(width: 8),
+                        Text('주소: $address'),
+                      ],
+                    )
                   ],
                 ),
                 onTap: () {
