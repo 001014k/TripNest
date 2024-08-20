@@ -74,7 +74,7 @@ class BookmarkPage extends StatelessWidget {
               return ListTile(
                 title: Row(
                   children: [
-                    Icon(Icons.location_on),
+                    Icon(Icons.location_on,color: Colors.red),
                     SizedBox(width: 8),
                     Text(
                       marker.infoWindow.title ?? '이름 없음',
@@ -87,18 +87,15 @@ class BookmarkPage extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.label),
+                        Icon(Icons.label, color: Colors.blue),
                         SizedBox(width: 8),
-                        Text('키워드: $keyword'),
+                        Text(
+                          '$keyword',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
-                    Row(
-                      children: [
-                        Icon(Icons.label),
-                        SizedBox(width: 8),
-                        Text('주소: $address'),
-                      ],
-                    )
+                    Divider(),
                   ],
                 ),
                 onTap: () {
