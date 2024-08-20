@@ -272,25 +272,6 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  Future<void> _deleteMarker(Marker marker) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final userMarkersCollection = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('user_markers');
-      await userMarkersCollection.doc(marker.markerId.value).delete();
-
-      setState(() {
-        _markers.remove(marker);
-        _allMarkers.remove(marker);
-        _filteredMarkers = _filteredMarkers
-            .where((m) => m.markerId != marker.markerId)
-            .toSet();
-      });
-    }
-  }
-
   Future<Uint8List> _bitmapDescriptorToBytes(
       BitmapDescriptor descriptor) async {
     // BitmapDescriptor를 바이트로 변환하는 로직을 추가해야 합니다.
@@ -380,7 +361,6 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-
   void _bookmarkLocation(Marker marker) {
     setState(() {
       bookmarkedMarkers.add(marker); // 마커를 북마크 리스트에 추가
@@ -390,7 +370,6 @@ class MapSampleState extends State<MapSample> {
       SnackBar(content: Text('북마크에 추가되었습니다.')),
     );
   }
-
 
   void _showMarkerInfoBottomSheet(
       BuildContext context, Marker marker, Function(Marker) onDelete) {
@@ -438,16 +417,21 @@ class MapSampleState extends State<MapSample> {
               // 키워드 가져오기 (marker.infowindow.snippet은 설명을 가져오는것)
               final keyword = marker.infoWindow.snippet ?? '키워드 없음';
               return ListTile(
-                leading: Icon(Icons.location_on),
+                leading: Icon(Icons.location_on, color: Colors.red),
                 title: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   // 제목과 키워드를 양쪽 끝으로 정렬
                   children: [
-                    Text(marker.infoWindow.title ?? '제목 없음'),
+                    Text(
+                      marker.infoWindow.title ?? '제목 없음',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Text(
                       keyword,
                       style: TextStyle(
-                          color: Colors.grey, fontSize: 12), //키워드 스타일 설정
+                          color: Colors.grey,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold), //키워드 스타일 설정
                     ),
                   ],
                 ),
@@ -692,14 +676,12 @@ class MapSampleState extends State<MapSample> {
               title: Text('북마크'),
               onTap: () async {
                 final result = await Navigator.push(
-                    context,
+                  context,
                   MaterialPageRoute(
                     builder: (context) => BookmarkPage(),
                   ),
-                    );
-                if (result != null && result is Marker) {
-
-                }
+                );
+                if (result != null && result is Marker) {}
                 print('북마크 is clicked');
               },
             ),

@@ -28,6 +28,7 @@ class MarkerDetailPage extends StatefulWidget {
 
 class _MarkerDetailPageState extends State<MarkerDetailPage> {
   late TextEditingController _titleController;
+  late Marker _marker;
   late String? _keyword;
   String? _address;
   bool _isBookmarked = false; // 북마크 상태를 추적하는 변수
@@ -64,6 +65,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   @override
   void initState() {
     super.initState();
+    _marker = widget.marker;
     _titleController =
         TextEditingController(text: widget.marker.infoWindow.title);
     _keyword = widget.keyword;
@@ -209,9 +211,41 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     Navigator.pop(context);
   }
 
-  void _deleteMarker() {
-    widget.onDelete(widget.marker);
-    Navigator.pop(context);
+  Future<void> _deleteMarker() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userMarkersCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('user_markers');
+
+      final userBookmarksCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('bookmarks');
+
+      try {
+        // 사용자 등록 마커 삭제
+        await userMarkersCollection.doc(_marker.markerId.value).delete();
+
+        // 사용자 북마크에서 해당 마커 삭제
+        await userBookmarksCollection.doc(_marker.markerId.value).delete();
+
+        // 성공적으로 삭제된 경우,UI를 업데이트하고 이전 페이지로 돌아가기
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('마커가 삭제되었습니다.')),
+        );
+        Navigator.pop(context);
+      } catch(e) {
+        //삭제중 오류가 발생한 경우
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류 발생: ${e.toString()}')),
+        );
+      }
+
+      // 마커 삭제후 이전 페이지로 이동
+      Navigator.pop(context);
+    }
   }
 
   void _showBottomSheet() {
