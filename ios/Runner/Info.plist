@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>이 앱은 사용자의 사진 라이브러리 접근 권한이 필요합니다.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -68,7 +70,7 @@
     <string>Editor</string>
     <key>CFBundleURLSchemes</key>
     <array>
-      <string>YOUR_REVERSED_CLIENT_ID</string>
+      <string>com.googleusercontent.apps.341897187439-jg6m0e88if7e6j655k1ig67pvr9f6g73</string>
     </array>
   </dict>
 </array>
