@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '341897187439',
     projectId: 'fluttertrip-c3ddb',
     storageBucket: 'fluttertrip-c3ddb.appspot.com',
-    iosBundleId: 'com.example.ios.fluttertrip',
+    iosBundleId: 'com.ios.fluttertrip',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '341897187439',
     projectId: 'fluttertrip-c3ddb',
     storageBucket: 'fluttertrip-c3ddb.appspot.com',
-    iosBundleId: 'com.example.ios.fluttertrip',
+    iosBundleId: 'com.ios.fluttertrip',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
