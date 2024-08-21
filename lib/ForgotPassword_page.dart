@@ -30,8 +30,9 @@ class ForgotPasswordPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text('Reset Password'),
+        title: Text('비밀번호 초기화',style: TextStyle(fontWeight: FontWeight.bold),),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -40,15 +41,24 @@ class ForgotPasswordPage extends StatelessWidget {
           children: <Widget>[
             TextField(
               controller: _emailController,
+              style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'Email',
+                labelText: '이메일',
+                hintText: '이메일을 입력하세요',
+                prefixIcon: Icon(Icons.email_outlined,color: Colors.white,),
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Colors.white),
               ),
             ),
             SizedBox(height: 20),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
               onPressed: () => _sendPasswordResetEmail(context),
-              child: Text('Send Password Reset Email'),
+              child: Text('암호 재설정 메일로 보내기',style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
