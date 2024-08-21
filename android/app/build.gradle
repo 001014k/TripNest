@@ -27,7 +27,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace = "com.example.ios.fluttertrip"
+    namespace = "com.ios.fluttertrip"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
