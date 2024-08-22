@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,30 +37,73 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   List<Marker> bookmarkedMarkers = [];
 
   void _openGoogleMaps() async {
-    final String googleMapsUrl =
-        'https://www.google.com/maps/dir/?api=1&destination=${widget.marker.position.latitude},${widget.marker.position.longitude}';
-    if (await canLaunch(googleMapsUrl)) {
-      await launch(googleMapsUrl);
+    //위치 권한 요청
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if(!serviceEnabled) {
+      return Future.error('Location services are disabled');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied.');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+          'Location permissions are permanently denied, we cannot request permissions.');
+    }
+
+    // 현재 위치 가져오기
+    Position currentPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+
+
+    final Uri googleMapsUrl = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&origin=${currentPosition.latitude},${currentPosition.longitude}&destination=${widget.marker.position.latitude},${widget.marker.position.longitude}');
+    if (await canLaunchUrl(googleMapsUrl)) {
+      await launchUrl(googleMapsUrl);
     } else {
       throw 'Could not open Google maps.';
     }
   }
 
   void _openKakaoMap() async {
-    final String kakaMapUrl =
-        'kakaomap://route?ep=${widget.marker.position.latitude},${widget.marker.position.longitude}&by=CAR';
-    if (await canLaunch(kakaMapUrl)) {
-      await launch(kakaMapUrl);
-    } else {
-      //앱이 설치 되어 있지 않으면 카카오맵 설치 페이지로 이동
-      final String kakaoMapInstallUrl = Platform.isIOS
-          ? 'https://apps.apple.com/kr/app/id304608425' // iOS 앱 스토어 URL
-          : 'https://play.google.com/store/apps/details?id=net.daum.android.map';
-      if (await canLaunch(kakaoMapInstallUrl)) {
-        await launch(kakaoMapInstallUrl);
+    try {
+      // 현재 위치 가져오기
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
+      double userLat = position.latitude;
+      double userLng = position.longitude;
+
+      // 카카오 맵 URL 생성
+      final String kakaoMapUrl = Platform.isAndroid
+          ? 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position.latitude},${widget.marker.position.longitude}&by=CAR'
+          : 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position.latitude},${widget.marker.position.longitude}&by=CAR';
+
+      final Uri kakaoMapUri = Uri.parse(kakaoMapUrl);
+
+      // 카카오맵 실행 시도
+      if (await canLaunchUrl(kakaoMapUri)) {
+        await launchUrl(kakaoMapUri);
       } else {
-        throw 'Could not open kakao Map.';
+        // 앱이 설치 되어 있지 않으면 카카오맵 설치 페이지로 이동
+        final Uri kakaoMapInstallUrl = Platform.isIOS
+            ? Uri.parse('https://apps.apple.com/kr/app/id304608425') // iOS 앱 스토어 URL
+            : Uri.parse('https://play.google.com/store/apps/details?id=net.daum.android.map');
+        if (await canLaunchUrl(kakaoMapInstallUrl)) {
+          await launchUrl(kakaoMapInstallUrl);
+        } else {
+          throw 'Could not open Kakao Map.';
+        }
       }
+    } catch (e) {
+      print('Error: $e');
     }
   }
 
