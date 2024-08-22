@@ -34,6 +34,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   late String? _keyword;
   String? _address;
   bool _isBookmarked = false; // 북마크 상태를 추적하는 변수
+  String? _selectedListId;
   List<Marker> bookmarkedMarkers = [];
 
   void _openGoogleMaps() async {
@@ -125,26 +126,51 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     _checkIfBookmarked();
   }
 
-  Future<void> deleteBookmark(Marker marker) async {
+  // BookmarkPage에서 사용한 loadLists 메서드 추가
+  Future<List<Map<String, dynamic>>> loadLists() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userListsCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('lists');
+
+      final snapshot = await userListsCollection.get();
+      return snapshot.docs.map((doc) {
+        return {
+          'id': doc.id,
+          'title': doc['title'],
+          'createdAt': doc['createdAt'].toDate(),
+        };
+      }).toList();
+    }
+    return [];
+  }
+
+  Future<void> deleteBookmark(Marker marker,String listId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
+          .collection('lists') // 'lists' 컬렉션에 저장
+          .doc(listId) // 특정 리스트의 ID 사용
           .collection('bookmarks')
           .doc(marker.markerId.value)
           .delete();
     }
   }
 
-  Future<void> saveBookmark(Marker marker, String keyword) async {
+  Future<void> saveBookmark(Marker marker, String keyword, String listId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .collection('bookmarks')
-          .doc(marker.markerId.value)
+          .collection('lists') // 'lists' 컬렉션에 저장
+          .doc(listId) // 특정 리스트의 ID 사용
+          .collection('bookmarks') // 해당 리스트의 북마크 컬렉션
+          .doc(marker.markerId.value) // 북마크 ID로 문서 저장
           .set({
         'lat': marker.position.latitude,
         'lng': marker.position.longitude,
@@ -154,13 +180,15 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     }
   }
 
-  Future<List<Marker>> loadBookmarks() async {
+  Future<List<Marker>> loadBookmarks(String listId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .collection('bookmarks');
+          .collection('lists') // 'lists' 컬렉션에서
+          .doc(listId) // 특정 리스트의 ID 사용
+          .collection('bookmarks'); // 해당 리스트의 북마크 컬렉션
 
       final snapshot = await userMarkersCollection.get();
       return snapshot.docs.map((doc) {
@@ -170,7 +198,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
           infoWindow: InfoWindow(
             title: doc['title'],
             snippet:
-                doc.data().containsKey('snippet') ? doc['snippet'] : '기본 스니펫',
+            doc.data().containsKey('snippet') ? doc['snippet'] : '기본 스니펫',
           ),
         );
       }).toList();
@@ -198,23 +226,75 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   }
 
   void _bookmarkLocation() async {
-    setState(() {
-      if (_isBookmarked) {
-        // 이미 북마크 되어 있는 경우 북마크 해제
-        deleteBookmark(widget.marker);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    if (_isBookmarked) {
+      // 북마크 해제 로직
+    } else {
+      // 리스트 선택 다이얼로그 호출
+      String? selectedListId;// 초기화
+
+      selectedListId = await showDialog<String>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('리스트 선택'),
+            content: FutureBuilder<List<Map<String, dynamic>>>(
+              future: loadLists(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Text('생성된 리스트가 없습니다.');
+                }
+
+                final lists = snapshot.data!;
+                return SingleChildScrollView(
+                  child: Column(
+                    children: lists.map((list) {
+                      return RadioListTile<String>(
+                        title: Text(list['title']),
+                        value: list['id'],
+                        groupValue: selectedListId,
+                        onChanged: (value) {
+                          selectedListId = value;
+                          setState(() {});
+                          Navigator.pop(context, value);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // 아무 리스트도 선택하지 않음
+                },
+                child: Text('취소'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (selectedListId != null) {
+        // 선택된 리스트에 북마크 추가
+        await saveBookmark(widget.marker, widget.keyword, selectedListId!);
+        setState(() {
+          _isBookmarked = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('북마크가 해제되었습니다.')),
-        );
-      } else {
-        // 북마크 되어 있지 않은 경우 북마크 추가
-        saveBookmark(widget.marker, _keyword ?? '');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('북마크에 추가되었습니다.')),
+          SnackBar(content: Text('북마크가 리스트에 추가되었습니다.')),
         );
       }
-      _isBookmarked = !_isBookmarked; // 북마크 상태 업데이트
-    });
+    }
   }
+
 
   Future<void> _getAddressFromCoordinates(
       double latitude, double longitude) async {
