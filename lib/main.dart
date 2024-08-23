@@ -357,7 +357,7 @@ class MapSampleState extends State<MapSample> {
               _currentLocation!.latitude!,
               _currentLocation!.longitude!,
             ),
-            zoom: 30,
+            zoom: 15,
           ),
         ),
       );
