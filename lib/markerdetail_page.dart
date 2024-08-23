@@ -107,6 +107,41 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     }
   }
 
+  // 네이버 앱 실행
+  void _openNaverMap() async {
+    try {
+      // 현재 위치 가져오기
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
+      double userLat = position.latitude;
+      double userLng = position.longitude;
+
+      // 네이버 맵 URL 생성
+      final String naverMapUrl = Platform.isAndroid
+          ? 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget.marker.position.latitude}&dlng=${widget.marker.position.longitude}&dname=Destination'
+          : 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget.marker.position.latitude}&dlng=${widget.marker.position.longitude}&dname=Destination';
+
+      final Uri naverMapUri = Uri.parse(naverMapUrl);
+
+      // 네이버맵 실행 시도
+      if (await canLaunchUrl(naverMapUri)) {
+        await launchUrl(naverMapUri);
+      } else {
+        // 앱이 설치 되어 있지 않으면 네이버맵 설치 페이지로 이동
+        final Uri naverMapInstallUrl = Platform.isIOS
+            ? Uri.parse('https://apps.apple.com/kr/app/id311867728') // iOS 앱 스토어 URL
+            : Uri.parse('https://play.google.com/store/apps/details?id=com.nhn.android.nmap');
+        if (await canLaunchUrl(naverMapInstallUrl)) {
+          await launchUrl(naverMapInstallUrl);
+        } else {
+          throw 'Could not open Naver Map.';
+        }
+      }
+    } catch (e) {
+      print('Error: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -341,6 +376,25 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                     SizedBox(width: 8),
                     Text(
                       '카카오맵',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(), // 구분선 추가
+              ElevatedButton(
+                onPressed: _openNaverMap,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(Icons.directions, color: Colors.black),
+                    SizedBox(width: 8),
+                    Text(
+                      '네이버맵',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.black,

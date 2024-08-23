@@ -720,7 +720,7 @@ class MapSampleState extends State<MapSample> {
                 Icons.question_answer,
                 color: Colors.grey[850],
               ),
-              title: Text('북마크 리스트'),
+              title: Text('북마크'),
               onTap: () async {
                 final result = await Navigator.push(
                   context,
