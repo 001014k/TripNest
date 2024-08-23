@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertrip/listdetail_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'markerdetail_page.dart';
-import 'create_list_page.dart';
 
 class BookmarkPage extends StatelessWidget {
   Future<List<Marker>> loadBookmarks() async {
@@ -17,6 +15,7 @@ class BookmarkPage extends StatelessWidget {
 
       final snapshot = await userMarkersCollection.get();
       return snapshot.docs.map((doc) {
+        //필드가 없을 경우 대비하여 기본값 설정
         String title = doc.data().containsKey('title') ? doc['title'] : '이름 없음';
         String keyword =
         doc.data().containsKey('keyword') ? doc['keyword'] : '키워드 없음';
@@ -27,31 +26,10 @@ class BookmarkPage extends StatelessWidget {
           markerId: MarkerId(doc.id),
           position: LatLng(doc['lat'], doc['lng']),
           infoWindow: InfoWindow(
-            title: title,
-            snippet: '$keyword\n$address',
+            title: title, // 마커이름을 title로 사용
+            snippet: '$keyword\n$address', //키워드와 주소를 snippet으로 사용
           ),
         );
-      }).toList();
-    }
-    return [];
-  }
-
-  Future<List<Map<String, dynamic>>> loadLists() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final userListsCollection = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('lists');
-
-      final snapshot = await userListsCollection.get();
-      print('Lists loaded: ${snapshot.docs.length}'); // 디버깅 코드
-      return snapshot.docs.map((doc) {
-        return {
-          'id': doc.id,
-          'title': doc['title'],
-          'createdAt': doc['createdAt'].toDate(),
-        };
       }).toList();
     }
     return [];
@@ -64,132 +42,82 @@ class BookmarkPage extends StatelessWidget {
         title: Text('북마크 목록'),
         actions: [
           IconButton(
-            icon: Icon(Icons.add),
+            icon: Icon(Icons.check),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CreateListPage(),
-                ),
-              );
+              Navigator.pop(context);
             },
-          ),
+          )
         ],
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: loadLists(),
-        builder: (context, listSnapshot) {
-          if (listSnapshot.connectionState == ConnectionState.waiting) {
+      body: FutureBuilder<List<Marker>>(
+        future: loadBookmarks(), // 직접 Firestore에서 북마크 불러오기
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           }
 
-          if (listSnapshot.hasError) {
-            return Center(child: Text('오류가 발생했습니다: ${listSnapshot.error}'));
+          if (snapshot.hasError) {
+            return Center(child: Text('오류가 발생했습니다: ${snapshot.error}'));
           }
 
-          if (!listSnapshot.hasData || listSnapshot.data!.isEmpty) {
-            return Center(child: Text('생성된 리스트가 없습니다.'));
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return Center(child: Text('북마크가 없습니다.'));
           }
 
-          final lists = listSnapshot.data!;
+          final markers = snapshot.data!;
 
-          return FutureBuilder<List<Marker>>(
-            future: loadBookmarks(),
-            builder: (context, bookmarkSnapshot) {
-              if (bookmarkSnapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              }
+          return ListView.builder(
+            itemCount: markers.length,
+            itemBuilder: (context, index) {
+              final marker = markers[index];
+              final details =
+                  marker.infoWindow.snippet?.split('\n') ?? ['', ''];
+              final keyword = details[0];
 
-              if (bookmarkSnapshot.hasError) {
-                return Center(
-                    child:
-                    Text('오류가 발생했습니다: ${bookmarkSnapshot.error}'));
-              }
-
-              final markers = bookmarkSnapshot.data ?? [];
-
-              return ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      '리스트',
-                      style: Theme.of(context).textTheme.titleLarge,
+              return ListTile(
+                title: Row(
+                  children: [
+                    Icon(Icons.location_on, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text(
+                      marker.infoWindow.title ?? '이름 없음',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  for (var list in lists)
-                    ListTile(
-                      title: Text(list['title']),
-                      subtitle: Text('생성일: ${list['createdAt']}'),
-                      onTap: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => ListDetailPage(
-                                  listId: list['id'], listTitle: list['title'],
-                                ),
-                            ),
-                        );
-                      },
+                  ],
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.label, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text(
+                          '$keyword', // 키워드
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
-                  Divider(),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      '북마크',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  for (var marker in markers)
-                    ListTile(
-                      title: Row(
-                        children: [
-                          Icon(Icons.location_on, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text(
-                            marker.infoWindow.title ?? '이름 없음',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                    Divider(),
+                  ],
+                ),
+                trailing: IconButton(
+                  icon: Icon(Icons.info_outline),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MarkerDetailPage(
+                          marker: marker,
+                          keyword: keyword,
+                          onSave: (Marker marker, String keyword) {},
+                          onDelete: (Marker marker) {},
+                          onBookmark: (Marker marker) {},
+                        ),
                       ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.label, color: Colors.blue),
-                              SizedBox(width: 8),
-                              Text(
-                                marker.infoWindow.snippet?.split('\n')[0] ??
-                                    '키워드 없음',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          Divider(),
-                        ],
-                      ),
-                      trailing: IconButton(
-                        icon: Icon(Icons.info_outline),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MarkerDetailPage(
-                                marker: marker,
-                                keyword:
-                                marker.infoWindow.snippet?.split('\n')[0] ??
-                                    '',
-                                onSave: (Marker marker, String keyword) {},
-                                onDelete: (Marker marker) {},
-                                onBookmark: (Marker marker) {},
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
+                    );
+                  },
+                ),
               );
             },
           );
