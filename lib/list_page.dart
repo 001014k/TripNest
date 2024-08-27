@@ -64,24 +64,24 @@ class _ListPageState extends State<ListPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Create New List'),
+          title: Text('새 리스트 생성'),
           content: TextField(
             controller: _listNameController,
-            decoration: InputDecoration(labelText: 'List Name'),
+            decoration: InputDecoration(labelText: '리스트 이름'),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Cancel'),
-            ),
             ElevatedButton(
               onPressed: () {
                 _createList();
                 Navigator.of(context).pop();
               },
-              child: Text('Create'),
+              child: Text('생성'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('취소'),
             ),
           ],
         );
@@ -119,16 +119,16 @@ class _ListPageState extends State<ListPage> {
                   context: context,
                   builder: (BuildContext context) {
                     return AlertDialog(
-                      title: Text('Delete List'),
-                      content: Text('Are you sure you want to delete this list and all its markers?'),
+                      title: Text('리스트 삭제'),
+                      content: Text('리스트를 삭제할건가요?'),
                       actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: Text('Cancel'),
-                        ),
                         ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(true),
-                          child: Text('Delete'),
+                          child: Text('삭제'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: Text('취소'),
                         ),
                       ],
                     );
@@ -149,7 +149,7 @@ class _ListPageState extends State<ListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Your Lists'),
+        title: Text('리스트'),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -169,11 +169,23 @@ class _ListPageState extends State<ListPage> {
             itemCount: lists.length,
             itemBuilder: (context, index) {
               final list = lists[index];
-              return ListTile(
-                title: Text(list['name']),
-                onTap: () {
-                  _showListOptions(list.id);
-                },
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0), // 리스트 간 간격 설정
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Icon(Icons.list_alt), // 리스트 아이콘 추가
+                      title: Text(
+                        list['name'],
+                        style: TextStyle(fontWeight: FontWeight.bold), // 텍스트를 굵게 표시
+                      ),
+                      onTap: () {
+                        _showListOptions(list.id);
+                      },
+                    ),
+                    Divider(), // 구분선 추가
+                  ],
+                ),
               );
             },
           );

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'main.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'login_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'Bookmark_page.dart';
+import 'page.dart';
 
 void main() {
   runApp(MyApp());
@@ -198,15 +197,15 @@ class ProfilePage extends StatelessWidget {
             ),
             ListTile(
               leading: Icon(
-                Icons.question_answer,
+                Icons.list,
                 color: Colors.grey[850],
               ),
-              title: Text('북마크'),
+              title: Text('북마크/리스트'),
               onTap: () async {
                 final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => BookmarkPage(),
+                    builder: (context) => MainPage(),
                   ),
                 );
                 if (result != null && result is Marker) {

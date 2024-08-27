@@ -1,16 +1,12 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fluttertrip/Bookmark_page.dart';
-import 'package:fluttertrip/list_page.dart';
-import 'package:http/http.dart' as http;
 import 'package:fluttertrip/Dashboard_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart' as location;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as path;
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,8 +18,7 @@ import 'user_list_page.dart';
 import 'SplashScreen_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'markerdetail_page.dart';
-import 'addmarkerstolist_page.dart';
-import 'package:geolocator/geolocator.dart';
+import 'page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -720,32 +715,15 @@ class MapSampleState extends State<MapSample> {
             ),
             ListTile(
               leading: Icon(
-                Icons.question_answer,
+                Icons.list,
                 color: Colors.grey[850],
               ),
-              title: Text('북마크'),
-              onTap: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BookmarkPage(),
-                  ),
-                );
-                if (result != null && result is Marker) {}
-                print('북마크 is clicked');
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.route,
-                color: Colors.grey[850],
-              ),
-              title: Text('계획'),
+              title: Text('북마크/리스트'),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => ListPage(),
+                      builder: (context) => MainPage(),
                   ),
                 );
               },
