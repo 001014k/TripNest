@@ -40,14 +40,6 @@ class BookmarkPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('북마크 목록'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.check),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          )
-        ],
       ),
       body: FutureBuilder<List<Marker>>(
         future: loadBookmarks(), // 직접 Firestore에서 북마크 불러오기
