@@ -35,6 +35,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   late Marker _marker;
   late String? _keyword;
   String? _address;
+  bool _isLoadingImages = false; // 로딩 상태를 나타내는 변수
   bool _isBookmarked = false; // 북마크 상태를 추적하는 변수
   List<Marker> bookmarkedMarkers = [];
   List<String> _imageUrls = []; // 사진 URL을 저장할 리스트
@@ -164,8 +165,9 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   void initState() {
     super.initState();
     _marker = widget.marker;
-    _titleController =
-        TextEditingController(text: widget.marker.infoWindow.title);
+    _titleController = TextEditingController(text: widget.marker.infoWindow.title);
+    _isLoadingImages = true; // 이미지를 로드하기 시작할 때 로딩 상태를 설정
+    _loadImages(); // 이미지를 로드하는 메서드 호출
     _keyword = widget.keyword;
 
     // 좌표로 부터 주소 가져오기
@@ -181,21 +183,40 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   }
 
   Future<void> _loadImages() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('marker_images')
-          .where('markerId', isEqualTo: _marker.markerId.value)
-          .get();
+    setState(() {
+      _isLoadingImages = true; // 이미지 로드 시작 시 로딩 상태 설정
+    });
 
-      final urls = snapshot.docs.map((doc) => doc['url'] as String).toList();
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('marker_images')
+            .where('markerId', isEqualTo: _marker.markerId.value)
+            .get();
+
+        final urls = snapshot.docs.map((doc) => doc['url'] as String).toList();
+        setState(() {
+          _imageUrls = urls;
+        });
+      } else {
+        print('No user is logged in.');
+        setState(() {
+          _imageUrls = []; // 사용자 정보가 없을 때는 빈 목록으로 설정
+        });
+      }
+    } catch (e) {
+      print('Error loading images: $e');
+      // 오류 발생 시 사용자에게 알림을 표시하거나 로그를 남기는 등의 처리
+    } finally {
       setState(() {
-        _imageUrls = urls;
+        _isLoadingImages = false; // 이미지 로드 완료 후 로딩 상태 해제
       });
     }
   }
+
 
   Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
@@ -659,7 +680,11 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                             ),
                           ),
                           SizedBox(height: 10),
-                          _imageUrls.isEmpty
+                          _isLoadingImages
+                          ? Center(
+                            child: CircularProgressIndicator(), // 로딩 인디케이터
+                          )
+                          :_imageUrls.isEmpty
                               ? Text('사진이 없습니다.')
                               : Container(
                             height: 200, // 슬라이더 높이 설정
