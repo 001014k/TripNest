@@ -24,7 +24,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'markerdetail_page.dart';
 import 'addmarkerstolist_page.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_directions_api/google_directions_api.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
