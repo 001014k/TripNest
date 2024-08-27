@@ -3,9 +3,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
-import 'dart:io' show Platform;
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'bookmark_provider.dart';
 import 'main.dart';
 
@@ -35,6 +37,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   String? _address;
   bool _isBookmarked = false; // 북마크 상태를 추적하는 변수
   List<Marker> bookmarkedMarkers = [];
+  List<String> _imageUrls = []; // 사진 URL을 저장할 리스트
+  final ImagePicker _picker = ImagePicker(); // ImagePicker 인스턴스 생성
 
   void _openGoogleMaps() async {
     //위치 권한 요청
@@ -158,6 +162,65 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
 
     //초기 상태에서 북마크 여부확인
     _checkIfBookmarked();
+    // 사진 로드
+    _loadImages();
+  }
+
+  Future<void> _loadImages() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('marker_images')
+          .where('markerId', isEqualTo: _marker.markerId.value)
+          .get();
+
+      final urls = snapshot.docs.map((doc) => doc['url'] as String).toList();
+      setState(() {
+        _imageUrls = urls;
+      });
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final file = File(pickedFile.path);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('marker_images')
+            .child(user.uid)
+            .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+        try {
+          await storageRef.putFile(file);
+          final downloadUrl = await storageRef.getDownloadURL();
+
+          // Firestore에 이미지 URL 저장
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('marker_images')
+              .add({
+            'markerId': _marker.markerId.value,
+            'url': downloadUrl,
+          });
+
+          setState(() {
+            _imageUrls.add(downloadUrl);
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('사진이 추가되었습니다.')),
+          );
+        } catch (e) {
+          print('Error uploading image: $e');
+        }
+      }
+    }
   }
 
   Future<void> deleteBookmark(Marker marker) async {
@@ -458,7 +521,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
             ),
             SizedBox(height: 4),
             Container(
-              height: 2, //언더바의 두께
+              height: 2, // 언더바의 두께
               color: Colors.black,
               width: double.infinity, // 화면 전체 너비로 언더바 확장
             ),
@@ -477,8 +540,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
             _address != null
                 ? Row(
               children: [
-                Icon(Icons.location_on,
-                    color: Colors.red), // 주소 옆에 아이콘 추가
+                Icon(Icons.location_on, color: Colors.red), // 주소 옆에 아이콘 추가
                 SizedBox(width: 8),
                 Text('$_address',
                     style: TextStyle(
@@ -487,66 +549,126 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
             )
                 : CircularProgressIndicator(), // 주소를 로드 중일 때 로딩 표시
             SizedBox(height: 20), // 버튼 사이의 여백
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              // 버튼간의 간격을 균등하게 분배
-              children: [
-                ElevatedButton(
-                  onPressed: _showBottomSheet,
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.zero, // 모서리를 직각으로 설정
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min, //텍스트와 아이콘의 크기에 맞게 버튼 크기 조정
-                    children: [
-                      Icon(Icons.directions, color: Colors.black),
-                      SizedBox(width: 8), //아이콘과 텍스트 사이의 간격
-                      Text(
-                        '길찾기',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      // 버튼 간의 간격을 균등하게 분배
+                      children: [
+                        ElevatedButton(
+                          onPressed: _showBottomSheet,
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.zero, // 모서리를 직각으로 설정
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min, // 텍스트와 아이콘의 크기에 맞게 버튼 크기 조정
+                            children: [
+                              Icon(Icons.directions, color: Colors.black),
+                              SizedBox(width: 8), // 아이콘과 텍스트 사이의 간격
+                              Text(
+                                '길찾기',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: _bookmarkLocation,
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.zero, // 네모난 모서리
-                    ),
-                    backgroundColor: _isBookmarked
-                        ? Colors.grey[300]
-                        : Colors.white, // 버튼 배경 색상 변경
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.bookmark,
-                        color: _isBookmarked
-                            ? Colors.grey
-                            : Colors.black, // 아이콘 색상 변경
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        _isBookmarked ? '북마크 해제' : '북마크', // 텍스트 변경
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: _isBookmarked
-                              ? Colors.black
-                              : Colors.black, // 텍스트 색상 변경
+                        ElevatedButton(
+                          onPressed: _bookmarkLocation,
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.zero, // 네모난 모서리
+                            ),
+                            backgroundColor: _isBookmarked
+                                ? Colors.grey[300]
+                                : Colors.white, // 버튼 배경 색상 변경
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.bookmark,
+                                color: _isBookmarked
+                                    ? Colors.grey
+                                    : Colors.black, // 아이콘 색상 변경
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                _isBookmarked ? '북마크 해제' : '북마크', // 텍스트 변경
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _isBookmarked
+                                      ? Colors.black
+                                      : Colors.black, // 텍스트 색상 변경
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                    // 사진 표시 부분
+                    Container(
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ],
-                  ),
+                      child: Column(
+                        children: [
+                          Text(
+                            '저장한 사진',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          _imageUrls.isEmpty
+                              ? Text('사진이 없습니다.')
+                              : Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _imageUrls.map((url) {
+                              return Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  image: DecorationImage(
+                                    image: NetworkImage(url),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          SizedBox(height: 10),
+                          ElevatedButton(
+                            onPressed: _pickImage,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add_a_photo),
+                                SizedBox(width: 8),
+                                Text('사진 추가'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            )
+              ),
+            ),
           ],
         ),
       ),
