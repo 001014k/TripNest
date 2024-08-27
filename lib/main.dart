@@ -23,6 +23,8 @@ import 'SplashScreen_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'markerdetail_page.dart';
 import 'addmarkerstolist_page.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_directions_api/google_directions_api.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -739,7 +741,7 @@ class MapSampleState extends State<MapSample> {
                 Icons.route,
                 color: Colors.grey[850],
               ),
-              title: Text('경로 페이지'),
+              title: Text('계획'),
               onTap: () {
                 Navigator.push(
                   context,
@@ -1148,104 +1150,6 @@ class MarkerInfoBottomSheet extends StatelessWidget {
             ],
           )
         ],
-      ),
-    );
-  }
-}
-
-class MainMapPage extends StatefulWidget {
-  final String listId;
-
-  MainMapPage({required this.listId});
-
-  final String mapStyle = '''
-  [
-    {
-      "featureType": "poi",
-      "elementType": "labels.icon",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    }
-  ]
-  ''';
-
-  @override
-  _MainMapPageState createState() => _MainMapPageState();
-}
-
-class _MainMapPageState extends State<MainMapPage> {
-  late GoogleMapController mapController;
-  final Set<Marker> _markers = {};
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadMarkers();
-  }
-
-  Future<void> _loadMarkers() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('lists')
-          .doc(widget.listId)
-          .collection('bookmarks')
-          .get();
-
-      final markers = snapshot.docs.map((doc) {
-        return Marker(
-          markerId: MarkerId(doc.id),
-          position: LatLng(doc['lat'], doc['lng']),
-          infoWindow: InfoWindow(
-            title: doc['title'],
-          ),
-        );
-      }).toSet();
-
-      setState(() {
-        _markers.addAll(markers);
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _onMapCreated(GoogleMapController controller) {
-    mapController = controller;
-  }
-
-  // 최적 경로 계산 로직은 여기서 구현 (예: Directions API 사용)
-  void _calculateOptimalRoute() {
-    // 최적 경로 계산 로직
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Optimal Route'),
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : GoogleMap(
-        onMapCreated: _onMapCreated,
-        initialCameraPosition: CameraPosition(
-          target: _markers.isNotEmpty
-              ? _markers.first.position
-              : LatLng(37.7749, -122.4194), // 기본 위치
-          zoom: 12.0,
-        ),
-        markers: _markers,
-        // 추가적으로 경로를 표시하려면 Polyline 등을 사용
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _calculateOptimalRoute,
-        child: Icon(Icons.directions),
       ),
     );
   }

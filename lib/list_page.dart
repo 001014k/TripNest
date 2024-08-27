@@ -97,19 +97,6 @@ class _ListPageState extends State<ListPage> {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             ListTile(
-              leading: Icon(Icons.directions),
-              title: Text('최적 경로 보기'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MainMapPage(listId: listId),
-                  ),
-                );
-              },
-            ),
-            ListTile(
               leading: Icon(Icons.info),
               title: Text('리스트 내 마커 정보 보기'),
               onTap: () {
