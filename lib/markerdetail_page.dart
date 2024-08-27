@@ -429,17 +429,20 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
               ),
               SizedBox(height: 16),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
+                ),
                 onPressed: _openGoogleMaps,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.directions, color: Colors.black),
+                    Icon(Icons.directions, color: Colors.white),
                     SizedBox(width: 8),
                     Text(
                       '구글맵',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: Colors.white,
                         fontSize: 16,
                       ),
                     ),
@@ -448,17 +451,20 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
               ),
               Divider(), //구분선 추가
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
+                ),
                 onPressed: _openKakaoMap,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.directions, color: Colors.black),
+                    Icon(Icons.directions, color: Colors.yellowAccent),
                     SizedBox(width: 8),
                     Text(
                       '카카오맵',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: Colors.white,
                         fontSize: 16,
                       ),
                     ),
@@ -467,17 +473,20 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
               ),
               Divider(), // 구분선 추가
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
+                ),
                 onPressed: _openNaverMap,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.directions, color: Colors.black),
+                    Icon(Icons.directions, color: Colors.green),
                     SizedBox(width: 8),
                     Text(
                       '네이버맵',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: Colors.white,
                         fontSize: 16,
                       ),
                     ),
@@ -675,12 +684,24 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                           SizedBox(height: 10),
                           ElevatedButton(
                             onPressed: _pickImage,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white, // 버튼의 배경색을 흰색으로 설정
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.add_a_photo),
+                                Icon(
+                                  Icons.add_a_photo,
+                                  color: Colors.black, // 아이콘 색상을 검은색으로 설정
+                                ),
                                 SizedBox(width: 8),
-                                Text('사진 추가'),
+                                Text(
+                                  '사진 추가',
+                                  style: TextStyle(
+                                    color: Colors.black, // 텍스트 색상을 검은색으로 설정
+                                    fontWeight: FontWeight.bold, // 텍스트를 볼드체로 설정
+                                  ),
+                                ),
                               ],
                             ),
                           ),
