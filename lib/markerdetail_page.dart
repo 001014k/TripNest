@@ -8,8 +8,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
+import 'dart:typed_data';
 import 'bookmark_provider.dart';
 import 'main.dart';
+
 
 class MarkerDetailPage extends StatefulWidget {
   final Marker marker;
@@ -219,21 +222,41 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
 
 
   Future<void> _pickImage() async {
+    final ImagePicker _picker = ImagePicker();
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+
     if (pickedFile != null) {
       final file = File(pickedFile.path);
       final user = FirebaseAuth.instance.currentUser;
+
       if (user != null) {
         final storageRef = FirebaseStorage.instance
             .ref()
             .child('marker_images')
             .child(user.uid)
-            .child('${DateTime
-            .now()
-            .millisecondsSinceEpoch}.jpg');
+            .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
 
         try {
-          await storageRef.putFile(file);
+          // 이미지 읽기
+          final bytes = await file.readAsBytes();
+          img.Image? image = img.decodeImage(Uint8List.fromList(bytes));
+
+          // 이미지 회전
+          if (image != null) {
+            image = img.copyRotate(image, 90); // 회전 각도 조절 가능
+
+            // 이미지 비율 유지
+            final width = 800; // 원하는 너비
+            final height = (width * image.height) ~/ image.width;
+            image = img.copyResize(image, width: width, height: height);
+          }
+
+          // 회전된 이미지를 임시 파일로 저장
+          final rotatedFile = File('${file.path}_rotated.jpg')
+            ..writeAsBytesSync(img.encodeJpg(image!));
+
+          // Firebase Storage에 업로드
+          await storageRef.putFile(rotatedFile);
           final downloadUrl = await storageRef.getDownloadURL();
 
           // Firestore에 이미지 URL 저장
@@ -255,6 +278,9 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
           );
         } catch (e) {
           print('Error uploading image: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('사진 업로드 중 오류가 발생했습니다.')),
+          );
         }
       }
     }
@@ -671,6 +697,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             '저장한 사진',
@@ -681,26 +708,43 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                           ),
                           SizedBox(height: 10),
                           _isLoadingImages
-                          ? Center(
+                              ? Center(
                             child: CircularProgressIndicator(), // 로딩 인디케이터
                           )
-                          :_imageUrls.isEmpty
+                              : _imageUrls.isEmpty
                               ? Text('사진이 없습니다.')
                               : Container(
                             height: 200, // 슬라이더 높이 설정
                             child: PageView.builder(
                               itemCount: _imageUrls.length,
                               itemBuilder: (context, index) {
-                                return Container(
-                                  margin: EdgeInsets.symmetric(
-                                      horizontal: 10.0),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    image: DecorationImage(
-                                      image: NetworkImage(
-                                          _imageUrls[index]),
-                                      fit: BoxFit.cover,
+                                return GestureDetector(
+                                  onTap: () async {
+                                    // 전체 화면에서 이미지 보기
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ImageViewPage(
+                                          imageUrls: _imageUrls,
+                                          initialIndex: index,
+                                        ),
+                                      ),
+                                    );
+                                    // result가 true일 경우 이미지를 다시 로드
+                                    if (result == true) {
+                                      _loadImages(); // 이미지를 다시 불러오는 함수
+                                    }
+                                  },
+                                  child: Container(
+                                    margin: EdgeInsets.symmetric(horizontal: 10.0),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      image: DecorationImage(
+                                        image: NetworkImage(_imageUrls[index]),
+                                        fit: BoxFit.cover,
+                                      ),
                                     ),
+                                    constraints: BoxConstraints.expand(), // 세로로 꽉 차도록 설정
                                   ),
                                 );
                               },
@@ -732,13 +776,85 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                           ),
                         ],
                       ),
-                    ),
+                    )
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+class ImageViewPage extends StatelessWidget {
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  ImageViewPage({required this.imageUrls, required this.initialIndex});
+
+  Future<void> _deleteImage(String imageUrl, BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        // Firestore에서 이미지 URL 삭제
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('marker_images')
+            .where('url', isEqualTo: imageUrl)
+            .get();
+
+        for (var doc in snapshot.docs) {
+          await doc.reference.delete();
+        }
+
+        // Firebase Storage에서 이미지 삭제
+        final storageRef = FirebaseStorage.instance.refFromURL(imageUrl);
+        await storageRef.delete();
+
+        // 로컬 리스트에서 이미지 삭제
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('사진이 삭제되었습니다.')),
+        );
+        Navigator.pop(context,true); // 이미지 뷰어 페이지 종료
+      } catch (e) {
+        print('Error deleting image: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('사진 삭제 중 오류가 발생했습니다.')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('이미지 보기'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.delete),
+            onPressed: () {
+              final currentIndex = (ModalRoute.of(context)?.settings.arguments as int?) ?? 0;
+              final imageUrl = imageUrls[currentIndex];
+              _deleteImage(imageUrl, context);
+            },
+          ),
+        ],
+      ),
+      body: PageView.builder(
+        itemCount: imageUrls.length,
+        controller: PageController(initialPage: initialIndex),
+        itemBuilder: (context, index) {
+          return Center(
+            child: InteractiveViewer(
+              child: Image.network(imageUrls[index]),
+            ),
+          );
+        },
       ),
     );
   }
