@@ -30,6 +30,11 @@ class _MainPageState extends State<MainPage> {
             _currentIndex = index; // 탭된 페이지로 전환
           });
         },
+        backgroundColor: Colors.black, // BottomNavigationBar 배경색
+        selectedItemColor: Colors.white, // 선택된 아이템의 색상
+        unselectedItemColor: Colors.white.withOpacity(0.6), // 선택되지 않은 아이템의 색상
+        selectedLabelStyle: TextStyle(fontWeight: FontWeight.bold), // 선택된 아이템 라벨의 스타일
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal), // 선택되지 않은 아이템 라벨의 스타일
         items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.list),
