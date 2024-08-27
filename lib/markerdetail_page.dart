@@ -46,7 +46,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     LocationPermission permission;
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if(!serviceEnabled) {
+    if (!serviceEnabled) {
       return Future.error('Location services are disabled');
     }
 
@@ -69,7 +69,9 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
 
 
     final Uri googleMapsUrl = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&origin=${currentPosition.latitude},${currentPosition.longitude}&destination=${widget.marker.position.latitude},${widget.marker.position.longitude}');
+        'https://www.google.com/maps/dir/?api=1&origin=${currentPosition
+            .latitude},${currentPosition.longitude}&destination=${widget.marker
+            .position.latitude},${widget.marker.position.longitude}');
     if (await canLaunchUrl(googleMapsUrl)) {
       await launchUrl(googleMapsUrl);
     } else {
@@ -80,15 +82,18 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   void _openKakaoMap() async {
     try {
       // 현재 위치 가져오기
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
 
       double userLat = position.latitude;
       double userLng = position.longitude;
 
       // 카카오 맵 URL 생성
       final String kakaoMapUrl = Platform.isAndroid
-          ? 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position.latitude},${widget.marker.position.longitude}&by=CAR'
-          : 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position.latitude},${widget.marker.position.longitude}&by=CAR';
+          ? 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position
+          .latitude},${widget.marker.position.longitude}&by=CAR'
+          : 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position
+          .latitude},${widget.marker.position.longitude}&by=CAR';
 
       final Uri kakaoMapUri = Uri.parse(kakaoMapUrl);
 
@@ -98,8 +103,10 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
       } else {
         // 앱이 설치 되어 있지 않으면 카카오맵 설치 페이지로 이동
         final Uri kakaoMapInstallUrl = Platform.isIOS
-            ? Uri.parse('https://apps.apple.com/kr/app/id304608425') // iOS 앱 스토어 URL
-            : Uri.parse('https://play.google.com/store/apps/details?id=net.daum.android.map');
+            ? Uri.parse(
+            'https://apps.apple.com/kr/app/id304608425') // iOS 앱 스토어 URL
+            : Uri.parse(
+            'https://play.google.com/store/apps/details?id=net.daum.android.map');
         if (await canLaunchUrl(kakaoMapInstallUrl)) {
           await launchUrl(kakaoMapInstallUrl);
         } else {
@@ -115,15 +122,20 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   void _openNaverMap() async {
     try {
       // 현재 위치 가져오기
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
 
       double userLat = position.latitude;
       double userLng = position.longitude;
 
       // 네이버 맵 URL 생성
       final String naverMapUrl = Platform.isAndroid
-          ? 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget.marker.position.latitude}&dlng=${widget.marker.position.longitude}&dname=Destination'
-          : 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget.marker.position.latitude}&dlng=${widget.marker.position.longitude}&dname=Destination';
+          ? 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget
+          .marker.position.latitude}&dlng=${widget.marker.position
+          .longitude}&dname=Destination'
+          : 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget
+          .marker.position.latitude}&dlng=${widget.marker.position
+          .longitude}&dname=Destination';
 
       final Uri naverMapUri = Uri.parse(naverMapUrl);
 
@@ -133,8 +145,10 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
       } else {
         // 앱이 설치 되어 있지 않으면 네이버맵 설치 페이지로 이동
         final Uri naverMapInstallUrl = Platform.isIOS
-            ? Uri.parse('https://apps.apple.com/kr/app/id311867728') // iOS 앱 스토어 URL
-            : Uri.parse('https://play.google.com/store/apps/details?id=com.nhn.android.nmap');
+            ? Uri.parse(
+            'https://apps.apple.com/kr/app/id311867728') // iOS 앱 스토어 URL
+            : Uri.parse(
+            'https://play.google.com/store/apps/details?id=com.nhn.android.nmap');
         if (await canLaunchUrl(naverMapInstallUrl)) {
           await launchUrl(naverMapInstallUrl);
         } else {
@@ -193,7 +207,9 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
             .ref()
             .child('marker_images')
             .child(user.uid)
-            .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
+            .child('${DateTime
+            .now()
+            .millisecondsSinceEpoch}.jpg');
 
         try {
           await storageRef.putFile(file);
@@ -314,8 +330,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     });
   }
 
-  Future<void> _getAddressFromCoordinates(
-      double latitude, double longitude) async {
+  Future<void> _getAddressFromCoordinates(double latitude,
+      double longitude) async {
     try {
       List<Placemark> placemarks =
       await placemarkFromCoordinates(latitude, longitude);
@@ -323,7 +339,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
         final placemark = placemarks.first;
         setState(() {
           _address =
-          '${placemark.country ?? ''} ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
+          '${placemark.country ?? ''} ${placemark.administrativeArea ??
+              ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
         });
       } else {
         setState(() {
@@ -388,7 +405,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
           MaterialPageRoute(builder: (context) => MapSample()),
           ModalRoute.withName('/'), // 홈 화면으로 이동
         );
-      } catch(e) {
+      } catch (e) {
         //삭제중 오류가 발생한 경우
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('오류 발생: ${e.toString()}')),
@@ -488,7 +505,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                 _deleteMarker();
               }
             },
-            itemBuilder: (context) => [
+            itemBuilder: (context) =>
+            [
               PopupMenuItem(
                 value: '수정',
                 child: Text('수정'),
@@ -565,7 +583,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                             ),
                           ),
                           child: Row(
-                            mainAxisSize: MainAxisSize.min, // 텍스트와 아이콘의 크기에 맞게 버튼 크기 조정
+                            mainAxisSize: MainAxisSize.min,
+                            // 텍스트와 아이콘의 크기에 맞게 버튼 크기 조정
                             children: [
                               Icon(Icons.directions, color: Colors.black),
                               SizedBox(width: 8), // 아이콘과 텍스트 사이의 간격
@@ -633,22 +652,25 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                           SizedBox(height: 10),
                           _imageUrls.isEmpty
                               ? Text('사진이 없습니다.')
-                              : Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _imageUrls.map((url) {
-                              return Container(
-                                width: 100,
-                                height: 100,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  image: DecorationImage(
-                                    image: NetworkImage(url),
-                                    fit: BoxFit.cover,
+                              : Container(
+                            height: 200, // 슬라이더 높이 설정
+                            child: PageView.builder(
+                              itemCount: _imageUrls.length,
+                              itemBuilder: (context, index) {
+                                return Container(
+                                  margin: EdgeInsets.symmetric(
+                                      horizontal: 10.0),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    image: DecorationImage(
+                                      image: NetworkImage(
+                                          _imageUrls[index]),
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
-                                ),
-                              );
-                            }).toList(),
+                                );
+                              },
+                            ),
                           ),
                           SizedBox(height: 10),
                           ElevatedButton(
