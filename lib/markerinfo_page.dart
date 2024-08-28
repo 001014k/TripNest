@@ -18,6 +18,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
   String? _error;
   List<Map<String, dynamic>> _markers = [];
   int _selectedIndex = 0;
+  TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -67,11 +68,71 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
     }
   }
 
-  Future<void> _launchMusicPlatform(String url, String fallbackUrl) async {
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      await launch(fallbackUrl);
+  void _openSpotify() async {
+    final query = Uri.encodeComponent(_searchController.text);
+    final String spotifyUrl = 'spotify:search:$query';
+    final Uri spotifyUri = Uri.parse(spotifyUrl);
+    final Uri spotifyInstallUri = Uri.parse(
+        'https://apps.apple.com/us/app/spotify-music-and-podcasts/id324684580');
+
+    try {
+      if (await canLaunchUrl(spotifyUri)) {
+        await launchUrl(spotifyUri);
+      } else {
+        if (await canLaunchUrl(spotifyInstallUri)) {
+          await launchUrl(spotifyInstallUri);
+        } else {
+          throw 'Could not open Spotify.';
+        }
+      }
+    } catch (e) {
+      print('Error: $e');
+    }
+  }
+
+  void _openAppleMusic() async {
+    final query = Uri.encodeComponent(_searchController.text);
+    final String appleMusicUrl = 'music://search/$query';
+    final Uri appleMusicUri = Uri.parse(appleMusicUrl);
+    final Uri appleMusicInstallUri = Uri.parse(
+        'https://apps.apple.com/us/app/apple-music/id1108187390');
+
+    try {
+      if (await canLaunchUrl(appleMusicUri)) {
+        await launchUrl(appleMusicUri);
+      } else {
+        if (await canLaunchUrl(appleMusicInstallUri)) {
+          await launchUrl(appleMusicInstallUri);
+        } else {
+          throw 'Could not open Apple Music.';
+        }
+      }
+    } catch (e) {
+      print('Error: $e');
+    }
+  }
+
+  void _openYouTubeMusic() async {
+    final query = Uri.encodeComponent(_searchController.text);
+    final appUri = Uri.parse('youtube-music://search?q=$query');
+    final webUri = Uri.parse('https://music.youtube.com/search?q=$query');
+
+    try {
+      if (await canLaunchUrl(appUri)) {
+        await launchUrl(appUri);
+      } else if (await canLaunchUrl(webUri)) {
+        await launchUrl(webUri);
+      } else {
+        // 유튜브 뮤직 앱이 설치되어 있지 않으면 앱스토어로 이동
+        final installUri = Uri.parse('https://apps.apple.com/app/id1017492454');
+        if (await canLaunchUrl(installUri)) {
+          await launchUrl(installUri);
+        } else {
+          throw 'Could not open YouTube Music.';
+        }
+      }
+    } catch (e) {
+      print('Error: $e');
     }
   }
 
@@ -84,9 +145,12 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '음악',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  labelText: 'Search Music',
+                  border: OutlineInputBorder(),
+                ),
               ),
               SizedBox(height: 16),
               ElevatedButton(
@@ -94,8 +158,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                   backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
                 ),
                 onPressed: () {
-                  Navigator.pop(context);
-                  _launchMusicPlatform('spotify:','https://open.spotify.com/');
+                  _openSpotify();
                 },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -119,8 +182,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                   backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
                 ),
                 onPressed: () {
-                  Navigator.pop(context);
-                  _launchMusicPlatform('music:','https://music.apple.com/');
+                  _openAppleMusic();
                 },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -144,8 +206,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                   backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
                 ),
                 onPressed: () {
-                  Navigator.pop(context);
-                  _launchMusicPlatform('vnd.youtube.music:','https://music.youtube.com/');
+                  _openYouTubeMusic();
                 },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
