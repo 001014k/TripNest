@@ -697,7 +697,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             '저장한 사진',
