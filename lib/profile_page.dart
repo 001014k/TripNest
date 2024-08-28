@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'main.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'page.dart';
 
 void main() {
   runApp(MyApp());
@@ -18,7 +16,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-enum Menu { itemOne, itemTwo, itemThree }
+enum Menu { account, settings, signOut }
 
 class ProfilePage extends StatelessWidget {
   @override
@@ -27,58 +25,40 @@ class ProfilePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        iconTheme: IconThemeData(
-          color: Colors.white,
-        ),
-        title: Text('프로필'),
-        titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        leading: Builder(
-          builder: (context) {
-            return IconButton(
-              icon: Icon(Icons.menu),
-              onPressed: () {
-                Scaffold.of(context).openDrawer();
-              },
-            );
-          },
-        ),
+        iconTheme: IconThemeData(color: Colors.white),
+        title: Text('Profile', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.black,
         actions: [
           PopupMenuButton<Menu>(
-            icon: const Icon(Icons.person),
-            offset: const Offset(0, 40),
-            color: Colors.white,
+            icon: Icon(Icons.more_vert, color: Colors.white),
             onSelected: (Menu item) {
               switch (item) {
-                case Menu.itemOne:
-                  //Account 메뉴 선택 시 처리
+                case Menu.account:
+                // Account menu action
                   break;
-                case Menu.itemTwo:
-                  // Setting 메뉴 선택 시 처리
+                case Menu.settings:
                   showDialog(
                     context: context,
                     builder: (BuildContext context) {
                       return AlertDialog(
-                        title: Text('설정'),
-                        content: Text('회원 탈퇴를 하시겠습니까?'),
+                        title: Text('Settings'),
+                        content: Text('Do you want to delete your account?'),
                         actions: <Widget>[
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
+                              foregroundColor: Colors.white, backgroundColor: Colors.red,
                             ),
-                            child: Text('회원 탈퇴'),
+                            child: Text('Delete'),
                             onPressed: () async {
                               await _deleteUser(context);
                             },
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
+                              foregroundColor: Colors.white, backgroundColor: Colors.grey,
                             ),
-                            child: Text('취소'),
-                            onPressed: () async {
+                            child: Text('Cancel'),
+                            onPressed: () {
                               Navigator.of(context).pop();
                             },
                           )
@@ -87,36 +67,31 @@ class ProfilePage extends StatelessWidget {
                     },
                   );
                   break;
-                case Menu.itemThree:
-                  // sign out 메뉴 선택 시 처리
+                case Menu.signOut:
                   showDialog(
                     context: context,
                     builder: (BuildContext context) {
                       return AlertDialog(
-                        title: Text('로그아웃'),
-                        content: Text('로그아웃 하시겠습니까?'),
+                        title: Text('Sign Out'),
+                        content: Text('Do you want to sign out?'),
                         actions: <Widget>[
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
+                              foregroundColor: Colors.white, backgroundColor: Colors.blueAccent,
                             ),
-                            child: Text('로그아웃'),
+                            child: Text('Sign Out'),
                             onPressed: () async {
-                              // 로그아웃 기능
                               await FirebaseAuth.instance.signOut();
-                              // 로그인 페이지로 이동
                               Navigator.pushNamedAndRemoveUntil(
                                   context, '/login', (route) => false);
                             },
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
+                              foregroundColor: Colors.white, backgroundColor: Colors.grey,
                             ),
-                            child: Text('취소'),
-                            onPressed: () async {
+                            child: Text('Cancel'),
+                            onPressed: () {
                               Navigator.of(context).pop();
                             },
                           )
@@ -129,93 +104,20 @@ class ProfilePage extends StatelessWidget {
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<Menu>>[
               const PopupMenuItem<Menu>(
-                value: Menu.itemOne,
-                child: Text('계정'),
+                value: Menu.account,
+                child: Text('Account'),
               ),
               const PopupMenuItem<Menu>(
-                value: Menu.itemTwo,
-                child: Text('설정'),
+                value: Menu.settings,
+                child: Text('Settings'),
               ),
               const PopupMenuItem<Menu>(
-                value: Menu.itemThree,
-                child: Text('로그아웃'),
+                value: Menu.signOut,
+                child: Text('Sign Out'),
               ),
             ],
           ),
         ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            UserAccountsDrawerHeader(
-              currentAccountPicture: CircleAvatar(
-                backgroundImage: AssetImage('assets/cad.png'),
-                backgroundColor: Colors.white,
-              ),
-              otherAccountsPictures: <Widget>[
-                CircleAvatar(
-                  backgroundColor: Colors.white,
-                  backgroundImage: AssetImage('assets/cad.png'),
-                ),
-              ],
-              accountName: Text('kim'),
-              accountEmail: Text(user != null ? user.email ?? 'No email' : 'Not logged in'),
-              onDetailsPressed: () {},
-              decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(40.0),
-                    bottomRight: Radius.circular(40.0),
-                  )),
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.map,
-                color: Colors.grey[850],
-              ),
-              title: Text('지도'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => MapSample()),
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.account_circle,
-                color: Colors.grey[850],
-              ),
-              title: Text('마이페이지'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfilePage()),
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.list,
-                color: Colors.grey[850],
-              ),
-              title: Text('북마크/리스트'),
-              onTap: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MainPage(),
-                  ),
-                );
-                if (result != null && result is Marker) {
-
-                }
-                print('북마크 is clicked');
-              },
-            ),
-          ],
-        ),
       ),
       body: ListView(
         children: [
@@ -234,45 +136,44 @@ class ProfilePage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               CircleAvatar(
                 radius: 40,
-                backgroundImage:
-                    NetworkImage('https://via.placeholder.com/150'),
+                backgroundImage: NetworkImage('https://via.placeholder.com/150'),
               ),
               SizedBox(width: 16),
               Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _buildStatColumn('Posts', '123'),
                         _buildStatColumn('Followers', '456'),
                         _buildStatColumn('Following', '789'),
                       ],
                     ),
-                    SizedBox(height: 16),
+                    SizedBox(height: 8),
                     Text(
                       user != null ? user.email ?? 'No email' : 'Not logged in',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
+              foregroundColor: Colors.white, backgroundColor: Colors.blueAccent,
             ),
             onPressed: () {},
-            child: Text('프로필 수정'),
+            child: Text('Edit Profile'),
           ),
         ],
       ),
@@ -294,31 +195,32 @@ class ProfilePage extends StatelessWidget {
 
   Widget _buildStoryHighlights() {
     return Container(
-      height: 100,
+      height: 120,
       padding: EdgeInsets.symmetric(vertical: 8),
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
-          _buildStoryHighlight('Highlight 1'),
-          _buildStoryHighlight('Highlight 2'),
-          _buildStoryHighlight('Highlight 3'),
-          _buildStoryHighlight('Highlight 4'),
+          _buildStoryHighlight('Travel', Icons.flight),
+          _buildStoryHighlight('Food', Icons.fastfood),
+          _buildStoryHighlight('Events', Icons.event),
+          _buildStoryHighlight('Friends', Icons.group),
         ],
       ),
     );
   }
 
-  Widget _buildStoryHighlight(String label) {
+  Widget _buildStoryHighlight(String label, IconData icon) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Column(
         children: [
           CircleAvatar(
             radius: 32,
-            backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+            backgroundColor: Colors.blueAccent,
+            child: Icon(icon, color: Colors.white),
           ),
           SizedBox(height: 4),
-          Text(label),
+          Text(label, style: TextStyle(fontSize: 14)),
         ],
       ),
     );
@@ -331,10 +233,12 @@ class ProfilePage extends StatelessWidget {
         children: [
           TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.grid_on)),
-              Tab(icon: Icon(Icons.list)),
+              Tab(icon: Icon(Icons.grid_on, color: Colors.black)),
+              Tab(icon: Icon(Icons.list, color: Colors.black)),
             ],
+            indicatorColor: Colors.blueAccent,
           ),
+          SizedBox(height: 8),
         ],
       ),
     );
@@ -352,9 +256,11 @@ class ProfilePage extends StatelessWidget {
       ),
       itemBuilder: (context, index) {
         return Container(
-          color: Colors.grey[300],
-          child: Image.network('https://via.placeholder.com/150',
-              fit: BoxFit.cover),
+          color: Colors.grey[200],
+          child: Image.network(
+            'https://via.placeholder.com/150',
+            fit: BoxFit.cover,
+          ),
         );
       },
     );
@@ -364,9 +270,9 @@ class ProfilePage extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        // firestore에서 사용자 데이터 삭제
+        // Firestore에서 사용자 데이터 삭제
         final userDoc =
-            FirebaseFirestore.instance.collection('users').doc(user.uid);
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
         await userDoc.delete();
 
         // markers 컬렉션에서 사용자 데이터 삭제
@@ -386,10 +292,10 @@ class ProfilePage extends StatelessWidget {
         await FirebaseAuth.instance.signOut();
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       } catch (e) {
-        print('회원 탈퇴 중 오류 발생 : $e');
+        print('Error during account deletion: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('회원 탈퇴 중 오류가 발생함: $e'),
+            content: Text('Error during account deletion: $e'),
           ),
         );
       }

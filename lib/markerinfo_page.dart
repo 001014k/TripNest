@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart'; // 추가된 import
 import 'addmarkerstolist_page.dart';
 
 class MarkerInfoPage extends StatefulWidget {
@@ -16,6 +17,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _markers = [];
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -60,9 +62,123 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
       ),
     );
 
-    // AddMarkersToListPage에서 true를 반환하면 마커 리스트를 새로고침
     if (result == true) {
       _loadMarkers();
+    }
+  }
+
+  Future<void> _launchMusicPlatform(String url, String fallbackUrl) async {
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      await launch(fallbackUrl);
+    }
+  }
+
+  void _showMusicPlatformBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '음악',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 16),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _launchMusicPlatform('spotify:','https://open.spotify.com/');
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(Icons.music_note, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text(
+                      'Spotify',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(), //구분선 추가
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _launchMusicPlatform('music:','https://music.apple.com/');
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(Icons.music_note, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text(
+                      'Apple Music',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(), // 구분선 추가
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _launchMusicPlatform('vnd.youtube.music:','https://music.youtube.com/');
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(Icons.music_note, color: Colors.redAccent),
+                    SizedBox(width: 8),
+                    Text(
+                      'YouTube Music',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    if (index == 0) {
+      _navigateToAddMarkersToListPage();
+    } else if (index == 1) {
+      _showMusicPlatformBottomSheet(); // 하단 시트 열기
     }
   }
 
@@ -119,12 +235,24 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
               },
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton(
-              onPressed: _navigateToAddMarkersToListPage,
-              child: Text('Add Markers to List'),
-            ),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        backgroundColor: Colors.black, // BottomNavigationBar 배경색
+        selectedItemColor: Colors.white, // 선택된 아이템의 색상
+        unselectedItemColor: Colors.white.withOpacity(0.6), // 선택되지 않은 아이템의 색상
+        selectedLabelStyle: TextStyle(fontWeight: FontWeight.bold), // 선택된 아이템 라벨의 스타일
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal), // 선택되지 않은 아이템 라벨의 스타일
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_location),
+            label: 'Add Markers',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.music_note),
+            label: 'Music',
           ),
         ],
       ),
