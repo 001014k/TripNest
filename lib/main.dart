@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:fluttertrip/Bookmark_page.dart';
 import 'package:fluttertrip/Dashboard_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart' as location;
@@ -71,14 +70,14 @@ class MapSampleState extends State<MapSample> {
   CollectionReference markersCollection =
       FirebaseFirestore.instance.collection('users');
   int _selectedIndex = 0;
-  final Map<String, double> keywordHues = {
-    '카페': BitmapDescriptor.hueGreen,
-    '호텔': BitmapDescriptor.hueBlue,
-    '사진': BitmapDescriptor.hueViolet,
-    '음식점': BitmapDescriptor.hueRed,
-    '전시회': BitmapDescriptor.hueYellow,
+  final Map<String, String> keywordMarkerImages = {
+    '카페': 'assets/cafe_marker.png',
+    '호텔': 'assets/hotel_marker.png',
+    '사진': 'assets/photo_marker.png',
+    '음식점': 'assets/restaurant_marker.png',
+    '전시회': 'assets/exhibition_marker.png',
   };
-  String _address = 'Fetching address...'; // Default value
+
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
 
@@ -164,14 +163,25 @@ class MapSampleState extends State<MapSample> {
           .collection('user_markers');
 
       final QuerySnapshot querySnapshot = await userMarkersCollection.get();
-      setState(() {
+      setState(() async {
         _markers.clear();
         _allMarkers.clear();
         for (var doc in querySnapshot.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          final hue = data['hue'] != null
-              ? (data['hue'] as num).toDouble()
-              : BitmapDescriptor.hueOrange; // 기본값은 Orange
+          final String keyword = data['keyword'] ?? 'default';
+          final String? markerImagePath = keywordMarkerImages[keyword];
+
+          // 커스텀 마커 이미지 로드 (비동기 처리)
+          final BitmapDescriptor markerIcon = markerImagePath != null
+              ? await BitmapDescriptor.fromAssetImage(
+            const ImageConfiguration(size: Size(48, 48)),
+            markerImagePath,
+          )
+            : BitmapDescriptor.defaultMarkerWithHue(
+        data['hue'] != null
+        ? (data['hue'] as num).toDouble()
+            : BitmapDescriptor.hueOrange,
+        );
 
           final marker = Marker(
             markerId: MarkerId(doc.id),
@@ -180,7 +190,7 @@ class MapSampleState extends State<MapSample> {
               title: data['title'],
               snippet: data['snippet'],
             ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(hue),
+            icon: markerIcon,
             onTap: () {
               _onMarkerTapped(context, MarkerId(doc.id));
             },
@@ -205,23 +215,31 @@ class MapSampleState extends State<MapSample> {
     });
   }
 
-  void onEdit(Marker updatedMarker) {
-    setState(() {
-      // 기존 마커를 업데이트
-      _markers.removeWhere((m) => m.markerId == updatedMarker.markerId);
-      _markers.add(updatedMarker);
-      _allMarkers.removeWhere((m) => m.markerId == updatedMarker.markerId);
-      _allMarkers.add(updatedMarker);
-    });
-
-    // Firebase Firestore에 수정된 마커 정보 업데이트
+  void onEdit(Marker updatedMarker) async {
     final keyword = _markerKeywords[updatedMarker.markerId] ?? 'default';
-    final hue = keywordHues[keyword] ?? BitmapDescriptor.hueOrange;
-    _updateMarker(updatedMarker, keyword, hue);
+    final markerImagePath = keywordMarkerImages[keyword];
+
+    if (markerImagePath != null) {
+      final customMarker = await BitmapDescriptor.fromAssetImage(
+        const ImageConfiguration(size: Size(48, 48)),
+        markerImagePath,
+      );
+
+      final newMarker = updatedMarker.copyWith(iconParam: customMarker);
+
+      setState(() {
+        _markers.removeWhere((m) => m.markerId == updatedMarker.markerId);
+        _markers.add(newMarker);
+        _allMarkers.removeWhere((m) => m.markerId == updatedMarker.markerId);
+        _allMarkers.add(newMarker);
+      });
+
+      _updateMarker(newMarker, keyword, markerImagePath);
+    }
   }
 
-  // 기존 마커 수정
-  Future<void> _updateMarker(Marker marker, String keyword, double hue) async {
+
+  Future<void> _updateMarker(Marker marker, String keyword, String markerImagePath) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
@@ -233,17 +251,18 @@ class MapSampleState extends State<MapSample> {
         'title': marker.infoWindow.title,
         'snippet': marker.infoWindow.snippet,
         'keyword': keyword,
-        'hue': hue,
+        'markerImagePath': markerImagePath,
       });
     }
   }
+
 
   // 파이어베이스: 'set' vs 'update'
   // set: 기존 문서를 덮어 쓰거나 문서가 없을 경우 새로 생성
   // update: 문서가 이미 존재하는 경우에만 특정 필드를 수정하며 문서가 존재하지 않으면 에러를 발생
 
   // 새 마커 생성
-  Future<void> _saveMarker(Marker marker, String keyword, double hue) async {
+  Future<void> _saveMarker(Marker marker, String keyword, String markerImagePath) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
@@ -264,7 +283,7 @@ class MapSampleState extends State<MapSample> {
         'lng': marker.position.longitude,
         'address': address,
         'keyword': keyword,
-        'hue': hue,
+        'markerImagePath': markerImagePath,
       });
     }
   }
@@ -290,8 +309,9 @@ class MapSampleState extends State<MapSample> {
             });
 
             // Firestore에 마커 정보 업데이트
-            final hue = BitmapDescriptor.hueOrange;
-            _updateMarker(updatedMarker, updatedKeyword, hue);
+            // 키워드에 따른 이미지 경로를 가져옴
+            final markerImagePath = keywordMarkerImages[updatedKeyword] ?? 'assets/default_marker.png';
+            _updateMarker(updatedMarker, updatedKeyword, markerImagePath);
           },
           keyword: _markerKeywords[marker.markerId] ?? 'default',
           onBookmark: (Marker bookmarkedMarker) {
@@ -428,7 +448,9 @@ class MapSampleState extends State<MapSample> {
         child: MarkerInfoBottomSheet(
           marker: marker,
           onSave: (updatedMarker, keyword) async {
-            await _saveMarker(updatedMarker, keyword, 0.0);
+            // 키워드에 따른 이미지 경로를 가져옴
+            final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
+            await _saveMarker(updatedMarker, keyword, markerImagePath);
           },
           onDelete: onDelete,
           keyword: keyword,
@@ -500,11 +522,16 @@ class MapSampleState extends State<MapSample> {
   }
 
   void _addMarker(
-      String? title, String? snippet, LatLng position, String keyword) {
-    final hue =
-        keywordHues[keyword] ?? BitmapDescriptor.hueOrange; // 기본값은 Orange
+      String? title, String? snippet, LatLng position, String keyword) async {
+    // 키워드에 따른 이미지 경로를 가져옴
+    final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
 
-    final markerIcon = BitmapDescriptor.defaultMarkerWithHue(hue);
+    // 이미지 경로에 따른 커스텀 마커 생성
+    final markerIcon = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(size: Size(24, 24), devicePixelRatio: 1.0),
+      markerImagePath,
+    );
+
 
     final marker = Marker(
       markerId: MarkerId(position.toString()),
@@ -524,7 +551,7 @@ class MapSampleState extends State<MapSample> {
       _allMarkers.add(marker); //모든 마커 저장
       _filteredMarkers = _allMarkers; // 모든 마커를 필터링된 마커로 설정
       _markerKeywords[marker.markerId] = keyword ?? ''; //키워드 저장
-      _saveMarker(marker, keyword, hue); //키워드와 hue 값을 포함한 마커 저장
+      _saveMarker(marker, keyword, markerImagePath); //키워드와 hue 값을 포함한 마커 저장
       _updateSearchResults(_searchController.text);
     });
   }

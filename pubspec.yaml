@@ -80,6 +80,11 @@ flutter:
   assets:
     - assets/kmj.png
     - assets/cad.png
+    - assets/cafe_marker.png
+    - assets/hotel_marker.png
+    - assets/photo_marker.png
+    - assets/restaurant_marker.png
+    - assets/exhibition_marker.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
