@@ -386,8 +386,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
         final placemark = placemarks.first;
         setState(() {
           _address =
-          '${placemark.country ?? ''} ${placemark.administrativeArea ??
-              ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
+          ' ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
         });
       } else {
         setState(() {
