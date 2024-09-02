@@ -85,6 +85,12 @@ flutter:
     - assets/photo_marker.png
     - assets/restaurant_marker.png
     - assets/exhibition_marker.png
+    - assets/GoogleMap.png
+    - assets/kakaomap.png
+    - assets/NaverMap.png
+    - assets/applemusic.png
+    - assets/spotify.png
+    - assets/YoutubeMusic.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

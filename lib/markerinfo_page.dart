@@ -160,7 +160,11 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.music_note, color: Colors.green),
+                    Image.asset(
+                      'assets/spotify.png', // 사용하고자 하는 이미지 경로
+                      width: 24, // 이미지의 너비
+                      height: 24, // 이미지의 높이
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Spotify',
@@ -184,7 +188,11 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.music_note, color: Colors.red),
+                    Image.asset(
+                      'assets/applemusic.png', // 사용하고자 하는 이미지 경로
+                      width: 24, // 이미지의 너비
+                      height: 24, // 이미지의 높이
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Apple Music',
@@ -208,7 +216,11 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.music_note, color: Colors.redAccent),
+                    Image.asset(
+                      'assets/YoutubeMusic.png', // 사용하고자 하는 이미지 경로
+                      width: 24, // 이미지의 너비
+                      height: 24, // 이미지의 높이
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'YouTube Music',

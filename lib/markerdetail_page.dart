@@ -482,7 +482,11 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.directions, color: Colors.white),
+                    Image.asset(
+                      'assets/GoogleMap.png', // 사용하고자 하는 이미지 경로
+                      width: 24, // 이미지의 너비
+                      height: 24, // 이미지의 높이
+                    ),
                     SizedBox(width: 8),
                     Text(
                       '구글맵',
@@ -504,7 +508,11 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.directions, color: Colors.yellowAccent),
+                    Image.asset(
+                      'assets/kakaomap.png', // 사용하고자 하는 이미지 경로
+                      width: 24, // 이미지의 너비
+                      height: 24, // 이미지의 높이
+                    ),
                     SizedBox(width: 8),
                     Text(
                       '카카오맵',
@@ -526,7 +534,11 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.directions, color: Colors.green),
+                    Image.asset(
+                      'assets/NaverMap.png', // 사용하고자 하는 이미지 경로
+                      width: 24, // 이미지의 너비
+                      height: 24, // 이미지의 높이
+                    ),
                     SizedBox(width: 8),
                     Text(
                       '네이버맵',
