@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart'; // 추가된 import
 import 'addmarkerstolist_page.dart';
+import 'dart:io' show Platform;
 
 class MarkerInfoPage extends StatefulWidget {
   final String listId;
@@ -114,25 +115,21 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
 
   void _openYouTubeMusic() async {
     final query = Uri.encodeComponent(_searchController.text);
-    final appUri = Uri.parse('youtube-music://search?q=$query');
-    final webUri = Uri.parse('https://music.youtube.com/search?q=$query');
+    final appUri = Uri.parse('youtubemusic://search?q=$query');
+    final installUri = Platform.isIOS
+        ? Uri.parse('https://apps.apple.com/app/id1017492454')
+        : Uri.parse('https://play.google.com/store/apps/details?id=com.google.android.apps.youtube.music');
 
     try {
-      if (await canLaunchUrl(appUri)) {
-        await launchUrl(appUri);
-      } else if (await canLaunchUrl(webUri)) {
-        await launchUrl(webUri);
-      } else {
-        // 유튜브 뮤직 앱이 설치되어 있지 않으면 앱스토어로 이동
-        final installUri = Uri.parse('https://apps.apple.com/app/id1017492454');
-        if (await canLaunchUrl(installUri)) {
-          await launchUrl(installUri);
-        } else {
-          throw 'Could not open YouTube Music.';
-        }
-      }
+      // 앱이 설치되어 있는지 확인하지 않고 바로 실행 시도
+      await launchUrl(appUri, mode: LaunchMode.externalApplication);
     } catch (e) {
-      print('Error: $e');
+      // 앱이 설치되지 않았거나 실행에 실패한 경우 설치 페이지로 이동
+      try {
+        await launchUrl(installUri, mode: LaunchMode.externalApplication);
+      } catch (e) {
+        print('Could not open YouTube Music or redirect to the install page: $e');
+      }
     }
   }
 
