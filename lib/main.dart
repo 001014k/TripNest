@@ -396,15 +396,42 @@ class MapSampleState extends State<MapSample> {
   }
 
   //구글 마커 생성 클릭 이벤트
-  void _onMapTapped(BuildContext context, LatLng latLng) {
-    setState(() {
-      _pendingLatLng = latLng;
-    });
-    _navigateToMarkerCreationScreen(context, latLng);
+  void _onMapTapped(BuildContext context, LatLng latLng) async {
+    // 확인 대화상자 표시
+    final bool? shouldAddMarker = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('마커 추가'),
+          content: Text('마커를 추가하시겠습니까?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('예'),
+              onPressed: () {
+                Navigator.of(context).pop(true); // "예" 선택 시 true 반환
+              },
+            ),
+            TextButton(
+              child: Text('아니오'),
+              onPressed: () {
+                Navigator.of(context).pop(false); // "아니오" 선택 시 false 반환
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    // 사용자가 "예"를 선택한 경우에만 마커 생성 창으로 이동
+    if (shouldAddMarker == true) {
+      setState(() {
+        _pendingLatLng = latLng;
+      });
+      _navigateToMarkerCreationScreen(context, latLng);
+    }
   }
 
-  void _navigateToMarkerCreationScreen(
-      BuildContext context, LatLng latLng) async {
+  void _navigateToMarkerCreationScreen(BuildContext context, LatLng latLng) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -414,13 +441,13 @@ class MapSampleState extends State<MapSample> {
     );
 
     if (result != null && _pendingLatLng != null) {
-      final keyword = result['keyword'] ?? 'default'; //키워드가 없을 경우 기본값 설정
+      final keyword = result['keyword'] ?? 'default'; // 키워드가 없을 경우 기본값 설정
       _addMarker(
           result['title'],
           result['snippet'], // String? 타입
           _pendingLatLng!, // LatLng 타입
           keyword // String 타입
-          );
+      );
       _pendingLatLng = null;
     }
   }
