@@ -402,17 +402,49 @@ class MapSampleState extends State<MapSample> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('마커 추가'),
-          content: Text('마커를 추가하시겠습니까?'),
+          title: Row(
+            children: [
+              Icon(
+                Icons.location_on,
+                color: Colors.red,
+              ),
+              SizedBox(width: 8),
+              Text(
+                '마커 생성',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            ],
+          ),
+          content: Text('마커를 생성하시겠습니까?'),
           actions: <Widget>[
-            TextButton(
-              child: Text('예'),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+              ),
+              child: Text(
+                  '예',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onPressed: () {
                 Navigator.of(context).pop(true); // "예" 선택 시 true 반환
               },
             ),
-            TextButton(
-              child: Text('아니오'),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+              ),
+              child: Text(
+                  '아니오',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onPressed: () {
                 Navigator.of(context).pop(false); // "아니오" 선택 시 false 반환
               },
