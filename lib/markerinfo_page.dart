@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'addmarkerstolist_page.dart';
+import 'package:geocoding/geocoding.dart';
 import 'dart:io' show Platform;
 
 class MarkerInfoPage extends StatefulWidget {
@@ -95,8 +96,8 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
     final query = Uri.encodeComponent(_searchController.text);
     final String appleMusicUrl = 'music://search/$query';
     final Uri appleMusicUri = Uri.parse(appleMusicUrl);
-    final Uri appleMusicInstallUri = Uri.parse(
-        'https://apps.apple.com/us/app/apple-music/id1108187390');
+    final Uri appleMusicInstallUri =
+        Uri.parse('https://apps.apple.com/us/app/apple-music/id1108187390');
 
     try {
       if (await canLaunchUrl(appleMusicUri)) {
@@ -118,7 +119,8 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
     final appUri = Uri.parse('youtubemusic://search?q=$query');
     final installUri = Platform.isIOS
         ? Uri.parse('https://apps.apple.com/app/id1017492454')
-        : Uri.parse('https://play.google.com/store/apps/details?id=com.google.android.apps.youtube.music');
+        : Uri.parse(
+            'https://play.google.com/store/apps/details?id=com.google.android.apps.youtube.music');
 
     try {
       // 앱이 설치되어 있는지 확인하지 않고 바로 실행 시도
@@ -128,7 +130,8 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
       try {
         await launchUrl(installUri, mode: LaunchMode.externalApplication);
       } catch (e) {
-        print('Could not open YouTube Music or redirect to the install page: $e');
+        print(
+            'Could not open YouTube Music or redirect to the install page: $e');
       }
     }
   }
@@ -296,65 +299,85 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                   itemBuilder: (context, index) {
                     final markerDoc = markers[index];
                     final markerData = markerDoc.data() as Map<String, dynamic>;
-                    final markerId = markerDoc.id; // Use the document ID as the marker ID
+                    final markerId = markerDoc.id;
+                    final lat = markerData['lat'];
+                    final lng = markerData['lng'];
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.all(16),
-                          leading: Icon(Icons.location_on, color: Colors.blue),
-                          title: Text(
-                              markerData['title'] ?? 'No Title',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold, // 마커 이름을 볼드 처리
-                              fontSize: 18,
+                    return FutureBuilder<String>(
+                      future: _getAddressFromLatLng(lat, lng),
+                      builder: (context, snapshot) {
+                        String address = 'Loading address...';
+                        if (snapshot.connectionState == ConnectionState.done) {
+                          if (snapshot.hasData) {
+                            address = snapshot.data!;
+                          } else {
+                            address = 'Address not found';
+                          }
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ListTile(
+                              contentPadding: EdgeInsets.all(16),
+                              leading:
+                                  Icon(Icons.location_on, color: Colors.blue),
+                              title: Text(
+                                markerData['title'] ?? 'No Title',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold, // 마커 이름을 볼드 처리
+                                  fontSize: 18,
+                                ),
+                              ),
+                              subtitle: Text(address),
+                              trailing: IconButton(
+                                icon: Icon(Icons.delete, color: Colors.red),
+                                onPressed: () async {
+                                  final result = await showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text('삭제 확인'),
+                                        content: Text('이 마커를 삭제하시겠습니까?'),
+                                        actions: <Widget>[
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(context).pop(true),
+                                            child: Text('삭제',
+                                                style: TextStyle(
+                                                    color: Colors.red)),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(context)
+                                                    .pop(false),
+                                            child: Text('취소'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  if (result == true) {
+                                    // 마커 삭제
+                                    await FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(user.uid)
+                                        .collection('lists')
+                                        .doc(widget.listId)
+                                        .collection('bookmarks')
+                                        .doc(markerId)
+                                        .delete();
+                                  }
+                                },
+                              ),
                             ),
-                          ),
-                          subtitle: Text(
-                            'Lat: ${markerData['lat']}, Lng: ${markerData['lng']}\n${markerData['snippet'] ?? 'No Snippet'}',
-                          ),
-                          trailing: IconButton(
-                            icon: Icon(Icons.delete, color: Colors.red),
-                            onPressed: () async {
-                              final result = await showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return AlertDialog(
-                                      title: Text('삭제 확인'),
-                                      content: Text('이 마커를 삭제하시겠습니까?'),
-                                      actions: <Widget>[
-                                        TextButton(
-                                          onPressed: () => Navigator.of(context).pop(false),
-                                          child: Text('취소'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.of(context).pop(true),
-                                          child: Text('삭제', style: TextStyle(color: Colors.red)),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                              );
-                              if (result == true) {
-                                // 마커 삭제
-                                await FirebaseFirestore.instance
-                                    .collection('users')
-                                    .doc(user.uid)
-                                    .collection('lists')
-                                    .doc(widget.listId)
-                                    .collection('bookmarks')
-                                    .doc(markerId)
-                                    .delete();
-                              }
-                            },
-                          ),
-                        ),
-                        Divider(
-                          color: Colors.grey, // 구분선 색상
-                          thickness: 1, // 구분선 두께
-                        ),
-                      ],
+                            Divider(
+                              color: Colors.grey, // 구분선 색상
+                              thickness: 1, // 구분선 두께
+                            ),
+                          ],
+                        );
+                      },
                     );
                   },
                 );
@@ -366,11 +389,16 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        backgroundColor: Colors.black, // BottomNavigationBar 배경색
-        selectedItemColor: Colors.white, // 선택된 아이템의 색상
-        unselectedItemColor: Colors.white.withOpacity(0.6), // 선택되지 않은 아이템의 색상
-        selectedLabelStyle: TextStyle(fontWeight: FontWeight.bold), // 선택된 아이템 라벨의 스타일
-        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal), // 선택되지 않은 아이템 라벨의 스타일
+        backgroundColor: Colors.black,
+        // BottomNavigationBar 배경색
+        selectedItemColor: Colors.white,
+        // 선택된 아이템의 색상
+        unselectedItemColor: Colors.white.withOpacity(0.6),
+        // 선택되지 않은 아이템의 색상
+        selectedLabelStyle: TextStyle(fontWeight: FontWeight.bold),
+        // 선택된 아이템 라벨의 스타일
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal),
+        // 선택되지 않은 아이템 라벨의 스타일
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.add_location),
@@ -384,4 +412,17 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
       ),
     );
   }
+}
+
+Future<String> _getAddressFromLatLng(double lat, double lng) async {
+  try {
+    List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+    if (placemarks.isNotEmpty) {
+      final place = placemarks.first;
+      return '${place.administrativeArea},${place.locality},${place.street} ';
+    }
+  } catch (e) {
+    print('Error getting address: $e');
+  }
+  return 'Unknown location';
 }
