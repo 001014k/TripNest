@@ -624,6 +624,7 @@ class MapSampleState extends State<MapSample> {
           title: data['title'] ?? '제목 없음',
           snippet: data['snippet'] ?? '설명 없음',
         ),
+        onTap: () => _onMarkerTapped(context, MarkerId(doc.id)),
       );
     }).toList();
 
