@@ -298,37 +298,63 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                     final markerData = markerDoc.data() as Map<String, dynamic>;
                     final markerId = markerDoc.id; // Use the document ID as the marker ID
 
-                    return ListTile(
-                      title: Text(markerData['title'] ?? 'No Title'),
-                      subtitle: Text(
-                        'Lat: ${markerData['lat']}, Lng: ${markerData['lng']}\n${markerData['snippet'] ?? 'No Snippet'}',
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        icon: Icon(Icons.delete),
-                        onSelected: (value) async {
-                          if (value == 'delete') {
-                            // 마커 삭제
-                            await FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(user.uid)
-                                .collection('lists')
-                                .doc(widget.listId)
-                                .collection('bookmarks')
-                                .doc(markerId)
-                                .delete();
-                          }
-                          // 다른 작업을 추가할 수 있습니다
-                        },
-                        itemBuilder: (BuildContext context) {
-                          return [
-                            PopupMenuItem<String>(
-                              value: 'delete',
-                              child: Text('Delete'),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.all(16),
+                          leading: Icon(Icons.location_on, color: Colors.blue),
+                          title: Text(
+                              markerData['title'] ?? 'No Title',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold, // 마커 이름을 볼드 처리
+                              fontSize: 18,
                             ),
-                            // 다른 메뉴 항목을 추가할 수 있습니다
-                          ];
-                        },
-                      ),
+                          ),
+                          subtitle: Text(
+                            'Lat: ${markerData['lat']}, Lng: ${markerData['lng']}\n${markerData['snippet'] ?? 'No Snippet'}',
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(Icons.delete, color: Colors.red),
+                            onPressed: () async {
+                              final result = await showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: Text('삭제 확인'),
+                                      content: Text('이 마커를 삭제하시겠습니까?'),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(false),
+                                          child: Text('취소'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(true),
+                                          child: Text('삭제', style: TextStyle(color: Colors.red)),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                              );
+                              if (result == true) {
+                                // 마커 삭제
+                                await FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(user.uid)
+                                    .collection('lists')
+                                    .doc(widget.listId)
+                                    .collection('bookmarks')
+                                    .doc(markerId)
+                                    .delete();
+                              }
+                            },
+                          ),
+                        ),
+                        Divider(
+                          color: Colors.grey, // 구분선 색상
+                          thickness: 1, // 구분선 두께
+                        ),
+                      ],
                     );
                   },
                 );
