@@ -463,12 +463,28 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  void _showAllMarkersInfo() async {
-    List<Marker> markersInVisibleRegion = await _getMarkersInVisibleRegion();
+  Future<List<QueryDocumentSnapshot>> _getUserLists() async {
+    final user = FirebaseAuth.instance.currentUser;
 
-    if (markersInVisibleRegion.isEmpty) {
+    if (user == null) {
+      return [];
+    }
+
+    final listSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('lists')
+        .get();
+
+    return listSnapshot.docs;
+  }
+
+  void _showUserLists() async {
+    List<QueryDocumentSnapshot> userLists = await _getUserLists();
+
+    if (userLists.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('현재 화면에 표시되는 마커가 없습니다')),
+        SnackBar(content: Text('저장된 리스트가 없습니다')),
       );
       return;
     }
@@ -476,47 +492,139 @@ class MapSampleState extends State<MapSample> {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListView.separated(
+              shrinkWrap: true,
+              itemCount: userLists.length,
+              itemBuilder: (context, index) {
+                final list = userLists[index].data() as Map<String, dynamic>;
+                final listName = list['name'] ?? '이름 없음';
+
+                return ListTile(
+                  leading: Icon(Icons.list, color: Colors.blue),
+                  title: Text(
+                    listName,
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showMarkersForSelectedList(userLists[index].id);
+                  },
+                );
+              },
+              separatorBuilder: (context, index) {
+                return Divider(
+                  color: Colors.grey,
+                  thickness: 1,
+                );
+              },
+            ),
+            Divider(color: Colors.grey, thickness: 1), // 구분선 추가
+            ListTile(
+              leading: Icon(Icons.refresh, color: Colors.red),
+              title: Text(
+                '초기화',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+              ),
+              onTap: () {
+                setState(() {
+                  // _allMarkers의 내용을 _filteredMarkers로 복사하여 초기화
+                  _filteredMarkers = Set<Marker>.from(_allMarkers);
+                });
+                Navigator.pop(context); // 모달 닫기
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+  void _showMarkersForSelectedList(String listId) async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    final markerSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('lists')
+        .doc(listId)
+        .collection('bookmarks')
+        .get();
+
+    final markers = markerSnapshot.docs.map((doc) {
+      final data = doc.data();
+      return Marker(
+        markerId: MarkerId(doc.id),
+        position: LatLng(data['lat'], data['lng']),
+        infoWindow: InfoWindow(
+          title: data['title'] ?? '제목 없음',
+          snippet: data['snippet'] ?? '설명 없음',
+        ),
+      );
+    }).toList();
+
+    if (markers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('해당 리스트에 마커가 없습니다')),
+      );
+      return;
+    }
+
+    // 기존 필터링된 마커들을 업데이트
+    setState(() {
+      _filteredMarkers.clear(); // 기존 필터링된 마커 제거
+      _filteredMarkers.addAll(markers); // 새로운 마커들 추가
+    });
+
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
         return ListView.separated(
-            itemCount: markersInVisibleRegion.length,
-            itemBuilder: (context, index) {
-              // 마커 정보 가져오기
-              final marker = markersInVisibleRegion[index];
-              // 키워드 가져오기 (marker.infowindow.snippet은 설명을 가져오는것)
-              final keyword = marker.infoWindow.snippet ?? '키워드 없음';
-              return ListTile(
-                leading: Icon(Icons.location_on, color: Colors.red),
-                title: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  // 제목과 키워드를 양쪽 끝으로 정렬
-                  children: [
-                    Text(
-                      marker.infoWindow.title ?? '제목 없음',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+          itemCount: markers.length,
+          itemBuilder: (context, index) {
+            final marker = markers[index];
+            final keyword = marker.infoWindow.snippet ?? '키워드 없음';
+
+            return ListTile(
+              leading: Icon(Icons.location_on, color: Colors.red),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    marker.infoWindow.title ?? '제목 없음',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    keyword,
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
-                    Text(
-                      keyword,
-                      style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold), //키워드 스타일 설정
-                    ),
-                  ],
-                ),
-                subtitle: Text(marker.infoWindow.snippet ?? '설명 없음'),
-                onTap: () {
-                  Navigator.pop(context); //bottom sheet 열기
-                  _controller!.animateCamera(
-                    CameraUpdate.newLatLng(marker.position),
-                  );
-                },
-              );
-            },
-            separatorBuilder: (context, index) {
-              return Divider(
-                color: Colors.grey,
-                thickness: 1,
-              );
-            });
+                  ),
+                ],
+              ),
+              subtitle: Text(marker.infoWindow.snippet ?? '설명 없음'),
+              onTap: () {
+                Navigator.pop(context);
+                _controller!.animateCamera(
+                  CameraUpdate.newLatLng(marker.position),
+                );
+              },
+            );
+          },
+          separatorBuilder: (context, index) {
+            return Divider(
+              color: Colors.grey,
+              thickness: 1,
+            );
+          },
+        );
       },
     );
   }
@@ -891,7 +999,7 @@ class MapSampleState extends State<MapSample> {
                     child: Icon(Icons.place)),
                 SizedBox(height: 16),
                 FloatingActionButton(
-                  onPressed: _showAllMarkersInfo,
+                  onPressed: _showUserLists,
                   backgroundColor: Colors.white,
                   child: Icon(Icons.list),
                 )
