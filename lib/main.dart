@@ -872,18 +872,9 @@ class MapSampleState extends State<MapSample> {
                 backgroundColor: Colors.white,
                 backgroundImage: AssetImage('assets/cad.png'),
               ),
-              otherAccountsPictures: <Widget>[
-                CircleAvatar(
-                  backgroundColor: Colors.white,
-                  backgroundImage: AssetImage('assets/cad.png'),
-                ),
-              ],
               accountName: Text('kim'),
               accountEmail: Text(
                   user != null ? user.email ?? 'No email' : 'Not logged in'),
-              onDetailsPressed: () {
-                print('arrow is clicked');
-              },
               decoration: BoxDecoration(
                 color: Colors.black,
                 borderRadius: BorderRadius.only(
