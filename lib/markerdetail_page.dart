@@ -164,6 +164,44 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     }
   }
 
+  void _openTmap() async {
+    try {
+      // 현재 위치 가져오기
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+
+      double userLat = position.latitude;
+      double userLng = position.longitude;
+
+      // 티맵 URL 생성
+      final String tmapUrl = Platform.isAndroid
+          ? 'tmap://route?goalLat=${widget.marker.position.latitude}&goalLon=${widget.marker.position.longitude}&startLat=$userLat&startLon=$userLng&goalName=목적지&startName=출발지'
+          : 'tmap://route?goalLat=${widget.marker.position.latitude}&goalLon=${widget.marker.position.longitude}&startLat=$userLat&startLon=$userLng&goalName=목적지&startName=출발지';
+
+      final Uri tmapUri = Uri.parse(tmapUrl);
+
+      // 티맵 실행 시도
+      if (await canLaunchUrl(tmapUri)) {
+        await launchUrl(tmapUri);
+      } else {
+        // 앱이 설치 되어 있지 않으면 티맵 설치 페이지로 이동
+        final Uri tmapInstallUrl = Platform.isIOS
+            ? Uri.parse(
+            'https://apps.apple.com/kr/app/t-map-t맵-대중교통-길찾기-지도-내비게이션/id431589174') // iOS 앱 스토어 URL
+            : Uri.parse(
+            'https://play.google.com/store/apps/details?id=com.skt.tmap.ku');
+
+        if (await canLaunchUrl(tmapInstallUrl)) {
+          await launchUrl(tmapInstallUrl);
+        } else {
+          throw 'Could not open Tmap.';
+        }
+      }
+    } catch (e) {
+      print('Error: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -542,6 +580,32 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                     SizedBox(width: 8),
                     Text(
                       '네이버맵',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(), // 구분선 추가
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
+                ),
+                onPressed: _openTmap,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Image.asset(
+                      'assets/Tmap.png', // 사용하고자 하는 이미지 경로
+                      width: 24, // 이미지의 너비
+                      height: 24, // 이미지의 높이
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      '티맵',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
