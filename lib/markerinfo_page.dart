@@ -294,11 +294,41 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 return ListView.builder(
                   itemCount: markers.length,
                   itemBuilder: (context, index) {
-                    final marker = markers[index].data() as Map<String, dynamic>;
+                    final markerDoc = markers[index];
+                    final markerData = markerDoc.data() as Map<String, dynamic>;
+                    final markerId = markerDoc.id; // Use the document ID as the marker ID
+
                     return ListTile(
-                      title: Text(marker['title'] ?? 'No Title'),
+                      title: Text(markerData['title'] ?? 'No Title'),
                       subtitle: Text(
-                          'Lat: ${marker['lat']}, Lng: ${marker['lng']}\n${marker['snippet'] ?? 'No Snippet'}'),
+                        'Lat: ${markerData['lat']}, Lng: ${markerData['lng']}\n${markerData['snippet'] ?? 'No Snippet'}',
+                      ),
+                      trailing: PopupMenuButton<String>(
+                        icon: Icon(Icons.delete),
+                        onSelected: (value) async {
+                          if (value == 'delete') {
+                            // 마커 삭제
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(user.uid)
+                                .collection('lists')
+                                .doc(widget.listId)
+                                .collection('bookmarks')
+                                .doc(markerId)
+                                .delete();
+                          }
+                          // 다른 작업을 추가할 수 있습니다
+                        },
+                        itemBuilder: (BuildContext context) {
+                          return [
+                            PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                            // 다른 메뉴 항목을 추가할 수 있습니다
+                          ];
+                        },
+                      ),
                     );
                   },
                 );
