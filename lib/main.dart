@@ -18,9 +18,13 @@ import 'SplashScreen_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'markerdetail_page.dart';
 import 'page.dart';
+import 'marker_service.dart';
+import 'database_helper.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 앱이 시작될 때 동기화 작업을 수행
+  await MarkerService().syncOfflineMarkers();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -77,6 +81,7 @@ class MapSampleState extends State<MapSample> {
     '음식점': 'assets/restaurant_marker.png',
     '전시회': 'assets/exhibition_marker.png',
   };
+  final MarkerService _markerService = MarkerService();
 
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
@@ -700,9 +705,10 @@ class MapSampleState extends State<MapSample> {
       markerImagePath,
     );
 
+    final markerId = MarkerId(position.toString());
 
     final marker = Marker(
-      markerId: MarkerId(position.toString()),
+      markerId: markerId,
       position: position,
       infoWindow: InfoWindow(
         title: title,
@@ -722,6 +728,19 @@ class MapSampleState extends State<MapSample> {
       _saveMarker(marker, keyword, markerImagePath); //키워드와 hue 값을 포함한 마커 저장
       _updateSearchResults(_searchController.text);
     });
+
+    // 마커 데이터를 Map으로 변환하여 오프라인/온라인 저장 처리
+    final markerData = {
+      'id': markerId.value,
+      'title': title,
+      'description': snippet,
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+      'synced': 0, // 처음엔 비동기화 상태로 저장
+    };
+
+    // 오프라인/온라인 상태에 따라 마커를 저장
+    await _markerService.saveMarkerOfflineOrOnline(markerData);
   }
 
   void _onSearchSubmitted(String query) async {
