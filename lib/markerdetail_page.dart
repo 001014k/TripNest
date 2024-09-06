@@ -626,7 +626,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('마커 세부 사항'),
+        title: Text('마커 정보', style: TextStyle(fontWeight: FontWeight.bold),),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -774,12 +774,22 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            '사진',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.photo, // 원하는 아이콘을 선택합니다.
+                                size: 24.0, // 아이콘의 크기를 설정합니다.
+                              ),
+                              SizedBox(width: 8), // 아이콘과 텍스트 사이의 간격을 설정합니다.
+                              Text(
+                                '사진',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                           SizedBox(height: 10),
                           _isLoadingImages
