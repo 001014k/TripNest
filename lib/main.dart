@@ -892,8 +892,47 @@ class MapSampleState extends State<MapSample> {
                 backgroundImage: AssetImage('assets/cad.png'),
               ),
               accountName: Text('kim'),
-              accountEmail: Text(
-                  user != null ? user.email ?? 'No email' : 'Not logged in'),
+              accountEmail: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      user != null ? user.email ?? 'No email' : 'Not logged in',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.logout, color: Colors.white),
+                    onPressed: () async {
+                      // 로그아웃 확인 다이얼로그 표시
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: Text('로그아웃 확인'),
+                            content: Text('로그아웃하시겠습니까?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: Text('예'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: Text('아니오'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+
+                      if (confirm == true) {
+                        await FirebaseAuth.instance.signOut();
+                        Navigator.of(context).pop(); // Drawer 닫기
+                        Navigator.of(context).pushReplacementNamed('/login'); // 로그인 화면으로 이동
+                      }
+                    },
+                  ),
+                ],
+              ),
               decoration: BoxDecoration(
                 color: Colors.black,
                 borderRadius: BorderRadius.only(
