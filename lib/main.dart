@@ -211,13 +211,23 @@ class MapSampleState extends State<MapSample> {
 
   Future<void> _showMarkersInVisibleRegion() async {
     if (_controller == null) return;
+
     LatLngBounds bounds = await _controller!.getVisibleRegion();
+
+    // LatLngBounds의 northEast와 southWest를 사용하여 중앙 좌표 계산
+    LatLng center = LatLng(
+      (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
+      (bounds.northeast.longitude + bounds.southwest.longitude) / 2,
+    );
 
     setState(() {
       _filteredMarkers = _allMarkers.where((marker) {
         return bounds.contains(marker.position);
       }).toSet();
     });
+
+    // 사용자의 위치를 지도 중앙으로 이동
+    _controller!.animateCamera(CameraUpdate.newLatLng(center));
   }
 
   void onEdit(Marker updatedMarker) async {
