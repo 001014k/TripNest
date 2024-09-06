@@ -960,7 +960,7 @@ class MapSampleState extends State<MapSample> {
                 Icons.account_circle,
                 color: Colors.grey[850],
               ),
-              title: Text('마이페이지'),
+              title: Text('프로필'),
               onTap: () async {
                 final user = FirebaseAuth.instance.currentUser;
 
