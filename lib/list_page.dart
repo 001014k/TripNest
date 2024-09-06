@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'addmarkerstolist_page.dart';
-import 'main.dart';
 import 'markerinfo_page.dart';
 
 class ListPage extends StatefulWidget {
@@ -32,29 +30,20 @@ class _ListPageState extends State<ListPage> {
   Future<void> _deleteList(String listId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // Get the batch instance to perform multiple operations
       final batch = FirebaseFirestore.instance.batch();
-
-      // Reference to the list document
       final listRef = FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('lists')
           .doc(listId);
 
-      // Reference to the bookmarks subcollection
       final bookmarksRef = listRef.collection('bookmarks');
-
-      // Delete all documents in the bookmarks subcollection
       final bookmarksSnapshot = await bookmarksRef.get();
       for (var doc in bookmarksSnapshot.docs) {
         batch.delete(doc.reference);
       }
 
-      // Delete the list document itself
       batch.delete(listRef);
-
-      // Commit the batch
       await batch.commit();
     }
   }
@@ -145,6 +134,23 @@ class _ListPageState extends State<ListPage> {
     );
   }
 
+  Future<int> _getMarkerCount(String listId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final bookmarksRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('lists')
+          .doc(listId)
+          .collection('bookmarks');
+
+      final bookmarksSnapshot = await bookmarksRef.get();
+      return bookmarksSnapshot.docs.length;
+    }
+    return 0;
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -169,23 +175,30 @@ class _ListPageState extends State<ListPage> {
             itemCount: lists.length,
             itemBuilder: (context, index) {
               final list = lists[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0), // 리스트 간 간격 설정
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: Icon(Icons.list_alt), // 리스트 아이콘 추가
-                      title: Text(
-                        list['name'],
-                        style: TextStyle(fontWeight: FontWeight.bold), // 텍스트를 굵게 표시
-                      ),
-                      onTap: () {
-                        _showListOptions(list.id);
-                      },
+              return FutureBuilder<int>(
+                future: _getMarkerCount(list.id),
+                builder: (context, markerSnapshot) {
+                  final markerCount = markerSnapshot.data ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: Icon(Icons.list_alt),
+                          title: Text(
+                            list['name'],
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text('마커 갯수: $markerCount'), // 마커 수 표시
+                          onTap: () {
+                            _showListOptions(list.id);
+                          },
+                        ),
+                        Divider(),
+                      ],
                     ),
-                    Divider(), // 구분선 추가
-                  ],
-                ),
+                  );
+                },
               );
             },
           );
