@@ -775,7 +775,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            '저장한 사진',
+                            '사진',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
