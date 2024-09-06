@@ -38,7 +38,7 @@ class _MainPageState extends State<MainPage> {
         items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.list),
-            label: '리스트 페이지',
+            label: '여행 리스트',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.bookmark),

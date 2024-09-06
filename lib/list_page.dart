@@ -155,7 +155,7 @@ class _ListPageState extends State<ListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('경로 리스트'),
+        title: Text('여행 리스트'),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -206,6 +206,7 @@ class _ListPageState extends State<ListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateListDialog,
+        backgroundColor: Colors.white,
         child: Icon(Icons.add),
       ),
     );

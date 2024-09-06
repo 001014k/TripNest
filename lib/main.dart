@@ -753,6 +753,15 @@ class MapSampleState extends State<MapSample> {
   }
 
   void _onSearchSubmitted(String query) async {
+
+    // 검색어가 비어 있는 경우
+    if (query.trim().isEmpty) {
+      setState(() {
+        _searchResults = []; // 검색 결과를 비웁니다.
+      });
+      return; // 검색을 중단합니다.
+    }
+
     //1. 기존 마커 제목 검색기능
     setState(() {
       _searchResults = _markers.where((marker) {
@@ -860,7 +869,7 @@ class MapSampleState extends State<MapSample> {
         title: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: '검색...',
+            hintText: '주소 및 마커검색...',
             border: InputBorder.none,
             hintStyle: TextStyle(color: Colors.white54),
           ),
