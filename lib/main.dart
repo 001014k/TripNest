@@ -961,11 +961,23 @@ class MapSampleState extends State<MapSample> {
                 color: Colors.grey[850],
               ),
               title: Text('마이페이지'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfilePage()),
-                );
+              onTap: () async {
+                final user = FirebaseAuth.instance.currentUser;
+
+                if (user != null) {
+                  // 로그인한 사용자가 있는 경우
+                  String userId = user.uid;
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => ProfilePage(userId: userId)),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('로그인 후 사용해 주세요.')),
+                  );
+                }
               },
             ),
             ListTile(
