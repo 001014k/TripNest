@@ -19,7 +19,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'markerdetail_page.dart';
 import 'page.dart';
 import 'marker_service.dart';
-import 'database_helper.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -849,23 +848,9 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  Future<List<Marker>> _getMarkersInVisibleRegion() async {
-    if (_controller == null) return [];
-
-    //현재 보이는 영역 가져오기
-    LatLngBounds visibleRegion = await _controller!.getVisibleRegion();
-
-    //영역 내의 포함되는 마커 필터링
-    List<Marker> visibleMarkers = _markers.where((marker) {
-      return visibleRegion.contains(marker.position);
-    }).toList();
-    return visibleMarkers;
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    List<Marker> bookmarkedMarkers = [];
 
     return Scaffold(
       appBar: AppBar(
