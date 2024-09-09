@@ -19,6 +19,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'markerdetail_page.dart';
 import 'page.dart';
 import 'marker_service.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -175,17 +177,14 @@ class MapSampleState extends State<MapSample> {
           final String keyword = data['keyword'] ?? 'default';
           final String? markerImagePath = keywordMarkerImages[keyword];
 
-          // 커스텀 마커 이미지 로드 (비동기 처리)
+          // 커스텀 마커 이미지 로드 (비동기 처리) 및 크기 조절
           final BitmapDescriptor markerIcon = markerImagePath != null
-              ? await BitmapDescriptor.fromAssetImage(
-            const ImageConfiguration(size: Size(48, 48)),
-            markerImagePath,
-          )
-            : BitmapDescriptor.defaultMarkerWithHue(
-        data['hue'] != null
-        ? (data['hue'] as num).toDouble()
-            : BitmapDescriptor.hueOrange,
-        );
+              ? await _createCustomMarkerImage(markerImagePath, 128, 128) // 크기를 조정
+              : BitmapDescriptor.defaultMarkerWithHue(
+            data['hue'] != null
+                ? (data['hue'] as num).toDouble()
+                : BitmapDescriptor.hueOrange,
+          );
 
           final marker = Marker(
             markerId: MarkerId(doc.id),
@@ -703,16 +702,31 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
+  Future<BitmapDescriptor> _createCustomMarkerImage(String imagePath, int width, int height) async {
+    // 이미지 파일 로드
+    final ByteData data = await rootBundle.load(imagePath);
+    final Uint8List bytes = data.buffer.asUint8List();
+
+    // 이미지 디코딩 및 크기 조정
+    final ui.Codec codec = await ui.instantiateImageCodec(bytes, targetWidth: width, targetHeight: height);
+    final ui.FrameInfo frameInfo = await codec.getNextFrame();
+    final ByteData? byteData = await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
+
+    // 크기 조정된 이미지 데이터를 바이트 배열로 변환
+    final Uint8List resizedBytes = byteData!.buffer.asUint8List();
+
+    // BitmapDescriptor로 변환
+    return BitmapDescriptor.fromBytes(resizedBytes);
+  }
+
+
   void _addMarker(
       String? title, String? snippet, LatLng position, String keyword) async {
     // 키워드에 따른 이미지 경로를 가져옴
     final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
 
-    // 이미지 경로에 따른 커스텀 마커 생성
-    final markerIcon = await BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(size: Size(24, 24), devicePixelRatio: 1.0),
-      markerImagePath,
-    );
+    // 원하는 크기 지정 (width와 height는 조정하고 싶은 크기로 설정)
+    final markerIcon = await _createCustomMarkerImage(markerImagePath, 128, 128); // 96x96 크기로 설정
 
     final markerId = MarkerId(position.toString());
 
