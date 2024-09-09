@@ -1133,13 +1133,30 @@ class MapSampleState extends State<MapSample> {
             child: Column(
               children: [
                 FloatingActionButton(
-                  onPressed: _moveToCurrentLocation,
+                  onPressed: () {
+                    // SnackBar를 화면 하단에 표시
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("현재 사용자 위치로 이동합니다"), // 표시할 문구
+                          duration: Duration(seconds: 2), // 문구가 표시되는 시간
+                        ),
+                    );
+                    _moveToCurrentLocation();
+                  },
                   backgroundColor: Colors.white,
                   child: Icon(Icons.my_location),
                 ),
                 SizedBox(height: 16),
                 FloatingActionButton(
-                    onPressed: _showMarkersInVisibleRegion,
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("현 화면에 추가한 마커를 표시합니다"), // 표시할 문구
+                          duration: Duration(seconds: 2), // 문구가 표시되는 시간
+                        ),
+                      );
+                      _showMarkersInVisibleRegion();
+                    },
                     backgroundColor: Colors.white,
                     child: Icon(Icons.place)),
                 SizedBox(height: 16),
