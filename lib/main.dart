@@ -726,7 +726,7 @@ class MapSampleState extends State<MapSample> {
     final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
 
     // 원하는 크기 지정 (width와 height는 조정하고 싶은 크기로 설정)
-    final markerIcon = await _createCustomMarkerImage(markerImagePath, 128, 128); // 96x96 크기로 설정
+    final markerIcon = await _createCustomMarkerImage(markerImagePath, 128, 128); // 128x128 크기로 설정
 
     final markerId = MarkerId(position.toString());
 
