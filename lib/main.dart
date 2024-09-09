@@ -1151,7 +1151,7 @@ class MapSampleState extends State<MapSample> {
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text("현 화면에 추가한 마커를 표시합니다"), // 표시할 문구
+                          content: Text("화면에 마커가 보이게 합니다"), // 표시할 문구
                           duration: Duration(seconds: 2), // 문구가 표시되는 시간
                         ),
                       );
