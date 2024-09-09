@@ -381,19 +381,25 @@ class MapSampleState extends State<MapSample> {
 
   void _moveToCurrentLocation() {
     if (_controller != null && _currentLocation != null) {
+      // 사용자의 현재 위치로 이동
+      LatLng currentLatLng = LatLng(
+        _currentLocation!.latitude!,
+        _currentLocation!.longitude!,
+      );
+
+      // 패딩을 적용하여 사용자의 위치를 화면 중앙에 맞추기
       _controller!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: LatLng(
-              _currentLocation!.latitude!,
-              _currentLocation!.longitude!,
-            ),
-            zoom: 30,
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(currentLatLng.latitude - 0.005, currentLatLng.longitude - 0.005),
+            northeast: LatLng(currentLatLng.latitude + 0.005, currentLatLng.longitude + 0.005),
           ),
+          50, // 패딩 값으로 상황에 맞게 설정
         ),
       );
     }
   }
+
 
   void _onMarkerTapped(BuildContext context, MarkerId markerId) {
     final marker = _markers.firstWhere(
