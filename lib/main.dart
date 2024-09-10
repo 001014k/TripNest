@@ -379,7 +379,7 @@ class MapSampleState extends State<MapSample> {
     _controller = controller;
   }
 
-  void _moveToCurrentLocation() {
+  Future<void> _moveToCurrentLocation() async {
     if (_controller != null && _currentLocation != null) {
       // 사용자의 현재 위치로 이동
       LatLng currentLatLng = LatLng(
@@ -387,21 +387,17 @@ class MapSampleState extends State<MapSample> {
         _currentLocation!.longitude!,
       );
 
-      // 패딩을 적용하여 사용자의 위치를 화면 중앙에 맞추기
+      // 카메라를 현재 위치로 바로 이동
       _controller!.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(currentLatLng.latitude - 0.005, currentLatLng.longitude - 0.005),
-            northeast: LatLng(currentLatLng.latitude + 0.005, currentLatLng.longitude + 0.005),
-          ),
-          50, // 패딩 값으로 상황에 맞게 설정
+        CameraUpdate.newLatLng(
+          currentLatLng, // 사용자의 현재 위치를 중앙으로
         ),
       );
     }
   }
 
 
-  void _onMarkerTapped(BuildContext context, MarkerId markerId) {
+  Future<void> _onMarkerTapped(BuildContext context, MarkerId markerId) async {
     final marker = _markers.firstWhere(
       (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
@@ -409,6 +405,14 @@ class MapSampleState extends State<MapSample> {
     setState(() {
       _selectedMarker = marker;
     });
+
+    // 마커 위치로 카메라 이동
+    _controller!.animateCamera(
+      CameraUpdate.newLatLng(
+        marker.position, // 마커의 위치를 중앙으로 이동
+      ),
+    );
+
     _showMarkerInfoBottomSheet(context, marker, (Marker markerToDelete) {
       // 마커 누르면 하단 창 나옴
     });
