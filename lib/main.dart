@@ -937,17 +937,18 @@ class MapSampleState extends State<MapSample> {
                         context: context,
                         builder: (BuildContext context) {
                           return AlertDialog(
-                            title: Text('로그아웃'),
+                            title: Text('로그아웃',style: TextStyle(fontWeight: FontWeight.bold),),
                             content: Text('로그아웃하시겠습니까?'),
                             actions: [
-                              TextButton(
+                              ElevatedButton(
                                 onPressed: () => Navigator.of(context).pop(true),
                                 child: Text('예', style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
                                 ),
                               ),
-                              TextButton(
+                              ElevatedButton(
                                 onPressed: () => Navigator.of(context).pop(false),
-                                child: Text('아니오'),
+                                child: Text('아니오',style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ],
                           );
@@ -1151,8 +1152,9 @@ class MapSampleState extends State<MapSample> {
                     // SnackBar를 화면 하단에 표시
                     ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text("현재 사용자 위치로 이동합니다"), // 표시할 문구
+                          content: Text("현재 사용자 위치로 이동합니다", style: TextStyle(color: Colors.white),), // 표시할 문구
                           duration: Duration(seconds: 2), // 문구가 표시되는 시간
+                          backgroundColor: Colors.black,
                         ),
                     );
                     _moveToCurrentLocation();
@@ -1165,8 +1167,9 @@ class MapSampleState extends State<MapSample> {
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text("화면에 마커가 보이게 합니다"), // 표시할 문구
+                          content: Text("화면에 마커가 보이게 합니다", style: TextStyle(color: Colors.white),), // 표시할 문구
                           duration: Duration(seconds: 2), // 문구가 표시되는 시간
+                          backgroundColor: Colors.black,
                         ),
                       );
                       _showMarkersInVisibleRegion();

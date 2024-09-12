@@ -86,8 +86,9 @@ class _ListPageState extends State<ListPage> {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             ListTile(
-              leading: Icon(Icons.info),
-              title: Text('리스트 내 마커 정보 보기'),
+              leading: Icon(Icons.format_list_bulleted),
+              title: Text('리스트 열기',style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -98,9 +99,11 @@ class _ListPageState extends State<ListPage> {
                 );
               },
             ),
+            Divider(),
             ListTile(
               leading: Icon(Icons.delete),
-              title: Text('리스트 삭제'),
+              title: Text('리스트 삭제',style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               onTap: () async {
                 Navigator.pop(context);
                 // Confirm deletion
@@ -184,7 +187,7 @@ class _ListPageState extends State<ListPage> {
                     child: Column(
                       children: [
                         ListTile(
-                          leading: Icon(Icons.list_alt),
+                          leading: Icon(Icons.format_list_bulleted),
                           title: Text(
                             list['name'],
                             style: TextStyle(fontWeight: FontWeight.bold),
