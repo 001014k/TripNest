@@ -884,6 +884,7 @@ class MapSampleState extends State<MapSample> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final List<String>keywords = keywordIcons.keys.toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -936,12 +937,13 @@ class MapSampleState extends State<MapSample> {
                         context: context,
                         builder: (BuildContext context) {
                           return AlertDialog(
-                            title: Text('로그아웃 확인'),
+                            title: Text('로그아웃'),
                             content: Text('로그아웃하시겠습니까?'),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.of(context).pop(true),
-                                child: Text('예'),
+                                child: Text('예', style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
+                                ),
                               ),
                               TextButton(
                                 onPressed: () => Navigator.of(context).pop(false),
@@ -974,17 +976,20 @@ class MapSampleState extends State<MapSample> {
                 Icons.map,
                 color: Colors.grey[850],
               ),
-              title: Text('지도'),
+              title: Text('지도',style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               onTap: () {
                 _onItemTapped(0); //구글 맵 화면으로 이동
               },
             ),
+            Divider(),
             ListTile(
               leading: Icon(
                 Icons.account_circle,
                 color: Colors.grey[850],
               ),
-              title: Text('프로필'),
+              title: Text('프로필', style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               onTap: () async {
                 final user = FirebaseAuth.instance.currentUser;
 
@@ -1004,12 +1009,14 @@ class MapSampleState extends State<MapSample> {
                 }
               },
             ),
+            Divider(),
             ListTile(
               leading: Icon(
                 Icons.list,
                 color: Colors.grey[850],
               ),
-              title: Text('북마크/리스트'),
+              title: Text('북마크/리스트',style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               onTap: () {
                 Navigator.push(
                   context,
@@ -1019,6 +1026,7 @@ class MapSampleState extends State<MapSample> {
                 );
               },
             ),
+            Divider(),
           ],
         ),
       ),
@@ -1101,29 +1109,31 @@ class MapSampleState extends State<MapSample> {
                 scrollDirection: Axis.horizontal,
                 itemCount: keywords.length,
                 itemBuilder: (context, index) {
-                  final keyword = keywords[index];
+                  final keyword = keywords[index]; // 인덱스에 해당하는 키워드 가져오기
+                  final icon = keywordIcons[keyword]; // 해당 키워드에 맞는 아이콘 가져오기
                   final isActive = _activeKeywords.contains(keyword);
                   return Container(
                     margin: EdgeInsets.symmetric(horizontal: 5.0),
                     // 키워드 버튼 간격 조정
-                    child: ElevatedButton(
+                    child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isActive ? Colors.grey : Colors.white,
+                        backgroundColor: isActive ? Colors.grey : Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(50),
                         ),
                         padding: EdgeInsets.symmetric(
-                            horizontal: 20.0, vertical: 10),
+                            horizontal: 20.0, vertical: 12),
                         // horizontal : 가로 방향에 각각 몇 픽셀의 패딩을 추가
                         // vertical: 세로 방향에 각각 몇 픽셀의 패딩을 추가 (Textstyle에 값과 비슷하게 설정할것)
                       ),
                       onPressed: () {
                         _toggleKeyword(keyword);
                       },
-                      child: Text(
+                      icon: Icon(icon, color: Colors.white,size: 12),
+                      label: Text(
                         keyword,
                         style: TextStyle(
-                            color: Colors.black, fontSize: 12), // 글씨 크기 조정
+                            color: Colors.white, fontSize: 12,fontWeight: FontWeight.bold), // 글씨 크기 조정
                       ),
                     ),
                   );
@@ -1178,7 +1188,14 @@ class MapSampleState extends State<MapSample> {
   }
 }
 
-const List<String> keywords = ['카페', '호텔', '사진', '음식점', '전시회'];
+final Map<String, IconData> keywordIcons = {
+  '카페': Icons.local_cafe,
+  '호텔': Icons.hotel,
+  '사진': Icons.camera_alt,
+  '음식점': Icons.restaurant,
+  '전시회': Icons.art_track,
+};
+
 
 class MarkerCreationScreen extends StatefulWidget {
   final LatLng initialLatLng;
@@ -1241,6 +1258,8 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final List<String>keywords = keywordIcons.keys.toList();
+
     return Scaffold(
       appBar: AppBar(
         title: Text('마커생성'),
