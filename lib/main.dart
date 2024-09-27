@@ -61,20 +61,16 @@ class MapSampleState extends State<MapSample> {
   Set<Marker> _allMarkers = {}; // 모든 마커 저장
   Set<Marker> _filteredMarkers = {}; // 필터링된 마커 저장
   Set<String> _activeKeywords = {}; //활성화 된 키워드 저장
-  GoogleMapController? _controller;
-  Marker? _selectedMarker;
   LatLng? _pendingLatLng;
   location.LocationData? _currentLocation;
   final location.Location _location = location.Location();
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
-  late GoogleMapController _mapController;
-  String? _result;
+  late GoogleMapController _controller;
   List<Marker> _searchResults = [];
   List<Marker> bookmarkedMarkers = [];
   CollectionReference markersCollection =
       FirebaseFirestore.instance.collection('users');
-  int _selectedIndex = 0;
   final Map<String, String> keywordMarkerImages = {
     '카페': 'assets/cafe_marker.png',
     '호텔': 'assets/hotel_marker.png',
@@ -122,9 +118,6 @@ class MapSampleState extends State<MapSample> {
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
 
     // 구글 맵 화면으로 이동하는 경우 맵 초기화
     if (index == 0 && _controller != null) {
@@ -169,7 +162,7 @@ class MapSampleState extends State<MapSample> {
           .collection('user_markers');
 
       final QuerySnapshot querySnapshot = await userMarkersCollection.get();
-      setState(() async {
+
         _markers.clear();
         _allMarkers.clear();
         for (var doc in querySnapshot.docs) {
@@ -202,6 +195,7 @@ class MapSampleState extends State<MapSample> {
           _allMarkers.add(marker); //모든 마커 저장
           _markerKeywords[marker.markerId] = data['keyword'] ?? '';
         }
+      setState(() {
         _filteredMarkers = _allMarkers; //초기 상태에서 모든 마커 표시
       });
     }
@@ -225,7 +219,7 @@ class MapSampleState extends State<MapSample> {
     });
 
     // 사용자의 위치를 지도 중앙으로 이동
-    _controller!.animateCamera(CameraUpdate.newLatLng(center));
+    await _controller!.animateCamera(CameraUpdate.newLatLng(center));
   }
 
   void onEdit(Marker updatedMarker) async {
@@ -375,10 +369,6 @@ class MapSampleState extends State<MapSample> {
     });
   }
 
-  void _onMapCreated(GoogleMapController controller) {
-    _controller = controller;
-  }
-
   Future<void> _moveToCurrentLocation() async {
     if (_controller != null && _currentLocation != null) {
       // 사용자의 현재 위치로 이동
@@ -388,7 +378,7 @@ class MapSampleState extends State<MapSample> {
       );
 
       // 카메라를 현재 위치로 바로 이동
-      _controller!.animateCamera(
+      await _controller!.animateCamera(
         CameraUpdate.newLatLng(
           currentLatLng, // 사용자의 현재 위치를 중앙으로
         ),
@@ -402,15 +392,10 @@ class MapSampleState extends State<MapSample> {
       (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
-    setState(() {
-      _selectedMarker = marker;
-    });
-
     // 마커 위치로 카메라 이동
-    _controller!.animateCamera(
-      CameraUpdate.newLatLng(
-        marker.position, // 마커의 위치를 중앙으로 이동
-      ),
+    print('Marker Position: ${marker.position}');
+    await _controller!.animateCamera(
+      CameraUpdate.newLatLng(marker.position), // 마커의 위치로 카메라 이동
     );
 
     _showMarkerInfoBottomSheet(context, marker, (Marker markerToDelete) {
@@ -1086,9 +1071,6 @@ class MapSampleState extends State<MapSample> {
                         _controller?.animateCamera(
                           CameraUpdate.newLatLng(marker.position),
                         );
-                        setState(() {
-                          _selectedMarker = marker;
-                        });
                         _showMarkerInfoBottomSheet(context, marker,
                             (Marker markerToDelte) {
                           // 여기에 마커 삭제 로직 추가
