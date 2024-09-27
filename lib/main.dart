@@ -219,7 +219,7 @@ class MapSampleState extends State<MapSample> {
     });
 
     // 사용자의 위치를 지도 중앙으로 이동
-    await _controller!.animateCamera(CameraUpdate.newLatLng(center));
+    _controller!.animateCamera(CameraUpdate.newLatLng(center));
   }
 
   void onEdit(Marker updatedMarker) async {
@@ -378,7 +378,7 @@ class MapSampleState extends State<MapSample> {
       );
 
       // 카메라를 현재 위치로 바로 이동
-      await _controller!.animateCamera(
+      _controller!.animateCamera(
         CameraUpdate.newLatLng(
           currentLatLng, // 사용자의 현재 위치를 중앙으로
         ),
@@ -392,7 +392,7 @@ class MapSampleState extends State<MapSample> {
       (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
-    // 마커 위치로 카메라 이동
+    // 마커 위치로 카메라 이동 (await 작업은 마커를 눌렀을때만 적용 나머지는 불필요함)
     print('Marker Position: ${marker.position}');
     await _controller!.animateCamera(
       CameraUpdate.newLatLng(marker.position), // 마커의 위치로 카메라 이동
