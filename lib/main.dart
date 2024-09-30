@@ -179,9 +179,12 @@ class MapSampleState extends State<MapSample> {
                 : BitmapDescriptor.hueOrange,
           );
 
+          final lat = data['lat'] != null ? data['lat'] as double : 0.0; // 기본값 0.0으로 설정
+          final lng = data['lng'] != null ? data['lng'] as double : 0.0; // 기본값 0.0으로 설정
+
           final marker = Marker(
             markerId: MarkerId(doc.id),
-            position: LatLng(data['lat'], data['lng']),
+            position: LatLng(lat, lng),
             infoWindow: InfoWindow(
               title: data['title'],
               snippet: data['snippet'],
@@ -379,8 +382,8 @@ class MapSampleState extends State<MapSample> {
 
       // 카메라를 현재 위치로 바로 이동
       _controller!.animateCamera(
-        CameraUpdate.newLatLng(
-          currentLatLng, // 사용자의 현재 위치를 중앙으로
+        CameraUpdate.newLatLngZoom(
+          currentLatLng, 18.0 // 사용자의 현재 위치를 중앙으로 이동 및 확대
         ),
       );
     }
@@ -395,7 +398,7 @@ class MapSampleState extends State<MapSample> {
     // 마커 위치로 카메라 이동 (await 작업은 마커를 눌렀을때만 적용 나머지는 불필요함)
     print('Marker Position: ${marker.position}');
     await _controller!.animateCamera(
-      CameraUpdate.newLatLng(marker.position), // 마커의 위치로 카메라 이동
+      CameraUpdate.newLatLngZoom(marker.position, 18.0), // 마커의 위치로 카메라 이동,마커 확대기능
     );
 
     _showMarkerInfoBottomSheet(context, marker, (Marker markerToDelete) {
