@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'friend_management_page.dart';
 import 'profile_page.dart';
 import 'login_page.dart';
 import 'signup_page.dart';
@@ -1011,6 +1012,23 @@ class MapSampleState extends State<MapSample> {
                   context,
                   MaterialPageRoute(
                       builder: (context) => MainPage(),
+                  ),
+                );
+              },
+            ),
+            Divider(),
+            ListTile(
+              leading: Icon(
+                Icons.person_add,
+                color: Colors.grey[850],
+              ),
+              title: Text('친구',style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => FriendManagementPage(),
                   ),
                 );
               },
