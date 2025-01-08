@@ -1376,7 +1376,14 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                       Icons.touch_app, //터치 힌트 아이콘
                       color: Colors.grey,
                       size: 20,
-                    )
+                    ),
+                    Text(
+                      '클릭하여 자세히 보기',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
                   ],
                 ),
                 SizedBox(height: 4), // 제목과 언더바 사이의 간격
@@ -1386,13 +1393,6 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                   width: double.infinity, // 언더바의 길이를 화면 너비에 맞춤
                 ),
                 SizedBox(height: 8), // 언더바와 힌트 텍스트 사이의 간격
-                Text(
-                  '클릭하여 자세히 보기',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
               ],
             ),
           ),
