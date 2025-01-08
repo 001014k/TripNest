@@ -843,6 +843,9 @@ class MapSampleState extends State<MapSample> {
   }
 
   void _updateSearchResults(String query) {
+    // 공백 제거: 검색어 앞뒤의 공백을 제거
+    query = query.trim();
+
     if (query.isEmpty) {
       setState(() {
         _searchResults.clear();
