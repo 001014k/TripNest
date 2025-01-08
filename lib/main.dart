@@ -312,8 +312,7 @@ class MapSampleState extends State<MapSample> {
               // UI에서 마커 업데이트
               _markers.removeWhere((m) => m.markerId == updatedMarker.markerId);
               _markers.add(updatedMarker);
-              _allMarkers
-                  .removeWhere((m) => m.markerId == updatedMarker.markerId);
+              _allMarkers.removeWhere((m) => m.markerId == updatedMarker.markerId);
               _allMarkers.add(updatedMarker);
 
               // 키워드 업데이트
@@ -333,8 +332,7 @@ class MapSampleState extends State<MapSample> {
             setState(() {
               // 마커를 UI에서 제거
               _markers.removeWhere((m) => m.markerId == deletedMarker.markerId);
-              _allMarkers
-                  .removeWhere((m) => m.markerId == deletedMarker.markerId);
+              _allMarkers.removeWhere((m) => m.markerId == deletedMarker.markerId);
             });
           },
         ),
@@ -345,16 +343,6 @@ class MapSampleState extends State<MapSample> {
     if (result == true) {
       _loadMarkers();
     }
-  }
-
-  Future<Uint8List> _bitmapDescriptorToBytes(
-      BitmapDescriptor descriptor) async {
-    // BitmapDescriptor를 바이트로 변환하는 로직을 추가해야 합니다.
-    return Uint8List(0);
-  }
-
-  Future<Uint8List> _fileToBytes(File file) async {
-    return file.readAsBytes();
   }
 
   Future<void> _getLocation() async {
@@ -601,10 +589,9 @@ class MapSampleState extends State<MapSample> {
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
               ),
               onTap: () {
-                setState(() {
-                  // _allMarkers의 내용을 _filteredMarkers로 복사하여 초기화
-                  _filteredMarkers = Set<Marker>.from(_allMarkers);
-                });
+                // 만약 동기화가 필요하면 마커 로드 함수 호출
+                //초기화 버튼을 누르면 모든 마커 표시
+                _loadMarkers();
                 Navigator.pop(context); // 모달 닫기
               },
             ),
@@ -613,7 +600,6 @@ class MapSampleState extends State<MapSample> {
       },
     );
   }
-
 
   void _showMarkersForSelectedList(String listId) async {
     final user = FirebaseAuth.instance.currentUser;
