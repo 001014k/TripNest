@@ -71,7 +71,7 @@ class MapSampleState extends State<MapSample> {
   List<Marker> _searchResults = [];
   List<Marker> bookmarkedMarkers = [];
   CollectionReference markersCollection =
-      FirebaseFirestore.instance.collection('users');
+  FirebaseFirestore.instance.collection('users');
   final Map<String, String> keywordMarkerImages = {
     '카페': 'assets/cafe_marker.png',
     '호텔': 'assets/hotel_marker.png',
@@ -210,6 +210,7 @@ class MapSampleState extends State<MapSample> {
 
     LatLngBounds bounds = await _controller!.getVisibleRegion();
 
+    // 현재 이 로직 때문에 이 로직을 실행하면 마커를 눌렀을때 마커가 맵 좌측 상단으로 이동하는 현상이 생김
     // LatLngBounds의 northEast와 southWest를 사용하여 중앙 좌표 계산
     LatLng center = LatLng(
       (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
@@ -372,7 +373,7 @@ class MapSampleState extends State<MapSample> {
       });
     });
   }
-
+  
   Future<void> _moveToCurrentLocation() async {
     if (_controller != null && _currentLocation != null) {
       // 사용자의 현재 위치로 이동
