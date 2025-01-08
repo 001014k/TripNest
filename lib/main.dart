@@ -767,7 +767,6 @@ class MapSampleState extends State<MapSample> {
             ),
           );
         }
-
         setState(() {
           _searchResults = [
             Marker(
@@ -777,8 +776,6 @@ class MapSampleState extends State<MapSample> {
             )
           ];
         });
-        // 모든 마커에 대한 검색을 새로 고침
-        //_updateSearchResults(query);
         // 3. 검색 결과를 화면에 표시
         _showSearchResults();
       }
