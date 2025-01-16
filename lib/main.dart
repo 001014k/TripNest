@@ -738,15 +738,20 @@ class MapSampleState extends State<MapSample> {
         _searchResults = []; // 검색 결과를 비웁니다.
       });
       return; // 검색을 중단합니다.
-    }
-
-    //1. 기존 마커 제목 검색기능
-    setState(() {
-      _searchResults = _markers.where((marker) {
+    } else {
+      final filteredMarkers = _markers.where((marker) {
         final title = marker.infoWindow.title?.toLowerCase() ?? '';
         return title.contains(query.toLowerCase());
       }).toList();
-    });
+
+      // 중복 제거: MarkerId로 중복 확인
+      final uniqueResults = {for (var marker in filteredMarkers) marker.markerId: marker}.values.toList();
+
+      setState(() {
+        _searchResults = uniqueResults;
+      });
+    }
+
 
     // 2. geocoding API를 사용하여 주소반환
     try {
@@ -776,8 +781,6 @@ class MapSampleState extends State<MapSample> {
             )
           ];
         });
-        // 3. 검색 결과를 화면에 표시
-        _showSearchResults();
       }
     } catch (e) {
       print('Error: $e');
@@ -818,7 +821,6 @@ class MapSampleState extends State<MapSample> {
   }
 
   void _updateSearchResults(String query) {
-    // 공백 제거: 검색어 앞뒤의 공백을 제거
     query = query.trim();
 
     if (query.isEmpty) {
@@ -826,14 +828,20 @@ class MapSampleState extends State<MapSample> {
         _searchResults.clear();
       });
     } else {
+      final filteredMarkers = _markers.where((marker) {
+        final title = marker.infoWindow.title?.toLowerCase() ?? '';
+        return title.contains(query.toLowerCase());
+      }).toList();
+
+      // 중복 제거: MarkerId로 중복 확인
+      final uniqueResults = {for (var marker in filteredMarkers) marker.markerId: marker}.values.toList();
+
       setState(() {
-        _searchResults = _markers.where((marker) {
-          final title = marker.infoWindow.title?.toLowerCase() ?? '';
-          return title.contains(query.toLowerCase());
-        }).toList();
+        _searchResults = uniqueResults;
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
