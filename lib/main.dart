@@ -339,7 +339,7 @@ class MapSampleState extends State<MapSample> {
       });
     });
   }
-  
+
   Future<void> _moveToCurrentLocation() async {
     if (_controller != null && _currentLocation != null) {
       // 사용자의 현재 위치로 이동
@@ -1045,37 +1045,6 @@ class MapSampleState extends State<MapSample> {
             //필터링된 마커를 사용
             onTap: (latLng) => _onMapTapped(context, latLng),
           ),
-          if (_searchResults.isNotEmpty) ...[
-            // 화면 하단에 검색 결과를 표시하는 기능
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Colors.white,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _searchResults.length,
-                  itemBuilder: (context, index) {
-                    final marker = _searchResults[index];
-                    return ListTile(
-                      title: Text(marker.infoWindow.title ?? 'Untitled'),
-                      subtitle: Text(marker.infoWindow.snippet ?? ''),
-                      onTap: () {
-                        _controller?.animateCamera(
-                          CameraUpdate.newLatLng(marker.position),
-                        );
-                        _showMarkerInfoBottomSheet(context, marker,
-                            (Marker markerToDelte) {
-                          // 여기에 마커 삭제 로직 추가
-                        });
-                      },
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
           Positioned(
             top: 20.0,
             left: 0,
@@ -1147,6 +1116,93 @@ class MapSampleState extends State<MapSample> {
               ],
             ),
           ),
+          if (_searchResults.isNotEmpty) ...[
+            // 검색창에 입력한 제목을 화면 하단에 검색 결과를 표시하는 기능
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16), // 왼쪽 상단 둥글기
+                    topRight: Radius.circular(16), // 오른쪽 상단 둥글기
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26, // 그림자 색상
+                      blurRadius: 8, // 그림자 흐림 정도
+                      offset: Offset(0, -2), // 그림자 위치 (x, y)
+                    ),
+                  ],
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _searchResults.length,
+                  separatorBuilder: (context, index) => Divider(
+                    color: Colors.grey,
+                    thickness: 1,
+                  ),
+                  itemBuilder: (context, index) {
+                    final marker = _searchResults[index];
+                    final keyword =
+                    _markerKeywords[marker.markerId]; // keyword 불러오기
+                    return ListTile(
+                      leading: Icon(
+                        Icons.location_on, //마커 아이콘
+                        color: Colors.red, //아이콘 색상
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              marker.infoWindow.title ?? 'Untitled',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold, //타이틀 강조
+                              ),
+                            ),
+                          ),
+                          if (keyword != null && keyword.isNotEmpty)
+                            Container(
+                              margin: EdgeInsets.only(left: 8),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                keyword, // 키워드 표시
+                                style: TextStyle(
+                                  color: Colors.blue[700],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        marker.infoWindow.snippet ?? '', // 부제목(이 부분은 변경하지 않음)
+                        style: TextStyle(
+                          color: Colors.grey[600], // 부제목 색상
+                        ),
+                      ),
+                      onTap: () {
+                        _controller?.animateCamera(
+                          CameraUpdate.newLatLng(marker.position),
+                        );
+                        _showMarkerInfoBottomSheet(context, marker,
+                                (Marker markerToDelete) {
+                              // 여기에 마커 삭제 로직 추가
+                            });
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
