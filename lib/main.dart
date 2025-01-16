@@ -57,6 +57,16 @@ class MapSample extends StatefulWidget {
   State<MapSample> createState() => MapSampleState();
 }
 
+//class MapSampleState
+//class MarkerCreationScreen
+final Map<String, IconData> keywordIcons = {
+  '카페': Icons.local_cafe,
+  '호텔': Icons.hotel,
+  '사진': Icons.camera_alt,
+  '음식점': Icons.restaurant,
+  '전시회': Icons.art_track,
+};
+
 class MapSampleState extends State<MapSample> {
   final Map<MarkerId, String> _markerKeywords = {}; //마커의 키워드 저장
   Set<Marker> _allMarkers = {}; // 모든 마커 저장
@@ -1116,8 +1126,8 @@ class MapSampleState extends State<MapSample> {
               ],
             ),
           ),
+          // 검색창에 입력한 제목을 화면 하단에 검색 결과를 표시하는 기능
           if (_searchResults.isNotEmpty) ...[
-            // 검색창에 입력한 제목을 화면 하단에 검색 결과를 표시하는 기능
             Positioned(
               bottom: 0,
               left: 0,
@@ -1146,8 +1156,8 @@ class MapSampleState extends State<MapSample> {
                   ),
                   itemBuilder: (context, index) {
                     final marker = _searchResults[index];
-                    final keyword =
-                    _markerKeywords[marker.markerId]; // keyword 불러오기
+                    final keyword = _markerKeywords[marker.markerId]; // keyword 불러오기
+                    final icon = keywordIcons[keyword]; // 해당 키워드에 맞는 아이콘 가져오기
                     return ListTile(
                       leading: Icon(
                         Icons.location_on, //마커 아이콘
@@ -1169,15 +1179,26 @@ class MapSampleState extends State<MapSample> {
                               padding: EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.blue[100],
+                                color: Colors.blue[200],
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Text(
-                                keyword, // 키워드 표시
-                                style: TextStyle(
-                                  color: Colors.blue[700],
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min, //Row의 크기를 내용물에 맞게 조정
+                                children: [
+                                  Icon(
+                                    icon, // 키워드에 맞는 아이콘 표시
+                                    color: Colors.black,
+                                    size: 16,
+                                  ),
+                                  SizedBox(width: 4), //아이콘과 텍스트 사이 간격
+                                  Text(
+                                    keyword, // 키워드 표시
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ]
                               ),
                             ),
                         ],
@@ -1208,15 +1229,6 @@ class MapSampleState extends State<MapSample> {
     );
   }
 }
-
-final Map<String, IconData> keywordIcons = {
-  '카페': Icons.local_cafe,
-  '호텔': Icons.hotel,
-  '사진': Icons.camera_alt,
-  '음식점': Icons.restaurant,
-  '전시회': Icons.art_track,
-};
-
 
 class MarkerCreationScreen extends StatefulWidget {
   final LatLng initialLatLng;
