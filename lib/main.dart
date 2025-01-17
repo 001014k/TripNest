@@ -797,39 +797,6 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  // 검색 결과에 대한 로직
-  void _showSearchResults() {
-    showModalBottomSheet(
-      context: context,
-      isDismissible: true, // 하단 시트를 드래그 하여 내릴수 있게 설정
-      enableDrag: true, // 하단 시트 드래그 기능 활성화
-      builder: (BuildContext context) {
-        return Container(
-          padding: EdgeInsets.all(16.0),
-          child: ListView.builder(
-            itemCount: _searchResults.length,
-            itemBuilder: (context, index) {
-              final marker = _searchResults[index];
-              return ListTile(
-                leading: Icon(Icons.location_on, color: Colors.red,),
-                title: Text(
-                  marker.infoWindow.title ?? 'Untitled',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _controller?.animateCamera(
-                    CameraUpdate.newLatLng(marker.position),
-                  );
-                },
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
   void _updateSearchResults(String query) {
     query = query.trim();
 
