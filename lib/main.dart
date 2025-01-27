@@ -146,19 +146,6 @@ class MapSampleState extends State<MapSample> {
     super.initState();
     _getLocation();
     _loadMarkers();
-    _clusterManager = MarkersClusterManager(
-      clusterColor: Colors.blue,
-      clusterBorderThickness: 10.0,
-      clusterBorderColor: Colors.blue[900]!,
-      clusterOpacity: 1.0,
-      clusterTextStyle: TextStyle(
-        fontSize: 40,
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
-      onMarkerTap: (LatLng position) {
-      },
-    );
   }
 
   Future<String> _getAddressFromCoordinates(
@@ -221,7 +208,7 @@ class MapSampleState extends State<MapSample> {
               _onMarkerTapped(context, MarkerId(doc.id));
             },
           );
-          _markers.add(marker);
+          _markers.add(marker); //화면에 표시될 마커만 _markers에 저장
           _allMarkers.add(marker); //모든 마커 저장
           _markerKeywords[marker.markerId] = data['keyword'] ?? '';
         }
@@ -233,10 +220,27 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
+  //마커들을 클러스터링에 추가하는 함수
   void _applyMarkersToCluster() {
-    _clusterManager = MarkersClusterManager(); // 기존 마커를 초기화
+    //새로운 MarkersClusterManager 객체를 초기화하여 기존 마커를 클러스터링하도록 설정
+    _clusterManager = MarkersClusterManager(
+      clusterColor: Colors.blue, //클러스터 마커의 배경색 설정
+      clusterBorderThickness: 10.0, // 클러스터 마커의 테두리 두께 설정
+      clusterBorderColor: Colors.blue[900]!, // 클러스터 마커의 테두리 색을 어두운 파란색으로 설정
+      clusterOpacity: 1.0, // 클러스터 마커의 불투명도를 1로 설정 (불투명)
+      clusterTextStyle: TextStyle(
+        fontSize: 20, //클러스터 마커에 표시될 숫자의 폰트 크기 설정
+        color: Colors.white, // 클러스터 마커의 숫자 색상 설정
+        fontWeight: FontWeight.bold, // 클러스터 마커의 숫자 폰트를 굵게 설정
+      ),
+      onMarkerTap: (LatLng position) {
+        // 클러스터 마커 클릭 시 동작
+      },
+    ); // 새로 클러스터 매니저 초기화
+
+    // 필터링된 마커들을 클러스터 매니저에 추가
     for (var marker in _filteredMarkers) {
-      _clusterManager.addMarker(marker); // 필터링된 마커 추가
+      _clusterManager.addMarker(marker);
     }
     _updateClusters(); // 클러스터 갱신
   }
