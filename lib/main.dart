@@ -7,6 +7,7 @@ import 'package:location/location.dart' as location;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:markers_cluster_google_maps_flutter/markers_cluster_google_maps_flutter.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'friend_management_page.dart';
@@ -78,6 +79,8 @@ class MapSampleState extends State<MapSample> {
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   late GoogleMapController _controller;
+  late MarkersClusterManager _clusterManager;
+  double _currentZoom = 15.0; // 초기 줌 레벨
   List<Marker> _searchResults = [];
   List<Marker> bookmarkedMarkers = [];
   CollectionReference markersCollection =
@@ -143,6 +146,19 @@ class MapSampleState extends State<MapSample> {
     super.initState();
     _getLocation();
     _loadMarkers();
+    _clusterManager = MarkersClusterManager(
+      clusterColor: Colors.blue,
+      clusterBorderThickness: 10.0,
+      clusterBorderColor: Colors.blue[900]!,
+      clusterOpacity: 1.0,
+      clusterTextStyle: TextStyle(
+        fontSize: 40,
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+      onMarkerTap: (LatLng position) {
+      },
+    );
   }
 
   Future<String> _getAddressFromCoordinates(
@@ -212,7 +228,22 @@ class MapSampleState extends State<MapSample> {
       setState(() {
         _filteredMarkers = _allMarkers; //초기 상태에서 모든 마커 표시
       });
+      // 클러스터 갱신
+      _applyMarkersToCluster();
     }
+  }
+
+  void _applyMarkersToCluster() {
+    _clusterManager = MarkersClusterManager(); // 기존 마커를 초기화
+    for (var marker in _filteredMarkers) {
+      _clusterManager.addMarker(marker); // 필터링된 마커 추가
+    }
+    _updateClusters(); // 클러스터 갱신
+  }
+
+  Future<void> _updateClusters() async {
+    await _clusterManager.updateClusters(zoomLevel: _currentZoom);
+    setState(() {});
   }
 
   void onEdit(Marker updatedMarker) async {
@@ -993,6 +1024,7 @@ class MapSampleState extends State<MapSample> {
             onMapCreated: (GoogleMapController controller) {
               _controller = controller;
               _loadMarkers();
+              _applyMarkersToCluster(); // 클러스터 매니저 초기화
               _controller!.setMapStyle(mapStyle);
               if (_currentLocation != null) {
                 _controller!.animateCamera(
@@ -1014,13 +1046,16 @@ class MapSampleState extends State<MapSample> {
               zoom: 15.0,
             ),
             zoomControlsEnabled: false, // 확대/축소 버튼 숨기기
-            myLocationEnabled: true,
-            // 내 위치 아이콘 표시 여부
-            myLocationButtonEnabled: false,
-            //GPS 버튼 비활성화
-            markers: Set<Marker>.from(_filteredMarkers),
-            //필터링된 마커를 사용
+            myLocationEnabled: true, // 내 위치 아이콘 표시 여부
+            myLocationButtonEnabled: false, // 내 위치 아이콘 표시 여부
+            markers: Set<Marker>.of(_clusterManager.getClusteredMarkers()), // 클러스터링된 마커 사용
             onTap: (latLng) => _onMapTapped(context, latLng),
+            onCameraMove: (CameraPosition position) {
+              setState(() {
+                _currentZoom = position.zoom;
+              });
+              _updateClusters();
+            },
           ),
           Positioned(
             top: 20.0,
