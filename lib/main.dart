@@ -773,6 +773,9 @@ class MapSampleState extends State<MapSample> {
 
     // 오프라인/온라인 상태에 따라 마커를 저장
     await _markerService.saveMarkerOfflineOrOnline(markerData);
+
+    // 클러스터링을 새로 갱신하여 지도에 마커를 반영
+    _applyMarkersToCluster(); // 클러스터 갱신
   }
 
   void _onSearchSubmitted(String query) async {
