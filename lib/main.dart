@@ -224,17 +224,27 @@ class MapSampleState extends State<MapSample> {
   void _applyMarkersToCluster() {
     //새로운 MarkersClusterManager 객체를 초기화하여 기존 마커를 클러스터링하도록 설정
     _clusterManager = MarkersClusterManager(
-      clusterColor: Colors.blue, //클러스터 마커의 배경색 설정
+      clusterColor: Colors.black, //클러스터 마커의 배경색 설정
       clusterBorderThickness: 10.0, // 클러스터 마커의 테두리 두께 설정
-      clusterBorderColor: Colors.blue[900]!, // 클러스터 마커의 테두리 색을 어두운 파란색으로 설정
+      clusterBorderColor: Colors.black, // 클러스터 마커의 테두리 색을 어두운 파란색으로 설정
       clusterOpacity: 1.0, // 클러스터 마커의 불투명도를 1로 설정 (불투명)
       clusterTextStyle: TextStyle(
         fontSize: 20, //클러스터 마커에 표시될 숫자의 폰트 크기 설정
         color: Colors.white, // 클러스터 마커의 숫자 색상 설정
         fontWeight: FontWeight.bold, // 클러스터 마커의 숫자 폰트를 굵게 설정
       ),
-      onMarkerTap: (LatLng position) {
-        // 클러스터 마커 클릭 시 동작
+      onMarkerTap: (LatLng position) async {
+        // 클러스터 마커 클릭 시 동작: 확대 기능 추가
+        final GoogleMapController mapController = await _controller;
+
+        mapController.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: position, // 클릭된 클러스터 마커 위치로 이동
+              zoom: 16.0, // 원하는 줌 레벨로 확대 (15은 예시 값)
+            ),
+          ),
+        );
       },
     ); // 새로 클러스터 매니저 초기화
 
