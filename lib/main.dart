@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:fluttertrip/Dashboard_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -128,6 +128,8 @@ class MapSampleState extends State<MapSample> {
           return _activeKeywords.contains(markerKeyword);
         }).toSet();
       }
+      // 클러스터 매니저 갱신
+      _applyMarkersToCluster();
     });
   }
 
@@ -866,7 +868,6 @@ class MapSampleState extends State<MapSample> {
       });
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
