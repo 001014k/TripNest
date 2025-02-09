@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:fluttertrip/Dashboard_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -85,6 +87,8 @@ class MapSampleState extends State<MapSample> {
   List<Marker> bookmarkedMarkers = [];
   CollectionReference markersCollection =
   FirebaseFirestore.instance.collection('users');
+  // API 키 변수 (Info.plist 등에서 자동으로 불러오는 방식은 HTTP 요청에서는 지원되지 않으므로, 직접 전달해야 합니다.)
+  static const String _apiKey = 'AIzaSyCG5vm5IxhEMsjcYktLzZhh928ZKYlO3RM';
   final Map<String, String> keywordMarkerImages = {
     '카페': 'assets/cafe_marker.png',
     '호텔': 'assets/hotel_marker.png',
@@ -812,6 +816,86 @@ class MapSampleState extends State<MapSample> {
       });
     }
 
+    // 2. Places API (new) POST 요청: Find Place from Text
+    final encodedQuery = Uri.encodeComponent(query);
+    // URL 구성 – 여기서는 textsearch 대신 findplacefromtext 대신 textsearch 엔드포인트 사용 예시
+    // 만약 findplacefromtext를 사용하려면 아래 URL을 사용하세요:
+    // 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=$encodedQuery&inputtype=textquery&fields=place_id,name,geometry,formatted_address&language=ko&key=$_apiKey'
+    //
+    // 여기서는 설명서에 따른 textsearch 엔드포인트(POST)를 사용합니다.
+    final placesUrl = Uri.parse('https://places.googleapis.com/v1/places:searchText?&key=$_apiKey');
+
+    // 요청 본문 (JSON 형식)
+    final requestBody = json.encode({
+      "textQuery": query,
+      "languageCode": "ko",
+    });
+
+    try {
+      final placesResponse = await http.post(
+        placesUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          // 요청에 필요한 추가 헤더가 있다면 여기에 추가합니다.
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.priceLevel,places.location'
+        },
+        body: requestBody,
+      );
+
+      if (placesResponse.statusCode == 200) {
+        final placesData = json.decode(placesResponse.body);
+        print("Places API Response: ${placesResponse.body}");
+
+        if (placesData['places'] != null && (placesData['places'] as List).isNotEmpty) {
+          final placesResults = placesData['places'] as List;
+          List<Marker> placesMarkers = [];
+
+          for (var result in placesResults) {
+            // 결과에서 장소 정보 추출
+            // 예: displayName (텍스트), formattedAddress, 그리고 location (lat, lng)
+            final displayName = result['displayName']['text'];
+            final formattedAddress = result['formattedAddress'];
+            // 예시 응답에서는 "location"이라는 필드가 있어야 합니다.
+            final locationJson = result['location'];
+            final lat = locationJson['latitude'];
+            final lng = locationJson['longitude'];
+            final latLng = LatLng(lat, lng);
+            // place_id가 없는 경우에는 fallback으로 displayName 사용 (여기서는 간단히 처리)
+            final placeId = result['place_id'] ?? displayName;
+
+            placesMarkers.add(
+              Marker(
+                markerId: MarkerId(placeId),
+                position: latLng,
+                infoWindow: InfoWindow(title: displayName, snippet: formattedAddress),
+              ),
+            );
+          }
+
+          setState(() {
+            _searchResults = placesMarkers;
+          });
+
+          // 첫 번째 결과로 지도 이동
+          if (placesMarkers.isNotEmpty) {
+            final firstResult = placesMarkers.first.position;
+            _controller?.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(target: firstResult, zoom: 20),
+              ),
+            );
+          }
+        } else {
+          print("No places API results found.");
+        }
+      } else {
+        print("Failed to fetch data: ${placesResponse.statusCode}");
+        print("Error Response: ${placesResponse.body}");
+      }
+    } catch (e) {
+      print("Error during Places API call: $e");
+    }
+
 
     // 2. geocoding API를 사용하여 주소반환
     try {
@@ -882,7 +966,7 @@ class MapSampleState extends State<MapSample> {
         title: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: '주소 및 마커검색...',
+            hintText: '주소,장소명 및 마커검색...',
             border: InputBorder.none,
             hintStyle: TextStyle(color: Colors.white54),
           ),
