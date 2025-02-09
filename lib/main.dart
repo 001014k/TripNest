@@ -12,6 +12,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:markers_cluster_google_maps_flutter/markers_cluster_google_maps_flutter.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fluttertrip/config.dart';
 import 'friend_management_page.dart';
 import 'profile_page.dart';
 import 'login_page.dart';
@@ -87,8 +88,6 @@ class MapSampleState extends State<MapSample> {
   List<Marker> bookmarkedMarkers = [];
   CollectionReference markersCollection =
   FirebaseFirestore.instance.collection('users');
-  // API 키 변수 (Info.plist 등에서 자동으로 불러오는 방식은 HTTP 요청에서는 지원되지 않으므로, 직접 전달해야 합니다.)
-  static const String _apiKey = 'AIzaSyCG5vm5IxhEMsjcYktLzZhh928ZKYlO3RM';
   final Map<String, String> keywordMarkerImages = {
     '카페': 'assets/cafe_marker.png',
     '호텔': 'assets/hotel_marker.png',
@@ -823,7 +822,7 @@ class MapSampleState extends State<MapSample> {
     // 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=$encodedQuery&inputtype=textquery&fields=place_id,name,geometry,formatted_address&language=ko&key=$_apiKey'
     //
     // 여기서는 설명서에 따른 textsearch 엔드포인트(POST)를 사용합니다.
-    final placesUrl = Uri.parse('https://places.googleapis.com/v1/places:searchText?&key=$_apiKey');
+    final placesUrl = Uri.parse('https://places.googleapis.com/v1/places:searchText?&key=${Config.placesApiKey}');
 
     // 요청 본문 (JSON 형식)
     final requestBody = json.encode({
