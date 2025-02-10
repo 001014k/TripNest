@@ -967,30 +967,6 @@ class MapSampleState extends State<MapSample> {
     final List<String>keywords = keywordIcons.keys.toList();
 
     return Scaffold(
-      appBar: AppBar(
-        iconTheme: IconThemeData(
-          color: Colors.white, //햄버거 아이콘 색상을 화이트 색상으로 변경
-        ),
-        title: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: '주소,장소명 및 마커검색...',
-            border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.white54),
-          ),
-          style: TextStyle(color: Colors.white),
-          onChanged: _updateSearchResults,
-          onSubmitted: _onSearchSubmitted,
-        ),
-        backgroundColor: Colors.black,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search),
-            color: Colors.white,
-            onPressed: () => _onSearchSubmitted(_searchController.text),
-          ),
-        ],
-      ),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -1174,6 +1150,56 @@ class MapSampleState extends State<MapSample> {
             },
           ),
 
+          // 검색창 (지도 위)
+          Positioned(
+            top: 60,
+            left: 16,
+            right: 16,
+            child: Builder(
+              builder: (context) => Container(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      Scaffold.of(context).openDrawer();
+                    },
+                    child: Icon(Icons.menu, color: Colors.white),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: '주소, 장소명 검색...',
+                        hintStyle: TextStyle(color: Colors.white54),
+                        border: InputBorder.none,
+                      ),
+                      onSubmitted: _onSearchSubmitted,
+                      onChanged: _updateSearchResults,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.search, color: Colors.white),
+                    onPressed: () => _onSearchSubmitted(_searchController.text),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          ),
+
           // 지도 초기화 완료 상태를 표시하는 예제
           if (!_isMapInitialized)
             Positioned(
@@ -1189,7 +1215,7 @@ class MapSampleState extends State<MapSample> {
               ),
             ),
           Positioned(
-            top: 20.0,
+            top: 140.0,
             left: 0,
             right: 0,
             child: Container(
