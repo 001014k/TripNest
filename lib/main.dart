@@ -81,6 +81,7 @@ class MapSampleState extends State<MapSample> {
   final location.Location _location = location.Location();
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
+  bool _isMapInitialized = false;
   late GoogleMapController _controller;
   late MarkersClusterManager _clusterManager;
   double _currentZoom = 15.0; // 초기 줌 레벨
@@ -816,6 +817,14 @@ class MapSampleState extends State<MapSample> {
     }
 
     // 2. Places API (new) POST 요청: Find Place from Text
+
+    // 인코딩 : 사람이 읽을수 있는 문자열 -> URL-safe 문자열
+    // ex) Uri.encodeComponent("서울역 & 강남역")
+    //     결과: %EC%84%9C%EC%9A%B8%EC%97%AD%20%26%20%EA%B0%95%EB%82%A8%EC%97%AD
+    // 디코딩 : URL-safe 문자열 -> 사람이 읽을 수 있는 문자열
+    // ex) Uri.decodeComponent("%EC%84%9C%EC%9A%B8%EC%97%AD%20%26%20%EA%B0%95%EB%82%A8%EC%97%AD")
+    //     결과: "서울역 & 강남역"
+    // 즉 인코딩은 사용자 입력값 또는 동적으로 생성된 값이 URL에 포함될 때 사용
     final encodedQuery = Uri.encodeComponent(query);
     // URL 구성 – 여기서는 textsearch 대신 findplacefromtext 대신 textsearch 엔드포인트 사용 예시
     // 만약 findplacefromtext를 사용하려면 아래 URL을 사용하세요:
@@ -1124,9 +1133,15 @@ class MapSampleState extends State<MapSample> {
           GoogleMap(
             onMapCreated: (GoogleMapController controller) {
               _controller = controller;
+              setState(() {
+                // 컨트롤러가 초기화되었음을 알림
+                _isMapInitialized = true;
+              });
               _loadMarkers();
               _applyMarkersToCluster(); // 클러스터 매니저 초기화
               _controller!.setMapStyle(mapStyle);
+
+              //현재 위치가 설정된 경우 카메라 이동
               if (_currentLocation != null) {
                 _controller!.animateCamera(
                   CameraUpdate.newCameraPosition(
@@ -1158,6 +1173,21 @@ class MapSampleState extends State<MapSample> {
               _updateClusters();
             },
           ),
+
+          // 지도 초기화 완료 상태를 표시하는 예제
+          if (!_isMapInitialized)
+            Positioned(
+              top: 50,
+              left: 20,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                color: Colors.white,
+                child: const Text(
+                  "지도를 초기화하는 중...",
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
           Positioned(
             top: 20.0,
             left: 0,
