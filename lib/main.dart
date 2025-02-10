@@ -796,6 +796,7 @@ class MapSampleState extends State<MapSample> {
 
   void _onSearchSubmitted(String query) async {
 
+    // 1. 사용자 마커 검색
     // 검색어가 비어 있는 경우
     if (query.trim().isEmpty) {
       setState(() {
@@ -905,7 +906,7 @@ class MapSampleState extends State<MapSample> {
     }
 
 
-    // 2. geocoding API를 사용하여 주소반환
+    // 3. geocoding API를 사용하여 주소반환
     try {
       List<geocoding.Location> locations =
           await geocoding.locationFromAddress(query);
@@ -1177,14 +1178,20 @@ class MapSampleState extends State<MapSample> {
                     },
                     child: Icon(Icons.menu, color: Colors.white),
                   ),
-                  SizedBox(width: 8),
+                  SizedBox(width: 12),
                   Expanded(
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
                         hintText: '주소, 장소명 검색...',
                         hintStyle: TextStyle(color: Colors.white54),
-                        border: InputBorder.none,
+                        // 입력창 테두리 스타일
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(40.0), // 모서리 둥글게
+                        ),
+                      ),
+                      style: TextStyle(
+                        color: Colors.white,
                       ),
                       onSubmitted: _onSearchSubmitted,
                       onChanged: _updateSearchResults,
