@@ -1355,95 +1355,120 @@ class MapSampleState extends State<MapSample> {
               bottom: 0,
               left: 0,
               right: 0,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16), // 왼쪽 상단 둥글기
-                    topRight: Radius.circular(16), // 오른쪽 상단 둥글기
+              child: Dismissible(
+                key: ValueKey('searchResultsBottomSheet'),
+                direction: DismissDirection.down, // 아래로 스와이프 가능
+                onDismissed: (direction) {
+                  setState(() {
+                    _searchResults.clear(); // 스와이프하면 검색 결과 숨김
+                  });
+                },
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.4, // 화면의 40% 높이 제한
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26, // 그림자 색상
-                      blurRadius: 8, // 그림자 흐림 정도
-                      offset: Offset(0, -2), // 그림자 위치 (x, y)
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
                     ),
-                  ],
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _searchResults.length,
-                  separatorBuilder: (context, index) => Divider(
-                    color: Colors.grey,
-                    thickness: 1,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(0, -2),
+                      ),
+                    ],
                   ),
-                  itemBuilder: (context, index) {
-                    final marker = _searchResults[index];
-                    final keyword =
-                        _markerKeywords[marker.markerId]; // keyword 불러오기
-                    final icon = keywordIcons[keyword]; // 해당 키워드에 맞는 아이콘 가져오기
-                    return ListTile(
-                      leading: Icon(
-                        Icons.location_on, //마커 아이콘
-                        color: Colors.red, //아이콘 색상
-                      ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              marker.infoWindow.title ?? 'Untitled',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold, //타이틀 강조
-                              ),
-                            ),
-                          ),
-                          if (keyword != null && keyword.isNotEmpty)
-                            Container(
-                              margin: EdgeInsets.only(left: 8),
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.blue[200],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  //Row의 크기를 내용물에 맞게 조정
-                                  children: [
-                                    Icon(
-                                      icon, // 키워드에 맞는 아이콘 표시
-                                      color: Colors.black,
-                                      size: 16,
-                                    ),
-                                    SizedBox(width: 4), //아이콘과 텍스트 사이 간격
-                                    Text(
-                                      keyword, // 키워드 표시
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ]),
-                            ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        marker.infoWindow.snippet ?? '', // 부제목(이 부분은 변경하지 않음)
-                        style: TextStyle(
-                          color: Colors.grey[600], // 부제목 색상
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 드래그 핸들 추가 (사용자가 쉽게 끌어내릴 수 있도록)
+                      Container(
+                        width: 50,
+                        height: 5,
+                        margin: EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      onTap: () {
-                        _controller?.animateCamera(
-                          CameraUpdate.newLatLng(marker.position),
-                        );
-                        _showMarkerInfoBottomSheet(context, marker,
-                            (Marker markerToDelete) {
-                          // 여기에 마커 삭제 로직 추가
-                        });
-                      },
-                    );
-                  },
+                      Expanded(
+                        child: ListView.separated(
+                          padding: EdgeInsets.zero, //리스트 상하 여백 제거
+                          shrinkWrap: true,
+                          itemCount: _searchResults.length,
+                          separatorBuilder: (context, index) => Divider(
+                            color: Colors.grey,
+                            thickness: 1,
+                          ),
+                          itemBuilder: (context, index) {
+                            final marker = _searchResults[index];
+                            final keyword = _markerKeywords[marker.markerId];
+                            final icon = keywordIcons[keyword];
+
+                            return ListTile(
+                              leading: Icon(
+                                Icons.location_on,
+                                color: Colors.red,
+                              ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      marker.infoWindow.title ?? 'Untitled',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  if (keyword != null && keyword.isNotEmpty)
+                                    Container(
+                                      margin: EdgeInsets.only(left: 8),
+                                      padding:
+                                      EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue[200],
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(icon, color: Colors.black, size: 16),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            keyword,
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              subtitle: Text(
+                                marker.infoWindow.snippet ?? '',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                              onTap: () {
+                                _controller?.animateCamera(
+                                  CameraUpdate.newLatLng(marker.position),
+                                );
+                                _showMarkerInfoBottomSheet(
+                                  context,
+                                  marker,
+                                      (Marker markerToDelete) {
+                                    // 마커 삭제 로직 추가 가능
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
