@@ -679,6 +679,9 @@ class MapSampleState extends State<MapSample> {
       _filteredMarkers.addAll(markers); // 새로운 마커들 추가
     });
 
+    // 클러스터 매니저를 업데이트하기 위해 _applyMarkersToCluster() 호출
+    _applyMarkersToCluster();
+
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
