@@ -36,27 +36,32 @@ class _AddMarkersToListPageState extends State<AddMarkersToListPage> {
             .get();
 
         // 불러온 데이터를 _markers Set에 추가
-        final markers = snapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>; // data() 호출로 문서의 데이터를 가져옵니다
+        final markers = snapshot.docs
+            .map((doc) {
+              final data = doc.data()
+                  as Map<String, dynamic>; // data() 호출로 문서의 데이터를 가져옵니다
 
-          // 데이터 검증
-          final lat = data['lat'] as double?;
-          final lng = data['lng'] as double?;
+              // 데이터 검증
+              final lat = data['lat'] as double?;
+              final lng = data['lng'] as double?;
 
-          if (lat == null || lng == null) {
-            // lat 또는 lng 값이 없으면 마커를 생성하지 않음
-            return null;
-          }
+              if (lat == null || lng == null) {
+                // lat 또는 lng 값이 없으면 마커를 생성하지 않음
+                return null;
+              }
 
-          return Marker(
-            markerId: MarkerId(doc.id),
-            position: LatLng(data['lat'], data['lng']),
-            infoWindow: InfoWindow(
-              title: data['title'] ?? 'No Title',
-              snippet: data['snippet'] ?? 'No Snippet',
-            ),
-          );
-        }).where((marker) => marker != null).cast<Marker>().toSet(); // null 필터링 및 캐스팅
+              return Marker(
+                markerId: MarkerId(doc.id),
+                position: LatLng(data['lat'], data['lng']),
+                infoWindow: InfoWindow(
+                  title: data['title'] ?? 'No Title',
+                  snippet: data['snippet'] ?? 'No Snippet',
+                ),
+              );
+            })
+            .where((marker) => marker != null)
+            .cast<Marker>()
+            .toSet(); // null 필터링 및 캐스팅
 
         // 마커들을 로컬 상태에 추가하고 로딩 상태를 false로 변경
         setState(() {
@@ -109,19 +114,19 @@ class _AddMarkersToListPageState extends State<AddMarkersToListPage> {
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text(_error!))
-          : ListView.builder(
-        itemCount: _markers.length,
-        itemBuilder: (context, index) {
-          final marker = _markers.elementAt(index);
-          return ListTile(
-            title: Text(marker.infoWindow.title ?? 'No Title'),
-            onTap: () {
-              _addMarkerToList(marker); // 리스트에 마커 추가
-            },
-          );
-        },
-      ),
+              ? Center(child: Text(_error!))
+              : ListView.builder(
+                  itemCount: _markers.length,
+                  itemBuilder: (context, index) {
+                    final marker = _markers.elementAt(index);
+                    return ListTile(
+                      title: Text(marker.infoWindow.title ?? 'No Title'),
+                      onTap: () {
+                        _addMarkerToList(marker); // 리스트에 마커 추가
+                      },
+                    );
+                  },
+                ),
     );
   }
 }

@@ -41,7 +41,9 @@ Future<List<Marker>> loadBookmarks() async {
         position: LatLng(doc['lat'], doc['lng']),
         infoWindow: InfoWindow(
           title: doc['title'],
-          snippet: doc.data().containsKey('snippet') ? doc['snippet'] : '', // 필드 존재 여부 확인
+          snippet: doc.data().containsKey('snippet')
+              ? doc['snippet']
+              : '', // 필드 존재 여부 확인
         ),
       );
     }).toList();
@@ -75,7 +77,8 @@ Future<bool> isBookmarked(Marker marker) async {
   return false;
 }
 
-Future<String> getAddressFromCoordinates(double latitude, double longitude) async {
+Future<String> getAddressFromCoordinates(
+    double latitude, double longitude) async {
   // 여기에 실제 지오코딩 API 호출 로직을 추가
   return '주소를 가져오는 중...';
 }

@@ -34,8 +34,9 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(Duration(seconds: 3), () {});
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => LoginPage(),
-    ),
+      MaterialPageRoute(
+        builder: (context) => LoginPage(),
+      ),
     );
   }
 
@@ -52,7 +53,9 @@ class _SplashScreenState extends State<SplashScreen> {
               backgroundColor: Colors.black,
               backgroundImage: AssetImage('assets/kmj.png'),
             ),
-            SizedBox(height: 20,),
+            SizedBox(
+              height: 20,
+            ),
             Text(
               'FlutterTrip',
               style: TextStyle(
@@ -69,4 +72,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-

@@ -10,7 +10,8 @@ class SignupPage extends StatefulWidget {
 class _SignupPageState extends State<SignupPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -31,7 +32,8 @@ class _SignupPageState extends State<SignupPage> {
 
     try {
       // Firebase Auth를 사용하여 회원가입 처리
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+      UserCredential userCredential =
+          await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -39,7 +41,8 @@ class _SignupPageState extends State<SignupPage> {
 
       if (user != null) {
         // Firebase에 사용자 데이터 저장
-        DocumentReference userDocRef = _firestore.collection('users').doc(user.uid);
+        DocumentReference userDocRef =
+            _firestore.collection('users').doc(user.uid);
         await userDocRef.set({
           'email': email,
           'createdAt': Timestamp.now(),
@@ -78,7 +81,10 @@ class _SignupPageState extends State<SignupPage> {
               style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: '이메일',
-                prefixIcon: const Icon(Icons.email_outlined,color: Colors.white,),
+                prefixIcon: const Icon(
+                  Icons.email_outlined,
+                  color: Colors.white,
+                ),
                 border: const OutlineInputBorder(),
                 labelStyle: TextStyle(color: Colors.white),
               ),
@@ -90,13 +96,18 @@ class _SignupPageState extends State<SignupPage> {
               obscureText: !_isPasswordVisible,
               decoration: InputDecoration(
                 labelText: '비밀번호',
-                prefixIcon: const Icon(Icons.lock_outline_rounded,color: Colors.white,),
+                prefixIcon: const Icon(
+                  Icons.lock_outline_rounded,
+                  color: Colors.white,
+                ),
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
-                  icon: Icon(_isPasswordVisible
-                      ? Icons.visibility_off
-                      : Icons.visibility,
-                  color: Colors.white,),
+                  icon: Icon(
+                    _isPasswordVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    color: Colors.white,
+                  ),
                   onPressed: () {
                     setState(() {
                       _isPasswordVisible = !_isPasswordVisible;
@@ -113,16 +124,21 @@ class _SignupPageState extends State<SignupPage> {
               obscureText: !_isPasswordVisible,
               decoration: InputDecoration(
                 labelText: '비밀번호 재입력',
-                prefixIcon: const Icon(Icons.lock_outline_rounded,color: Colors.white,),
+                prefixIcon: const Icon(
+                  Icons.lock_outline_rounded,
+                  color: Colors.white,
+                ),
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
-                  icon: Icon(_isPasswordVisible
-                  ? Icons.visibility_off
-                  : Icons.visibility,
-                  color: Colors.white,),
+                  icon: Icon(
+                    _isPasswordVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    color: Colors.white,
+                  ),
                   onPressed: () {
                     setState(() {
-                      _isPasswordVisible =!_isPasswordVisible;
+                      _isPasswordVisible = !_isPasswordVisible;
                     });
                   },
                 ),

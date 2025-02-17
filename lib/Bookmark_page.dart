@@ -18,9 +18,9 @@ class BookmarkPage extends StatelessWidget {
         //필드가 없을 경우 대비하여 기본값 설정
         String title = doc.data().containsKey('title') ? doc['title'] : '이름 없음';
         String keyword =
-        doc.data().containsKey('keyword') ? doc['keyword'] : '키워드 없음';
+            doc.data().containsKey('keyword') ? doc['keyword'] : '키워드 없음';
         String address =
-        doc.data().containsKey('address') ? doc['address'] : '주소 없음';
+            doc.data().containsKey('address') ? doc['address'] : '주소 없음';
 
         return Marker(
           markerId: MarkerId(doc.id),

@@ -64,7 +64,8 @@ class UserListPage extends StatelessWidget {
                 ),
               ],
               accountName: Text('admin'),
-              accountEmail: Text(user != null ? user.email ?? 'No email' : 'Not logged in'),
+              accountEmail: Text(
+                  user != null ? user.email ?? 'No email' : 'Not logged in'),
               onDetailsPressed: () {},
               decoration: BoxDecoration(
                 color: Colors.blueGrey,

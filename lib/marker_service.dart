@@ -6,7 +6,8 @@ class MarkerService {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final ConnectivityService _connectivityService = ConnectivityService();
 
-  Future<void> saveMarkerOfflineOrOnline(Map<String, dynamic> markerData) async {
+  Future<void> saveMarkerOfflineOrOnline(
+      Map<String, dynamic> markerData) async {
     final isConnected = await _connectivityService.isConnected();
 
     if (!isConnected) {

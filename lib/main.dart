@@ -88,7 +88,7 @@ class MapSampleState extends State<MapSample> {
   List<Marker> _searchResults = [];
   List<Marker> bookmarkedMarkers = [];
   CollectionReference markersCollection =
-  FirebaseFirestore.instance.collection('users');
+      FirebaseFirestore.instance.collection('users');
   final Map<String, String> keywordMarkerImages = {
     '카페': 'assets/cafe_marker.png',
     '호텔': 'assets/hotel_marker.png',
@@ -97,7 +97,6 @@ class MapSampleState extends State<MapSample> {
     '전시회': 'assets/exhibition_marker.png',
   };
   final MarkerService _markerService = MarkerService();
-
 
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
 
@@ -138,7 +137,6 @@ class MapSampleState extends State<MapSample> {
   }
 
   void _onItemTapped(int index) {
-
     // 구글 맵 화면으로 이동하는 경우 맵 초기화
     if (index == 0 && _controller != null) {
       _controller!.animateCamera(
@@ -183,41 +181,44 @@ class MapSampleState extends State<MapSample> {
 
       final QuerySnapshot querySnapshot = await userMarkersCollection.get();
 
-        _markers.clear();
-        _allMarkers.clear();
-        for (var doc in querySnapshot.docs) {
-          final data = doc.data() as Map<String, dynamic>;
-          final String keyword = data['keyword'] ?? 'default';
-          final String? markerImagePath = keywordMarkerImages[keyword];
+      _markers.clear();
+      _allMarkers.clear();
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final String keyword = data['keyword'] ?? 'default';
+        final String? markerImagePath = keywordMarkerImages[keyword];
 
-          // 커스텀 마커 이미지 로드 (비동기 처리) 및 크기 조절
-          final BitmapDescriptor markerIcon = markerImagePath != null
-              ? await _createCustomMarkerImage(markerImagePath, 128, 128) // 크기를 조정
-              : BitmapDescriptor.defaultMarkerWithHue(
-            data['hue'] != null
-                ? (data['hue'] as num).toDouble()
-                : BitmapDescriptor.hueOrange,
-          );
+        // 커스텀 마커 이미지 로드 (비동기 처리) 및 크기 조절
+        final BitmapDescriptor markerIcon = markerImagePath != null
+            ? await _createCustomMarkerImage(
+                markerImagePath, 128, 128) // 크기를 조정
+            : BitmapDescriptor.defaultMarkerWithHue(
+                data['hue'] != null
+                    ? (data['hue'] as num).toDouble()
+                    : BitmapDescriptor.hueOrange,
+              );
 
-          final lat = data['lat'] != null ? data['lat'] as double : 0.0; // 기본값 0.0으로 설정
-          final lng = data['lng'] != null ? data['lng'] as double : 0.0; // 기본값 0.0으로 설정
+        final lat =
+            data['lat'] != null ? data['lat'] as double : 0.0; // 기본값 0.0으로 설정
+        final lng =
+            data['lng'] != null ? data['lng'] as double : 0.0; // 기본값 0.0으로 설정
 
-          final marker = Marker(
-            markerId: MarkerId(doc.id),
-            position: LatLng(lat, lng),
-            infoWindow: InfoWindow(
-              title: data['title'],
-              snippet: data['snippet'],
-            ),
-            icon: markerIcon,
-            onTap: () {
-              _onMarkerTapped(context, MarkerId(doc.id));
-            },
-          );
-          _markers.add(marker); //화면에 표시될 마커만 _markers에 저장
-          _allMarkers.add(marker); //모든 마커 저장
-          _markerKeywords[marker.markerId] = data['keyword'] ?? '';
-        }
+        final marker = Marker(
+          markerId: MarkerId(doc.id),
+          position: LatLng(lat, lng),
+          infoWindow: InfoWindow(
+            title: data['title'],
+            snippet: data['snippet'],
+          ),
+          icon: markerIcon,
+          onTap: () {
+            _onMarkerTapped(context, MarkerId(doc.id));
+          },
+        );
+        _markers.add(marker); //화면에 표시될 마커만 _markers에 저장
+        _allMarkers.add(marker); //모든 마커 저장
+        _markerKeywords[marker.markerId] = data['keyword'] ?? '';
+      }
       setState(() {
         _filteredMarkers = _allMarkers; //초기 상태에서 모든 마커 표시
       });
@@ -230,10 +231,14 @@ class MapSampleState extends State<MapSample> {
   void _applyMarkersToCluster() {
     //새로운 MarkersClusterManager 객체를 초기화하여 기존 마커를 클러스터링하도록 설정
     _clusterManager = MarkersClusterManager(
-      clusterColor: Colors.black, //클러스터 마커의 배경색 설정
-      clusterBorderThickness: 10.0, // 클러스터 마커의 테두리 두께 설정
-      clusterBorderColor: Colors.black, // 클러스터 마커의 테두리 색을 어두운 파란색으로 설정
-      clusterOpacity: 1.0, // 클러스터 마커의 불투명도를 1로 설정 (불투명)
+      clusterColor: Colors.black,
+      //클러스터 마커의 배경색 설정
+      clusterBorderThickness: 10.0,
+      // 클러스터 마커의 테두리 두께 설정
+      clusterBorderColor: Colors.black,
+      // 클러스터 마커의 테두리 색을 어두운 파란색으로 설정
+      clusterOpacity: 1.0,
+      // 클러스터 마커의 불투명도를 1로 설정 (불투명)
       clusterTextStyle: TextStyle(
         fontSize: 20, //클러스터 마커에 표시될 숫자의 폰트 크기 설정
         color: Colors.white, // 클러스터 마커의 숫자 색상 설정
@@ -289,8 +294,8 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-
-  Future<void> _updateMarker(Marker marker, String keyword, String markerImagePath) async {
+  Future<void> _updateMarker(
+      Marker marker, String keyword, String markerImagePath) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
@@ -307,13 +312,13 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-
   // 파이어베이스: 'set' vs 'update'
   // set: 기존 문서를 덮어 쓰거나 문서가 없을 경우 새로 생성
   // update: 문서가 이미 존재하는 경우에만 특정 필드를 수정하며 문서가 존재하지 않으면 에러를 발생
 
   // 새 마커 생성
-  Future<void> _saveMarker(Marker marker, String keyword, String markerImagePath) async {
+  Future<void> _saveMarker(
+      Marker marker, String keyword, String markerImagePath) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
@@ -351,7 +356,8 @@ class MapSampleState extends State<MapSample> {
               // UI에서 마커 업데이트
               _markers.removeWhere((m) => m.markerId == updatedMarker.markerId);
               _markers.add(updatedMarker);
-              _allMarkers.removeWhere((m) => m.markerId == updatedMarker.markerId);
+              _allMarkers
+                  .removeWhere((m) => m.markerId == updatedMarker.markerId);
               _allMarkers.add(updatedMarker);
 
               // 키워드 업데이트
@@ -360,7 +366,8 @@ class MapSampleState extends State<MapSample> {
 
             // Firestore에 마커 정보 업데이트
             // 키워드에 따른 이미지 경로를 가져옴
-            final markerImagePath = keywordMarkerImages[updatedKeyword] ?? 'assets/default_marker.png';
+            final markerImagePath = keywordMarkerImages[updatedKeyword] ??
+                'assets/default_marker.png';
             _updateMarker(updatedMarker, updatedKeyword, markerImagePath);
           },
           keyword: _markerKeywords[marker.markerId] ?? 'default',
@@ -371,7 +378,8 @@ class MapSampleState extends State<MapSample> {
             setState(() {
               // 마커를 UI에서 제거
               _markers.removeWhere((m) => m.markerId == deletedMarker.markerId);
-              _allMarkers.removeWhere((m) => m.markerId == deletedMarker.markerId);
+              _allMarkers
+                  .removeWhere((m) => m.markerId == deletedMarker.markerId);
             });
           },
         ),
@@ -412,12 +420,11 @@ class MapSampleState extends State<MapSample> {
       // 카메라를 현재 위치로 바로 이동
       _controller!.animateCamera(
         CameraUpdate.newLatLngZoom(
-          currentLatLng, 18.0 // 사용자의 현재 위치를 중앙으로 이동 및 확대
-        ),
+            currentLatLng, 18.0 // 사용자의 현재 위치를 중앙으로 이동 및 확대
+            ),
       );
     }
   }
-
 
   Future<void> _onMarkerTapped(BuildContext context, MarkerId markerId) async {
     final marker = _markers.firstWhere(
@@ -427,7 +434,8 @@ class MapSampleState extends State<MapSample> {
     // 마커 위치로 카메라 이동 (await 작업은 마커를 눌렀을때만 적용 나머지는 불필요함)
     print('Marker Position: ${marker.position}');
     await _controller!.animateCamera(
-      CameraUpdate.newLatLngZoom(marker.position, 18.0), // 마커의 위치로 카메라 이동,마커 확대기능
+      CameraUpdate.newLatLngZoom(
+          marker.position, 18.0), // 마커의 위치로 카메라 이동,마커 확대기능
     );
 
     _showMarkerInfoBottomSheet(context, marker, (Marker markerToDelete) {
@@ -464,7 +472,7 @@ class MapSampleState extends State<MapSample> {
                 backgroundColor: Colors.white,
               ),
               child: Text(
-                  '예',
+                '예',
                 style: TextStyle(
                   color: Colors.black,
                   fontWeight: FontWeight.bold,
@@ -479,7 +487,7 @@ class MapSampleState extends State<MapSample> {
                 backgroundColor: Colors.white,
               ),
               child: Text(
-                  '아니오',
+                '아니오',
                 style: TextStyle(
                   color: Colors.black,
                   fontWeight: FontWeight.bold,
@@ -503,7 +511,8 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  void _navigateToMarkerCreationScreen(BuildContext context, LatLng latLng) async {
+  void _navigateToMarkerCreationScreen(
+      BuildContext context, LatLng latLng) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -519,7 +528,7 @@ class MapSampleState extends State<MapSample> {
           result['snippet'], // String? 타입
           _pendingLatLng!, // LatLng 타입
           keyword // String 타입
-      );
+          );
       _pendingLatLng = null;
     }
   }
@@ -548,7 +557,8 @@ class MapSampleState extends State<MapSample> {
           marker: marker,
           onSave: (updatedMarker, keyword) async {
             // 키워드에 따른 이미지 경로를 가져옴
-            final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
+            final markerImagePath =
+                keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
             await _saveMarker(updatedMarker, keyword, markerImagePath);
           },
           onDelete: onDelete,
@@ -625,7 +635,8 @@ class MapSampleState extends State<MapSample> {
               leading: Icon(Icons.refresh, color: Colors.red),
               title: Text(
                 '초기화',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                style:
+                    TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
               ),
               onTap: () {
                 // 만약 동기화가 필요하면 마커 로드 함수 호출
@@ -730,15 +741,18 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  Future<BitmapDescriptor> _createCustomMarkerImage(String imagePath, int width, int height) async {
+  Future<BitmapDescriptor> _createCustomMarkerImage(
+      String imagePath, int width, int height) async {
     // 이미지 파일 로드
     final ByteData data = await rootBundle.load(imagePath);
     final Uint8List bytes = data.buffer.asUint8List();
 
     // 이미지 디코딩 및 크기 조정
-    final ui.Codec codec = await ui.instantiateImageCodec(bytes, targetWidth: width, targetHeight: height);
+    final ui.Codec codec = await ui.instantiateImageCodec(bytes,
+        targetWidth: width, targetHeight: height);
     final ui.FrameInfo frameInfo = await codec.getNextFrame();
-    final ByteData? byteData = await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
+    final ByteData? byteData =
+        await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
 
     // 크기 조정된 이미지 데이터를 바이트 배열로 변환
     final Uint8List resizedBytes = byteData!.buffer.asUint8List();
@@ -747,14 +761,15 @@ class MapSampleState extends State<MapSample> {
     return BitmapDescriptor.fromBytes(resizedBytes);
   }
 
-
   void _addMarker(
       String? title, String? snippet, LatLng position, String keyword) async {
     // 키워드에 따른 이미지 경로를 가져옴
-    final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
+    final markerImagePath =
+        keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
 
     // 원하는 크기 지정 (width와 height는 조정하고 싶은 크기로 설정)
-    final markerIcon = await _createCustomMarkerImage(markerImagePath, 128, 128); // 128x128 크기로 설정
+    final markerIcon = await _createCustomMarkerImage(
+        markerImagePath, 128, 128); // 128x128 크기로 설정
 
     final markerId = MarkerId(position.toString());
 
@@ -798,7 +813,6 @@ class MapSampleState extends State<MapSample> {
   }
 
   void _onSearchSubmitted(String query) async {
-
     // 1. 사용자 마커 검색
     // 검색어가 비어 있는 경우
     if (query.trim().isEmpty) {
@@ -813,7 +827,9 @@ class MapSampleState extends State<MapSample> {
       }).toList();
 
       // 중복 제거: MarkerId로 중복 확인
-      final uniqueResults = {for (var marker in filteredMarkers) marker.markerId: marker}.values.toList();
+      final uniqueResults = {
+        for (var marker in filteredMarkers) marker.markerId: marker
+      }.values.toList();
 
       setState(() {
         _searchResults = uniqueResults;
@@ -835,7 +851,8 @@ class MapSampleState extends State<MapSample> {
     // 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=$encodedQuery&inputtype=textquery&fields=place_id,name,geometry,formatted_address&language=ko&key=$_apiKey'
     //
     // 여기서는 설명서에 따른 textsearch 엔드포인트(POST)를 사용합니다.
-    final placesUrl = Uri.parse('https://places.googleapis.com/v1/places:searchText?&key=${Config.placesApiKey}');
+    final placesUrl = Uri.parse(
+        'https://places.googleapis.com/v1/places:searchText?&key=${Config.placesApiKey}');
 
     // 요청 본문 (JSON 형식)
     final requestBody = json.encode({
@@ -849,7 +866,8 @@ class MapSampleState extends State<MapSample> {
         headers: {
           'Content-Type': 'application/json',
           // 요청에 필요한 추가 헤더가 있다면 여기에 추가합니다.
-          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.priceLevel,places.location'
+          'X-Goog-FieldMask':
+              'places.displayName,places.formattedAddress,places.priceLevel,places.location'
         },
         body: requestBody,
       );
@@ -858,7 +876,8 @@ class MapSampleState extends State<MapSample> {
         final placesData = json.decode(placesResponse.body);
         print("Places API Response: ${placesResponse.body}");
 
-        if (placesData['places'] != null && (placesData['places'] as List).isNotEmpty) {
+        if (placesData['places'] != null &&
+            (placesData['places'] as List).isNotEmpty) {
           final placesResults = placesData['places'] as List;
           List<Marker> placesMarkers = [];
 
@@ -879,7 +898,8 @@ class MapSampleState extends State<MapSample> {
               Marker(
                 markerId: MarkerId(placeId),
                 position: latLng,
-                infoWindow: InfoWindow(title: displayName, snippet: formattedAddress),
+                infoWindow:
+                    InfoWindow(title: displayName, snippet: formattedAddress),
               ),
             );
           }
@@ -907,7 +927,6 @@ class MapSampleState extends State<MapSample> {
     } catch (e) {
       print("Error during Places API call: $e");
     }
-
 
     // 3. geocoding API를 사용하여 주소반환
     try {
@@ -957,7 +976,9 @@ class MapSampleState extends State<MapSample> {
       }).toList();
 
       // 중복 제거: MarkerId로 중복 확인
-      final uniqueResults = {for (var marker in filteredMarkers) marker.markerId: marker}.values.toList();
+      final uniqueResults = {
+        for (var marker in filteredMarkers) marker.markerId: marker
+      }.values.toList();
 
       setState(() {
         _searchResults = uniqueResults;
@@ -968,7 +989,7 @@ class MapSampleState extends State<MapSample> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final List<String>keywords = keywordIcons.keys.toList();
+    final List<String> keywords = keywordIcons.keys.toList();
 
     return Scaffold(
       drawer: Drawer(
@@ -997,17 +1018,30 @@ class MapSampleState extends State<MapSample> {
                         context: context,
                         builder: (BuildContext context) {
                           return AlertDialog(
-                            title: Text('로그아웃',style: TextStyle(fontWeight: FontWeight.bold),),
+                            title: Text(
+                              '로그아웃',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                             content: Text('로그아웃하시겠습니까?'),
                             actions: [
                               ElevatedButton(
-                                onPressed: () => Navigator.of(context).pop(true),
-                                child: Text('예', style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                child: Text(
+                                  '예',
+                                  style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ),
                               ElevatedButton(
-                                onPressed: () => Navigator.of(context).pop(false),
-                                child: Text('아니오',style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: Text(
+                                  '아니오',
+                                  style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ],
@@ -1018,7 +1052,8 @@ class MapSampleState extends State<MapSample> {
                       if (confirm == true) {
                         await FirebaseAuth.instance.signOut();
                         Navigator.of(context).pop(); // Drawer 닫기
-                        Navigator.of(context).pushReplacementNamed('/login'); // 로그인 화면으로 이동
+                        Navigator.of(context)
+                            .pushReplacementNamed('/login'); // 로그인 화면으로 이동
                       }
                     },
                   ),
@@ -1037,7 +1072,9 @@ class MapSampleState extends State<MapSample> {
                 Icons.map,
                 color: Colors.grey[850],
               ),
-              title: Text('지도',style: TextStyle(fontWeight: FontWeight.bold),
+              title: Text(
+                '지도',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
                 _onItemTapped(0); //구글 맵 화면으로 이동
@@ -1049,7 +1086,9 @@ class MapSampleState extends State<MapSample> {
                 Icons.account_circle,
                 color: Colors.grey[850],
               ),
-              title: Text('프로필', style: TextStyle(fontWeight: FontWeight.bold),
+              title: Text(
+                '프로필',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () async {
                 final user = FirebaseAuth.instance.currentUser;
@@ -1076,13 +1115,15 @@ class MapSampleState extends State<MapSample> {
                 Icons.list,
                 color: Colors.grey[850],
               ),
-              title: Text('북마크/리스트',style: TextStyle(fontWeight: FontWeight.bold),
+              title: Text(
+                '북마크/리스트',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => MainPage(),
+                    builder: (context) => MainPage(),
                   ),
                 );
               },
@@ -1093,7 +1134,9 @@ class MapSampleState extends State<MapSample> {
                 Icons.person_add,
                 color: Colors.grey[850],
               ),
-              title: Text('친구',style: TextStyle(fontWeight: FontWeight.bold),
+              title: Text(
+                '친구',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
                 Navigator.push(
@@ -1141,10 +1184,14 @@ class MapSampleState extends State<MapSample> {
               ),
               zoom: 15.0,
             ),
-            zoomControlsEnabled: false, // 확대/축소 버튼 숨기기
-            myLocationEnabled: true, // 내 위치 아이콘 표시 여부
-            myLocationButtonEnabled: false, // 내 위치 아이콘 표시 여부
-            markers: Set<Marker>.of(_clusterManager.getClusteredMarkers()), // 클러스터링된 마커 사용
+            zoomControlsEnabled: false,
+            // 확대/축소 버튼 숨기기
+            myLocationEnabled: true,
+            // 내 위치 아이콘 표시 여부
+            myLocationButtonEnabled: false,
+            // 내 위치 아이콘 표시 여부
+            markers: Set<Marker>.of(_clusterManager.getClusteredMarkers()),
+            // 클러스터링된 마커 사용
             onTap: (latLng) => _onMapTapped(context, latLng),
             onCameraMove: (CameraPosition position) {
               setState(() {
@@ -1161,53 +1208,55 @@ class MapSampleState extends State<MapSample> {
             right: 16,
             child: Builder(
               builder: (context) => Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Scaffold.of(context).openDrawer();
-                    },
-                    child: Icon(Icons.menu, color: Colors.white),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: '주소, 장소명 검색...',
-                        hintStyle: TextStyle(color: Colors.white54),
-                        // 입력창 테두리 스타일
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(40.0), // 모서리 둥글게
-                        ),
-                      ),
-                      style: TextStyle(
-                        color: Colors.white,
-                      ),
-                      onSubmitted: _onSearchSubmitted,
-                      onChanged: _updateSearchResults,
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
                     ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.search, color: Colors.white),
-                    onPressed: () => _onSearchSubmitted(_searchController.text),
-                  ),
-                ],
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Scaffold.of(context).openDrawer();
+                      },
+                      child: Icon(Icons.menu, color: Colors.white),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: '주소, 장소명 검색...',
+                          hintStyle: TextStyle(color: Colors.white54),
+                          // 입력창 테두리 스타일
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(40.0), // 모서리 둥글게
+                          ),
+                        ),
+                        style: TextStyle(
+                          color: Colors.white,
+                        ),
+                        onSubmitted: _onSearchSubmitted,
+                        onChanged: _updateSearchResults,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.search, color: Colors.white),
+                      onPressed: () =>
+                          _onSearchSubmitted(_searchController.text),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           ),
 
           // 지도 초기화 완료 상태를 표시하는 예제
@@ -1254,11 +1303,13 @@ class MapSampleState extends State<MapSample> {
                       onPressed: () {
                         _toggleKeyword(keyword);
                       },
-                      icon: Icon(icon, color: Colors.white,size: 12),
+                      icon: Icon(icon, color: Colors.white, size: 12),
                       label: Text(
                         keyword,
                         style: TextStyle(
-                            color: Colors.white, fontSize: 12,fontWeight: FontWeight.bold), // 글씨 크기 조정
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold), // 글씨 크기 조정
                       ),
                     ),
                   );
@@ -1275,11 +1326,14 @@ class MapSampleState extends State<MapSample> {
                   onPressed: () {
                     // SnackBar를 화면 하단에 표시
                     ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("현재 사용자 위치로 이동합니다", style: TextStyle(color: Colors.white),), // 표시할 문구
-                          duration: Duration(seconds: 2), // 문구가 표시되는 시간
-                          backgroundColor: Colors.black,
-                        ),
+                      SnackBar(
+                        content: Text(
+                          "현재 사용자 위치로 이동합니다",
+                          style: TextStyle(color: Colors.white),
+                        ), // 표시할 문구
+                        duration: Duration(seconds: 2), // 문구가 표시되는 시간
+                        backgroundColor: Colors.black,
+                      ),
                     );
                     _moveToCurrentLocation();
                   },
@@ -1325,7 +1379,8 @@ class MapSampleState extends State<MapSample> {
                   ),
                   itemBuilder: (context, index) {
                     final marker = _searchResults[index];
-                    final keyword = _markerKeywords[marker.markerId]; // keyword 불러오기
+                    final keyword =
+                        _markerKeywords[marker.markerId]; // keyword 불러오기
                     final icon = keywordIcons[keyword]; // 해당 키워드에 맞는 아이콘 가져오기
                     return ListTile(
                       leading: Icon(
@@ -1352,23 +1407,23 @@ class MapSampleState extends State<MapSample> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
-                                mainAxisSize: MainAxisSize.min, //Row의 크기를 내용물에 맞게 조정
-                                children: [
-                                  Icon(
-                                    icon, // 키워드에 맞는 아이콘 표시
-                                    color: Colors.black,
-                                    size: 16,
-                                  ),
-                                  SizedBox(width: 4), //아이콘과 텍스트 사이 간격
-                                  Text(
-                                    keyword, // 키워드 표시
-                                    style: TextStyle(
+                                  mainAxisSize: MainAxisSize.min,
+                                  //Row의 크기를 내용물에 맞게 조정
+                                  children: [
+                                    Icon(
+                                      icon, // 키워드에 맞는 아이콘 표시
                                       color: Colors.black,
-                                      fontWeight: FontWeight.bold,
+                                      size: 16,
                                     ),
-                                  ),
-                                ]
-                              ),
+                                    SizedBox(width: 4), //아이콘과 텍스트 사이 간격
+                                    Text(
+                                      keyword, // 키워드 표시
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ]),
                             ),
                         ],
                       ),
@@ -1383,9 +1438,9 @@ class MapSampleState extends State<MapSample> {
                           CameraUpdate.newLatLng(marker.position),
                         );
                         _showMarkerInfoBottomSheet(context, marker,
-                                (Marker markerToDelete) {
-                              // 여기에 마커 삭제 로직 추가
-                            });
+                            (Marker markerToDelete) {
+                          // 여기에 마커 삭제 로직 추가
+                        });
                       },
                     );
                   },
@@ -1460,7 +1515,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<String>keywords = keywordIcons.keys.toList();
+    final List<String> keywords = keywordIcons.keys.toList();
 
     return Scaffold(
       appBar: AppBar(

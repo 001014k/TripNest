@@ -13,7 +13,6 @@ import 'dart:typed_data';
 import 'bookmark_provider.dart';
 import 'main.dart';
 
-
 class MarkerDetailPage extends StatefulWidget {
   final Marker marker;
   final Function(Marker, String) onSave;
@@ -71,11 +70,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     Position currentPosition = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high);
 
-
     final Uri googleMapsUrl = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&origin=${currentPosition
-            .latitude},${currentPosition.longitude}&destination=${widget.marker
-            .position.latitude},${widget.marker.position.longitude}');
+        'https://www.google.com/maps/dir/?api=1&origin=${currentPosition.latitude},${currentPosition.longitude}&destination=${widget.marker.position.latitude},${widget.marker.position.longitude}');
     if (await canLaunchUrl(googleMapsUrl)) {
       await launchUrl(googleMapsUrl);
     } else {
@@ -94,10 +90,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
 
       // 카카오 맵 URL 생성
       final String kakaoMapUrl = Platform.isAndroid
-          ? 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position
-          .latitude},${widget.marker.position.longitude}&by=CAR'
-          : 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position
-          .latitude},${widget.marker.position.longitude}&by=CAR';
+          ? 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position.latitude},${widget.marker.position.longitude}&by=CAR'
+          : 'kakaomap://route?sp=$userLat,$userLng&ep=${widget.marker.position.latitude},${widget.marker.position.longitude}&by=CAR';
 
       final Uri kakaoMapUri = Uri.parse(kakaoMapUrl);
 
@@ -108,9 +102,9 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
         // 앱이 설치 되어 있지 않으면 카카오맵 설치 페이지로 이동
         final Uri kakaoMapInstallUrl = Platform.isIOS
             ? Uri.parse(
-            'https://apps.apple.com/kr/app/id304608425') // iOS 앱 스토어 URL
+                'https://apps.apple.com/kr/app/id304608425') // iOS 앱 스토어 URL
             : Uri.parse(
-            'https://play.google.com/store/apps/details?id=net.daum.android.map');
+                'https://play.google.com/store/apps/details?id=net.daum.android.map');
         if (await canLaunchUrl(kakaoMapInstallUrl)) {
           await launchUrl(kakaoMapInstallUrl);
         } else {
@@ -134,12 +128,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
 
       // 네이버 맵 URL 생성
       final String naverMapUrl = Platform.isAndroid
-          ? 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget
-          .marker.position.latitude}&dlng=${widget.marker.position
-          .longitude}&dname=Destination'
-          : 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget
-          .marker.position.latitude}&dlng=${widget.marker.position
-          .longitude}&dname=Destination';
+          ? 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget.marker.position.latitude}&dlng=${widget.marker.position.longitude}&dname=Destination'
+          : 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${widget.marker.position.latitude}&dlng=${widget.marker.position.longitude}&dname=Destination';
 
       final Uri naverMapUri = Uri.parse(naverMapUrl);
 
@@ -150,9 +140,9 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
         // 앱이 설치 되어 있지 않으면 네이버맵 설치 페이지로 이동
         final Uri naverMapInstallUrl = Platform.isIOS
             ? Uri.parse(
-            'https://apps.apple.com/kr/app/id311867728') // iOS 앱 스토어 URL
+                'https://apps.apple.com/kr/app/id311867728') // iOS 앱 스토어 URL
             : Uri.parse(
-            'https://play.google.com/store/apps/details?id=com.nhn.android.nmap');
+                'https://play.google.com/store/apps/details?id=com.nhn.android.nmap');
         if (await canLaunchUrl(naverMapInstallUrl)) {
           await launchUrl(naverMapInstallUrl);
         } else {
@@ -187,9 +177,9 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
         // 앱이 설치 되어 있지 않으면 티맵 설치 페이지로 이동
         final Uri tmapInstallUrl = Platform.isIOS
             ? Uri.parse(
-            'https://apps.apple.com/kr/app/t-map-t맵-대중교통-길찾기-지도-내비게이션/id431589174') // iOS 앱 스토어 URL
+                'https://apps.apple.com/kr/app/t-map-t맵-대중교통-길찾기-지도-내비게이션/id431589174') // iOS 앱 스토어 URL
             : Uri.parse(
-            'https://play.google.com/store/apps/details?id=com.skt.tmap.ku');
+                'https://play.google.com/store/apps/details?id=com.skt.tmap.ku');
 
         if (await canLaunchUrl(tmapInstallUrl)) {
           await launchUrl(tmapInstallUrl);
@@ -206,7 +196,8 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   void initState() {
     super.initState();
     _marker = widget.marker;
-    _titleController = TextEditingController(text: widget.marker.infoWindow.title);
+    _titleController =
+        TextEditingController(text: widget.marker.infoWindow.title);
     _isLoadingImages = true; // 이미지를 로드하기 시작할 때 로딩 상태를 설정
     _loadImages(); // 이미지를 로드하는 메서드 호출
     _keyword = widget.keyword;
@@ -257,7 +248,6 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
       });
     }
   }
-
 
   Future<void> _pickImage() async {
     final ImagePicker _picker = ImagePicker();
@@ -369,7 +359,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
           infoWindow: InfoWindow(
             title: doc['title'],
             snippet:
-            doc.data().containsKey('snippet') ? doc['snippet'] : '기본 스니펫',
+                doc.data().containsKey('snippet') ? doc['snippet'] : '기본 스니펫',
           ),
         );
       }).toList();
@@ -415,16 +405,16 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     });
   }
 
-  Future<void> _getAddressFromCoordinates(double latitude,
-      double longitude) async {
+  Future<void> _getAddressFromCoordinates(
+      double latitude, double longitude) async {
     try {
       List<Placemark> placemarks =
-      await placemarkFromCoordinates(latitude, longitude);
+          await placemarkFromCoordinates(latitude, longitude);
       if (placemarks.isNotEmpty) {
         final placemark = placemarks.first;
         setState(() {
           _address =
-          ' ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
+              ' ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
         });
       } else {
         setState(() {
@@ -626,7 +616,10 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('마커 정보', style: TextStyle(fontWeight: FontWeight.bold),),
+        title: Text(
+          '마커 정보',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -636,8 +629,7 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                 _deleteMarker();
               }
             },
-            itemBuilder: (context) =>
-            [
+            itemBuilder: (context) => [
               PopupMenuItem(
                 value: '수정',
                 child: Text('수정'),
@@ -688,14 +680,15 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
             SizedBox(height: 20),
             _address != null
                 ? Row(
-              children: [
-                Icon(Icons.location_on, color: Colors.red), // 주소 옆에 아이콘 추가
-                SizedBox(width: 8),
-                Text('$_address',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            )
+                    children: [
+                      Icon(Icons.location_on,
+                          color: Colors.red), // 주소 옆에 아이콘 추가
+                      SizedBox(width: 8),
+                      Text('$_address',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  )
                 : CircularProgressIndicator(), // 주소를 로드 중일 때 로딩 표시
             SizedBox(height: 20), // 버튼 사이의 여백
             Expanded(
@@ -794,47 +787,54 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
                           SizedBox(height: 10),
                           _isLoadingImages
                               ? Center(
-                            child: CircularProgressIndicator(), // 로딩 인디케이터
-                          )
+                                  child:
+                                      CircularProgressIndicator(), // 로딩 인디케이터
+                                )
                               : _imageUrls.isEmpty
-                              ? Text('사진이 없습니다.')
-                              : Container(
-                            height: 200, // 슬라이더 높이 설정
-                            child: PageView.builder(
-                              itemCount: _imageUrls.length,
-                              itemBuilder: (context, index) {
-                                return GestureDetector(
-                                  onTap: () async {
-                                    // 전체 화면에서 이미지 보기
-                                    final result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ImageViewPage(
-                                          imageUrls: _imageUrls,
-                                          initialIndex: index,
-                                        ),
-                                      ),
-                                    );
-                                    // result가 true일 경우 이미지를 다시 로드
-                                    if (result == true) {
-                                      _loadImages(); // 이미지를 다시 불러오는 함수
-                                    }
-                                  },
-                                  child: Container(
-                                    margin: EdgeInsets.symmetric(horizontal: 10.0),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      image: DecorationImage(
-                                        image: NetworkImage(_imageUrls[index]),
-                                        fit: BoxFit.cover,
+                                  ? Text('사진이 없습니다.')
+                                  : Container(
+                                      height: 200, // 슬라이더 높이 설정
+                                      child: PageView.builder(
+                                        itemCount: _imageUrls.length,
+                                        itemBuilder: (context, index) {
+                                          return GestureDetector(
+                                            onTap: () async {
+                                              // 전체 화면에서 이미지 보기
+                                              final result =
+                                                  await Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      ImageViewPage(
+                                                    imageUrls: _imageUrls,
+                                                    initialIndex: index,
+                                                  ),
+                                                ),
+                                              );
+                                              // result가 true일 경우 이미지를 다시 로드
+                                              if (result == true) {
+                                                _loadImages(); // 이미지를 다시 불러오는 함수
+                                              }
+                                            },
+                                            child: Container(
+                                              margin: EdgeInsets.symmetric(
+                                                  horizontal: 10.0),
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                image: DecorationImage(
+                                                  image: NetworkImage(
+                                                      _imageUrls[index]),
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              ),
+                                              constraints: BoxConstraints
+                                                  .expand(), // 세로로 꽉 차도록 설정
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
-                                    constraints: BoxConstraints.expand(), // 세로로 꽉 차도록 설정
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
                           SizedBox(height: 10),
                           ElevatedButton(
                             onPressed: _pickImage,
@@ -872,7 +872,6 @@ class _MarkerDetailPageState extends State<MarkerDetailPage> {
     );
   }
 }
-
 
 class ImageViewPage extends StatefulWidget {
   final List<String> imageUrls;
@@ -938,7 +937,8 @@ class _ImageViewPageState extends State<ImageViewPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '${_currentPage + 1} / ${widget.imageUrls.length}', // 현재 사진 / 전체 사진 수
+                '${_currentPage + 1} / ${widget.imageUrls.length}',
+                // 현재 사진 / 전체 사진 수
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,

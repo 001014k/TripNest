@@ -87,7 +87,9 @@ class _ListPageState extends State<ListPage> {
           children: <Widget>[
             ListTile(
               leading: Icon(Icons.format_list_bulleted),
-              title: Text('리스트 열기',style: TextStyle(fontWeight: FontWeight.bold),
+              title: Text(
+                '리스트 열기',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -102,7 +104,9 @@ class _ListPageState extends State<ListPage> {
             Divider(),
             ListTile(
               leading: Icon(Icons.delete),
-              title: Text('리스트 삭제',style: TextStyle(fontWeight: FontWeight.bold),
+              title: Text(
+                '리스트 삭제',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () async {
                 Navigator.pop(context);
@@ -152,7 +156,6 @@ class _ListPageState extends State<ListPage> {
     }
     return 0;
   }
-
 
   @override
   Widget build(BuildContext context) {

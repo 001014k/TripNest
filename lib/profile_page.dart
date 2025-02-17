@@ -29,7 +29,8 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('프로필',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold)),
+        title: Text('프로필',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.black,
         iconTheme: IconThemeData(color: Colors.white),
       ),
@@ -41,7 +42,9 @@ class ProfilePage extends StatelessWidget {
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('오류가 발생했습니다.', style: TextStyle(color: Colors.red)));
+            return Center(
+                child:
+                    Text('오류가 발생했습니다.', style: TextStyle(color: Colors.red)));
           }
 
           final stats = snapshot.data;
