@@ -251,13 +251,31 @@ class MapSampleState extends State<MapSample> {
         );
       },
     );
+    List<Marker> _clusteredMarkers = [];
 
-    // 필터링된 마커 추가
-    for (var marker in _filteredMarkers) {
-      _clusterManager.addMarker(marker);
+    if (_clusterManager != null) {
+      // 클러스터 매니저에 새로운 마커만 추가
+      for (var marker in _filteredMarkers) {
+        bool markerAlreadyExists = false;
+
+        // 마커가 이미 클러스터에 존재하는지 체크
+        for (var addedMarker in _clusteredMarkers) {
+          if (addedMarker.markerId == marker.markerId) {
+            markerAlreadyExists = true;
+            break;
+          }
+        }
+
+        // 중복된 마커가 없으면 추가
+        if (!markerAlreadyExists) {
+          _clusterManager!.addMarker(marker);
+          _clusteredMarkers.add(marker); // 중복 체크를 위한 리스트에 추가
+        }
+      }
+
+      // 클러스터 업데이트
+      _updateClusters();
     }
-
-    _updateClusters();
   }
 
 
