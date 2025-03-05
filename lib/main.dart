@@ -126,13 +126,12 @@ class MapSampleState extends State<MapSample> {
         _filteredMarkers = _allMarkers;
       } else {
         _filteredMarkers = _allMarkers.where((marker) {
-          final markerKeyword =
-              _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
+          final markerKeyword = _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
           return _activeKeywords.contains(markerKeyword);
         }).toSet();
       }
-      // 클러스터 매니저 갱신
-      _applyMarkersToCluster();
+
+      _applyMarkersToCluster(); // 클러스터 매니저에 필터링된 마커 적용
     });
   }
 
@@ -150,7 +149,7 @@ class MapSampleState extends State<MapSample> {
     super.initState();
     _getLocation();
     _loadMarkers();
-    _initializeClusterManager(); // 초기화
+    _applyMarkersToCluster();
   }
 
   Future<String> _getAddressFromCoordinates(
@@ -228,23 +227,19 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  void _initializeClusterManager() {
+  void _applyMarkersToCluster() {
+    // 기존 클러스터 매니저를 새로 생성하여 초기화
     _clusterManager = MarkersClusterManager(
       clusterColor: Colors.black,
-      //클러스터 마커의 배경색 설정
       clusterBorderThickness: 10.0,
-      // 클러스터 마커의 테두리 두께 설정
       clusterBorderColor: Colors.black,
-      // 클러스터 마커의 테두리 색을 어두운 파란색으로 설정
       clusterOpacity: 1.0,
-      // 클러스터 마커의 불투명도를 1로 설정 (불투명)
       clusterTextStyle: TextStyle(
         fontSize: 20,
         color: Colors.white,
         fontWeight: FontWeight.bold,
       ),
       onMarkerTap: (LatLng position) async {
-        // 클러스터 마커 클릭 시 동작: 확대 기능 추가
         final GoogleMapController mapController = await _controller;
         mapController.animateCamera(
           CameraUpdate.newCameraPosition(
@@ -256,14 +251,15 @@ class MapSampleState extends State<MapSample> {
         );
       },
     );
-  }
 
-  void _applyMarkersToCluster() {
+    // 필터링된 마커 추가
     for (var marker in _filteredMarkers) {
-      _clusterManager.addMarker(marker); // 이미 초기화되어 있어 안전함
+      _clusterManager.addMarker(marker);
     }
+
     _updateClusters();
   }
+
 
   Future<void> _updateClusters() async {
     await _clusterManager.updateClusters(zoomLevel: _currentZoom);
