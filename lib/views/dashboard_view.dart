@@ -1,52 +1,62 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fluttertrip/Dashboard_page.dart';
+import 'package:flutter/material.dart';
+import '../views/user_list_view.dart';
+import '../viewmodels/dashboard_viewmodel.dart';
 
-class UserListPage extends StatelessWidget {
+
+class DashboardView extends StatefulWidget {
+  const DashboardView({Key? key}) : super(key: key);
+
+  @override
+  _DashboardViewState createState() => _DashboardViewState();
+}
+
+class _DashboardViewState extends State<DashboardView> {
+  late DashboardViewModel _viewModel;
+
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('User List'),
+        title: Text('Dashboard'),
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () async {
-              // 로그아웃 기능
+              //로그아웃 가능
               await FirebaseAuth.instance.signOut();
-              // 로그인 페이지로 이동
+              //로그인 페이지로 이동
               Navigator.pushReplacementNamed(context, '/login');
             },
           ),
         ],
       ),
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance.collection('users').snapshots(),
-        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text('No users found'));
-          }
-
-          final users = snapshot.data!.docs;
-
-          return ListView.builder(
-            itemCount: users.length,
-            itemBuilder: (context, index) {
-              final user = users[index].data() as Map<String, dynamic>;
-              final email = user['email'] ?? 'No email';
-              return ListTile(
-                title: Text(email),
-              );
-            },
-          );
-        },
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Total Users: $_viewModel.totalUsers'),
+            Text('Total Markers: $_viewModel.totalMarkers'),
+            SizedBox(height: 20),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _viewModel.userMarkersCount.keys.length,
+                itemBuilder: (context, index) {
+                  String email = _viewModel.userMarkersCount.keys.elementAt(index);
+                  int markerCount = _viewModel.userMarkersCount[email]!;
+                  return ListTile(
+                    title: Text('User: $email'),
+                    subtitle: Text('Markers: $markerCount'),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -59,9 +69,9 @@ class UserListPage extends StatelessWidget {
               ),
               otherAccountsPictures: <Widget>[
                 CircleAvatar(
-                  backgroundColor: Colors.white,
                   backgroundImage: AssetImage('assets/profile.png'),
-                ),
+                  backgroundColor: Colors.white,
+                )
               ],
               accountName: Text('admin'),
               accountEmail: Text(
@@ -84,8 +94,7 @@ class UserListPage extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => UserListPage()),
-                  // 회원 관리 페이지로 이동하게 하는 로직 추가
+                  MaterialPageRoute(builder: (context) => UserListView()),
                 );
               },
             ),
@@ -98,8 +107,7 @@ class UserListPage extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => DashboardScreen()),
-                  // 대시보드로 이동하게 하는 로직 추가
+                  MaterialPageRoute(builder: (context) => DashboardView ()),
                 );
               },
             )

@@ -1,0 +1,61 @@
+import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+
+class LoginViewModel extends ChangeNotifier {
+  final AuthService _authService = AuthService();
+
+  bool _isLoading = false;
+  bool _rememberMe = false;
+  String _email = '';
+  String _password = '';
+
+  bool get isLoading => _isLoading;
+  bool get rememberMe => _rememberMe;
+  String get email => _email;
+  String get password => _password;
+
+  void setEmail(String value) {
+    _email = value;
+    notifyListeners();
+  }
+
+  void setPassword(String value) {
+    _password = value;
+    notifyListeners();
+  }
+
+  void setRememberMe(bool value) {
+    _rememberMe = value;
+    notifyListeners();
+  }
+
+  /// 로그인 처리
+  Future<String?> login() async {
+    if (_email.isEmpty || _password.isEmpty) {
+      return "이메일과 비밀번호를 입력하세요.";
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final user = await _authService.login(_email, _password);
+      await _authService.saveUserCredentials(_email, _password, _rememberMe);
+      return user != null ? null : "로그인 실패";
+    } catch (e) {
+      return e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 저장된 로그인 정보 로드
+  Future<void> loadUserPreferences() async {
+    final data = await _authService.loadUserCredentials();
+    _rememberMe = data['rememberMe'];
+    _email = data['email'];
+    _password = data['password'];
+    notifyListeners();
+  }
+}

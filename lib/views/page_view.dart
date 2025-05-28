@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'bookmark_page.dart';
-import 'list_page.dart';
+import '../views/bookmark_view.dart';
+import '../views/list_view.dart';
 
 class MainPage extends StatefulWidget {
   @override
@@ -13,7 +13,7 @@ class _MainPageState extends State<MainPage> {
   // 페이지 위젯 리스트
   final List<Widget> _pages = [
     ListPage(), // 리스트 페이지
-    BookmarkPage(), // 북마크 페이지
+    BookmarkView(), // 북마크 페이지
   ];
 
   @override
