@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 class MapSampleViewModel extends ChangeNotifier {
+  List<Marker> _clusteredMarkers = [];
   File? _image;
   File? get image => _image;
   Marker? _selectedMarker; // 선택된 마커를 저장
@@ -25,20 +26,22 @@ class MapSampleViewModel extends ChangeNotifier {
   Set<Marker>  _filteredMarkers = {}; // 필터링된 마커 저장
   Set<Marker>  get filteredMarkers => _filteredMarkers; // 필터링된 마커 저장
   Map<String, IconData> get keywordIcons => _keywordIcons;
+  List<Marker> get clusteredMarkers => _clusteredMarkers;
   LatLng? _currentLocation;
   LatLng? get currentLocation => _currentLocation;
   LatLng get seoulCityHall => _seoulCityHall;
   String get mapStyle => _mapStyle;
   double get currentZoom => _currentZoom;
-  set currentZoom(double value) {
-    _currentZoom = value;
-  }
+  set currentZoom(double value) {_currentZoom = value;}
   double _currentZoom = 15.0; // 초기 줌 레벨
   Set<String> activeKeywords = {}; //활성화 된 키워드 저장
   final location.Location _location = location.Location();
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
-  late GoogleMapController _controller;
+  GoogleMapController? _controller;
+  set controller(GoogleMapController controller) {
+    _controller = controller;
+  }
   MarkersClusterManager? _clusterManager;
   MarkersClusterManager? get clusterManager => _clusterManager;
   List<Marker> searchResults = [];
@@ -77,25 +80,31 @@ class MapSampleViewModel extends ChangeNotifier {
     '전시회': Icons.art_track,
   };
 
-  void toggleKeyword(String keyword) {
-    if (activeKeywords.contains(keyword)) {
-      activeKeywords.remove(keyword);
-    } else {
-      activeKeywords.add(keyword);
-    }
+  void setMapController(GoogleMapController controller) {
+    _controller = controller;
+  }
 
-    if (activeKeywords.isEmpty) {
-      _filteredMarkers = _allMarkers;
-    } else {
-      _filteredMarkers = _allMarkers.where((marker) {
-        final markerKeyword =
-            _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
-        return activeKeywords.contains(markerKeyword);
-      }).toSet();
-    }
-    notifyListeners(); // 상태 변경알림
+  Future<void> toggleKeyword(String keyword) async {
+      if (activeKeywords.contains(keyword)) {
+        activeKeywords.remove(keyword);
+      } else {
+        activeKeywords.add(keyword);
+      }
 
-    applyMarkersToCluster(); // 클러스터 매니저에 필터링된 마커 적용
+      if (activeKeywords.isEmpty) {
+        _filteredMarkers = _allMarkers;
+      } else {
+        _filteredMarkers = _allMarkers.where((marker) {
+          final markerKeyword = _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
+          return activeKeywords.contains(markerKeyword);
+        }).toSet();
+      }
+
+      print("Active Keywords: $activeKeywords");
+      print("Filtered Markers Count: ${_filteredMarkers.length}");
+
+      await applyMarkersToCluster(); // 클러스터 매니저에 필터링된 마커 적용
+      notifyListeners(); // 상태 변경알림
   }
 
   void onItemTapped(int index) {
@@ -187,7 +196,7 @@ class MapSampleViewModel extends ChangeNotifier {
     applyMarkersToCluster(); // 클러스터 갱신
   }
 
-  Future<void> loadMarkers({required void Function(MarkerId) onTapCallback}) async {
+  Future<void> loadMarkers() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userMarkersCollection = FirebaseFirestore.instance
@@ -228,17 +237,18 @@ class MapSampleViewModel extends ChangeNotifier {
           ),
           icon: markerIcon,
           onTap: () {
-            onTapCallback(MarkerId(doc.id));
+            onMarkerTapped(MarkerId(doc.id));
           },
         );
         _markers.add(marker); //화면에 표시될 마커만 _markers에 저장
         _allMarkers.add(marker); //모든 마커 저장
         _markerKeywords[marker.markerId] = data['keyword'] ?? '';
       }
+
       _filteredMarkers = _allMarkers; //초기 상태에서 모든 마커 표시
-      notifyListeners(); // 상태 변경알림
       // 클러스터 갱신
-      applyMarkersToCluster();
+      await applyMarkersToCluster();
+      notifyListeners(); // 상태 변경 알림
     }
   }
 
@@ -261,70 +271,48 @@ class MapSampleViewModel extends ChangeNotifier {
     return BitmapDescriptor.fromBytes(resizedBytes);
   }
 
-  void setFilteredMarkers(List<Marker> markers) {
-    _filteredMarkers
-      ..clear()
-      ..addAll(markers);
-
-    applyMarkersToCluster(); // 클러스터 적용
-    notifyListeners(); // View에 알림
-  }
-
-  void applyMarkersToCluster() {
-    // 기존 클러스터 매니저를 새로 생성하여 초기화
-    _clusterManager = MarkersClusterManager(
-      clusterColor: Colors.black,
-      clusterBorderThickness: 10.0,
-      clusterBorderColor: Colors.black,
-      clusterOpacity: 1.0,
-      clusterTextStyle: TextStyle(
-        fontSize: 20,
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
-      onMarkerTap: (LatLng position) async {
-        final GoogleMapController mapController = await _controller;
-        mapController.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target: position,
-              zoom: 16.0,
+  Future<void> applyMarkersToCluster() async {
+    if (_clusterManager == null) {
+      _clusterManager = MarkersClusterManager(
+        clusterColor: Colors.black,
+        clusterBorderThickness: 10.0,
+        clusterBorderColor: Colors.black,
+        clusterOpacity: 1.0,
+        clusterTextStyle: TextStyle(
+          fontSize: 20,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+        onMarkerTap: (LatLng position) async {
+          if (_controller == null) return;
+          _controller!.animateCamera(
+            CameraUpdate.newCameraPosition(
+              CameraPosition(target: position, zoom: 16.0),
             ),
-          ),
-        );
-      },
-    );
-    List<Marker> _clusteredMarkers = []; // 전역 변수로 변경할것
-
-    if (_clusterManager != null) {
-      // 클러스터 매니저에 새로운 마커만 추가
-      for (var marker in _filteredMarkers) {
-        bool markerAlreadyExists = false;
-
-        // 마커가 이미 클러스터에 존재하는지 체크
-        for (var addedMarker in _clusteredMarkers) {
-          if (addedMarker.markerId == marker.markerId) {
-            markerAlreadyExists = true;
-            break;
-          }
-        }
-
-        // 중복된 마커가 없으면 추가
-        if (!markerAlreadyExists) {
-          _clusterManager!.addMarker(marker);
-          _clusteredMarkers.add(marker); // 중복 체크를 위한 리스트에 추가
-        }
-      }
-
-      // 클러스터 업데이트
-      updateClusters();
+          );
+        },
+      );
     }
+
+    _clusteredMarkers.clear();
+    print('Applying ${_filteredMarkers.length} filtered markers to cluster');
+
+    for (var marker in _filteredMarkers) {
+      if (!_clusteredMarkers.any((m) => m.markerId == marker.markerId)) {
+        _clusterManager!.addMarker(marker);
+        _clusteredMarkers.add(marker);
+      }
+    }
+
+    await updateClusters();
   }
+
 
   Future<void> updateClusters() async {
     if (_clusterManager != null) {
       await _clusterManager!.updateClusters(zoomLevel: _currentZoom);
     }
+    notifyListeners();
   }
 
   void onEdit(Marker updatedMarker) async {
@@ -456,23 +444,40 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   }
 
-  void onMarkerTapped(BuildContext context, MarkerId markerId) async {
+  Marker? getMarkerById(MarkerId markerId) {
+    try {
+      return _markers.firstWhere((m) => m.markerId == markerId);
+    } catch (e) {
+      return null; // 못 찾으면 null 반환
+    }
+  }
+
+  void deleteMarker(Marker marker) {
+    _markers.removeWhere((m) => m.markerId == marker.markerId);
+    notifyListeners();
+  }
+
+
+
+  Future<void> onMarkerTapped(MarkerId markerId) async {
     final marker = _markers.firstWhere(
           (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
     // 마커 위치로 카메라 이동 (await 작업은 마커를 눌렀을때만 적용 나머지는 불필요함)
     print('Marker Position: ${marker.position}');
+
+    if (_controller == null) {
+      print("GoogleMapController has not been initialized yet.");
+      return;
+    }
+
     await _controller!.animateCamera(
-      CameraUpdate.newLatLngZoom(
-          marker.position, 18.0), // 마커의 위치로 카메라 이동,마커 확대기능
+      CameraUpdate.newLatLngZoom(marker.position, 18.0),
     );
 
     _selectedMarker = marker;
     notifyListeners(); // View가 마커 상태를 알 수 있도록 알림
-    /*_showMarkerInfoBottomSheet(context, marker, (Marker markerToDelete) {
-      // 마커 누르면 하단 창 나옴
-    }); */
   }
 
   void updateSearchResults(String query) {

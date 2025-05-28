@@ -20,7 +20,6 @@ class MapSampleView extends StatefulWidget {
 }
 
 class _MapSampleViewState extends State<MapSampleView> {
-  late MapSampleViewModel _viewModel;
   late GoogleMapController _controller;
   Set<Marker> _markers = {};
   Set<Marker> _allMarkers = {};
@@ -40,13 +39,15 @@ class _MapSampleViewState extends State<MapSampleView> {
   @override
   void initState() {
     super.initState();
-    _viewModel = MapSampleViewModel();
-    print('ViewModel initialized');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final viewModel = context.read<MapSampleViewModel>();
+      viewModel.loadMarkers(); // 첫 로딩 시점에서 호출
+    });
   }
 
   @override
   void dispose() {
-    _viewModel.dispose(); // 리소스 해제
+    context.read<MapSampleViewModel>().dispose(); // 리소스 해제
     super.dispose();
   }
 
@@ -77,7 +78,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 // 키워드에 따른 이미지 경로를 가져옴
                 final markerImagePath = keywordMarkerImages[updatedKeyword] ??
                     'assets/default_marker.png';
-                _viewModel.updateMarker(
+                context.read<MapSampleViewModel>().updateMarker(
                     updatedMarker, updatedKeyword, markerImagePath);
               },
               keyword: _markerKeywords[marker.markerId] ?? 'default',
@@ -99,11 +100,7 @@ class _MapSampleViewState extends State<MapSampleView> {
 
     // 마커 세부 페이지에서 돌아온 후 마커를 다시 로드
     if (result == true) {
-      _viewModel.loadMarkers(
-        onTapCallback: (markerId) {
-          _viewModel.onMarkerTapped(context, markerId);
-        },
-      );
+      context.read<MapSampleViewModel>().loadMarkers();
     }
   }
 
@@ -175,8 +172,7 @@ class _MapSampleViewState extends State<MapSampleView> {
     }
   }
 
-  void _navigateToMarkerCreationScreen(BuildContext context,
-      LatLng latLng) async {
+  void _navigateToMarkerCreationScreen(BuildContext context, LatLng latLng) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -187,13 +183,13 @@ class _MapSampleViewState extends State<MapSampleView> {
 
     if (result != null && _pendingLatLng != null) {
       final keyword = result['keyword'] ?? 'default'; // 키워드가 없을 경우 기본값 설정
-      _viewModel.addMarker(
+      context.read<MapSampleViewModel>().addMarker(
         title: result['title'],
         snippet: result['snippet'],
         position: _pendingLatLng!,
         keyword: keyword,
         onTapCallback: (markerId) {
-          _viewModel.onMarkerTapped(context, markerId);
+          context.read<MapSampleViewModel>().onMarkerTapped(markerId);
         },
       );
       _pendingLatLng = null;
@@ -210,12 +206,8 @@ class _MapSampleViewState extends State<MapSampleView> {
     );
   }
 
-  void _showMarkerInfoBottomSheet(
-      BuildContext context,
-      Marker marker,
-      Function(Marker) onDelete,
-      ) {
-    final String keyword = _markerKeywords[marker.markerId] ?? '';
+  void _showMarkerInfoBottomSheet(BuildContext context,Marker marker, Function(Marker) onDelete, String keyword,) {
+    print('showMarkerInfoBottomSheet called for marker: ${marker.markerId}');  // 디버깅용 로그
 
     showModalBottomSheet(
       context: context,
@@ -232,7 +224,7 @@ class _MapSampleViewState extends State<MapSampleView> {
               onSave: (updatedMarker, keyword) async {
                 // 키워드에 따른 이미지 경로를 가져옴
                 final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
-                _viewModel.saveMarker(updatedMarker, keyword, markerImagePath);
+                context.read<MapSampleViewModel>().saveMarker(updatedMarker, keyword, markerImagePath);
               },
               onDelete: onDelete,
               keyword: keyword,
@@ -246,7 +238,7 @@ class _MapSampleViewState extends State<MapSampleView> {
   }
 
   void showUserLists(BuildContext context) async {
-    List<QueryDocumentSnapshot> userLists = await _viewModel.getUserLists();
+    List<QueryDocumentSnapshot> userLists = await context.read<MapSampleViewModel>().getUserLists();
 
     if (userLists.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -294,11 +286,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
               ),
               onTap: () {
-                _viewModel.loadMarkers(
-                  onTapCallback: (markerId) {
-                    _viewModel.onMarkerTapped(context, markerId);
-                  },
-                );
+                context.read<MapSampleViewModel>().loadMarkers();
                 Navigator.pop(context);
               },
             ),
@@ -329,7 +317,7 @@ class _MapSampleViewState extends State<MapSampleView> {
           title: data['title'] ?? '제목 없음',
           snippet: data['snippet'] ?? '설명 없음',
         ),
-        onTap: () => _viewModel.onMarkerTapped(context, MarkerId(doc.id)),
+        onTap: () => context.read<MapSampleViewModel>().onMarkerTapped(MarkerId(doc.id)),
       );
     }).toList();
 
@@ -340,9 +328,6 @@ class _MapSampleViewState extends State<MapSampleView> {
       );
       return;
     }
-
-
-    _viewModel.setFilteredMarkers(markers);
 
     showModalBottomSheet(
       context: context,
@@ -395,7 +380,7 @@ class _MapSampleViewState extends State<MapSampleView> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final List<String> keywords = _viewModel.keywordIcons.keys.toList();
+    final List<String> keywords = context.read<MapSampleViewModel>().keywordIcons.keys.toList();
 
     return Scaffold(
       drawer: Drawer(
@@ -483,7 +468,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
-                _viewModel.onItemTapped(0); //구글 맵 화면으로 이동
+                context.read<MapSampleViewModel>().onItemTapped(0); //구글 맵 화면으로 이동
               },
             ),
             Divider(),
@@ -559,56 +544,60 @@ class _MapSampleViewState extends State<MapSampleView> {
       ),
       body: Stack(
         children: [
-          GoogleMap(
-            onMapCreated: (GoogleMapController controller) {
-              _controller = controller;
-              setState(() {
-                // 컨트롤러가 초기화되었음을 알림
-                _isMapInitialized = true;
-              });
-              _viewModel.loadMarkers(onTapCallback: (MarkerId ) {
-                _viewModel.onMarkerTapped(context, MarkerId);
-              });
-              _viewModel.applyMarkersToCluster(); // 클러스터 매니저 초기화
-              _controller!.setMapStyle(_viewModel.mapStyle);
+          Consumer<MapSampleViewModel>(
+            builder: (context, viewModel, child) {
+              return GoogleMap(
+                onMapCreated: (GoogleMapController controller) {
+                  viewModel.controller = controller;
+                  setState(() {
+                    _isMapInitialized = true;
+                    print('_isMapInitialized set to true');
+                  });
+                  viewModel.controller = controller;
+                  viewModel.loadMarkers();
+                  viewModel.applyMarkersToCluster(); // 클러스터 매니저 초기화
+                  controller.setMapStyle(viewModel.mapStyle);
 
-              //현재 위치가 설정된 경우 카메라 이동
-              if (_viewModel.currentLocation != null) {
-                _controller!.animateCamera(
-                  CameraUpdate.newCameraPosition(
-                    CameraPosition(
-                      target: LatLng(_viewModel.currentLocation!.latitude!,
-                          _viewModel.currentLocation!.longitude!),
-                      zoom: 15,
-                    ),
+                  //현재 위치가 설정된 경우 카메라 이동
+                  if (viewModel.currentLocation != null) {
+                    controller!.animateCamera(
+                      CameraUpdate.newCameraPosition(
+                        CameraPosition(
+                          target: LatLng(
+                              viewModel.currentLocation!.latitude!,
+                              viewModel.currentLocation!.longitude!),
+                          zoom: 15,
+                        ),
+                      ),
+                    );
+                  }
+                },
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(
+                    viewModel.currentLocation?.latitude ??
+                        viewModel.seoulCityHall.latitude,
+                    viewModel.currentLocation?.longitude ??
+                        viewModel.seoulCityHall.longitude,
                   ),
-                );
-              }
-            },
-            initialCameraPosition: CameraPosition(
-              target: LatLng(
-                _viewModel.currentLocation?.latitude ?? _viewModel.seoulCityHall.latitude,
-                _viewModel.currentLocation?.longitude ?? _viewModel.seoulCityHall.longitude,
-              ),
-              zoom: 15.0,
-            ),
-            zoomControlsEnabled: false,
-            // 확대/축소 버튼 숨기기
-            myLocationEnabled: true,
-            // 내 위치 아이콘 표시 여부
-            myLocationButtonEnabled: false,
-            // 내 위치 아이콘 표시 여부
-            markers: Set<Marker>.of(_viewModel.clusterManager.getClusteredMarkers()),
-            // 클러스터링된 마커 사용
-            onTap: (latLng) => _onMapTapped(context, latLng),
-            onCameraMove: (CameraPosition position) {
-              setState(() {
-                _viewModel.currentZoom = position.zoom;
-              });
-              _viewModel.updateClusters();
+                  zoom: 15.0,
+                ),
+                // 확대/축소 버튼 숨기기
+                zoomControlsEnabled: false,
+                // 내 위치 아이콘 표시 여부
+                myLocationEnabled: true,
+                // 내 위치 버튼 숨기기
+                myLocationButtonEnabled: false,
+                // 마커 표시
+                markers: Set<Marker>.of(viewModel.clusteredMarkers),
+                // 클러스터링된 마커 사용
+                onTap: (latLng) => _onMapTapped(context, latLng),
+                onCameraMove: (CameraPosition position) {
+                  viewModel.currentZoom = position.zoom;
+                  viewModel.updateClusters();
+                },
+              );
             },
           ),
-
           // 검색창 (지도 위)
           Positioned(
             top: 60,
@@ -653,21 +642,20 @@ class _MapSampleViewState extends State<MapSampleView> {
                             style: TextStyle(
                               color: Colors.white,
                             ),
-                            onSubmitted: _viewModel.onSearchSubmitted,
-                            onChanged: _viewModel.updateSearchResults,
+                            onSubmitted: context.read<MapSampleViewModel>().onSearchSubmitted,
+                            onChanged: context.read<MapSampleViewModel>().updateSearchResults,
                           ),
                         ),
                         IconButton(
                           icon: Icon(Icons.search, color: Colors.white),
                           onPressed: () =>
-                              _viewModel.onSearchSubmitted(_searchController.text),
+                              context.read<MapSampleViewModel>().onSearchSubmitted(_searchController.text),
                         ),
                       ],
                     ),
                   ),
             ),
           ),
-
           // 지도 초기화 완료 상태를 표시하는 예제
           if (!_isMapInitialized)
             Positioned(
@@ -682,50 +670,53 @@ class _MapSampleViewState extends State<MapSampleView> {
                 ),
               ),
             ),
-          Positioned(
-            top: 140.0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 40.0,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: keywords.length,
-                itemBuilder: (context, index) {
-                  final keyword = keywords[index]; // 인덱스에 해당하는 키워드 가져오기
-                  final icon = _viewModel.keywordIcons[keyword]; // 해당 키워드에 맞는 아이콘 가져오기
-                  final isActive = _viewModel.activeKeywords.contains(keyword);
-                  return Container(
-                    margin: EdgeInsets.symmetric(horizontal: 5.0),
-                    // 키워드 버튼 간격 조정
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isActive ? Colors.grey : Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(50),
+          Consumer<MapSampleViewModel>(builder: (context, viewModel, child) {
+            return Positioned(
+              top: 140.0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 40.0,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: keywords.length,
+                  itemBuilder: (context, index) {
+                    final keyword = keywords[index]; // 인덱스에 해당하는 키워드 가져오기
+                    final icon = viewModel.keywordIcons[keyword]; // 해당 키워드에 맞는 아이콘 가져오기
+                    final isActive = viewModel.activeKeywords.contains(keyword);
+                    return Container(
+                      margin: EdgeInsets.symmetric(horizontal: 5.0),
+                      // 키워드 버튼 간격 조정
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isActive ? Colors.grey : Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 20.0, vertical: 12),
+                          // horizontal : 가로 방향에 각각 몇 픽셀의 패딩을 추가
+                          // vertical: 세로 방향에 각각 몇 픽셀의 패딩을 추가 (Textstyle에 값과 비슷하게 설정할것)
                         ),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 20.0, vertical: 12),
-                        // horizontal : 가로 방향에 각각 몇 픽셀의 패딩을 추가
-                        // vertical: 세로 방향에 각각 몇 픽셀의 패딩을 추가 (Textstyle에 값과 비슷하게 설정할것)
+                        onPressed: () {
+                          context.read<MapSampleViewModel>().toggleKeyword(keyword);
+                        },
+                        icon: Icon(icon, color: Colors.white, size: 12),
+                        label: Text(
+                          keyword,
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold), // 글씨 크기 조정
+                        ),
                       ),
-                      onPressed: () {
-                        _viewModel.toggleKeyword(keyword);
-                      },
-                      icon: Icon(icon, color: Colors.white, size: 12),
-                      label: Text(
-                        keyword,
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold), // 글씨 크기 조정
-                      ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ),
+            );
+          }),
           Positioned(
             bottom: 40,
             right: 16,
@@ -744,14 +735,14 @@ class _MapSampleViewState extends State<MapSampleView> {
                         backgroundColor: Colors.black,
                       ),
                     );
-                    _viewModel.moveToCurrentLocation();
+                    context.read<MapSampleViewModel>().moveToCurrentLocation();
                   },
                   backgroundColor: Colors.white,
                   child: Icon(Icons.my_location),
                 ),
                 SizedBox(height: 16),
                 FloatingActionButton(
-                  onPressed: () => _viewModel.showUserLists(context),
+                  onPressed: () => context.read<MapSampleViewModel>().showUserLists(context),
                   backgroundColor: Colors.white,
                   child: Icon(Icons.list),
                 )
@@ -759,7 +750,7 @@ class _MapSampleViewState extends State<MapSampleView> {
             ),
           ),
           // 검색창에 입력한 제목을 화면 하단에 검색 결과를 표시하는 기능
-          if (_viewModel.searchResults.isNotEmpty) ...[
+          if (context.read<MapSampleViewModel>().searchResults.isNotEmpty) ...[
             Positioned(
               bottom: 0,
               left: 0,
@@ -769,7 +760,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 direction: DismissDirection.down, // 아래로 스와이프 가능
                 onDismissed: (direction) {
                   setState(() {
-                    _viewModel.searchResults.clear(); // 스와이프하면 검색 결과 숨김
+                    context.read<MapSampleViewModel>().searchResults.clear(); // 스와이프하면 검색 결과 숨김
                   });
                 },
                 child: Container(
@@ -812,16 +803,16 @@ class _MapSampleViewState extends State<MapSampleView> {
                           padding: EdgeInsets.zero,
                           //리스트 상하 여백 제거
                           shrinkWrap: true,
-                          itemCount: _viewModel.searchResults.length,
+                          itemCount: context.read<MapSampleViewModel>().searchResults.length,
                           separatorBuilder: (context, index) =>
                               Divider(
                                 color: Colors.grey,
                                 thickness: 1,
                               ),
                           itemBuilder: (context, index) {
-                            final marker = _viewModel.searchResults[index];
+                            final marker = context.read<MapSampleViewModel>().searchResults[index];
                             final keyword = _markerKeywords[marker.markerId];
-                            final icon = _viewModel.keywordIcons[keyword];
+                            final icon = context.read<MapSampleViewModel>().keywordIcons[keyword];
 
                             return ListTile(
                               leading: Icon(
@@ -878,6 +869,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                                       (Marker markerToDelete) {
                                     // 마커 삭제 로직 추가 가능
                                   },
+                                  keyword ?? '',
                                 );
                               },
                             );
@@ -1101,8 +1093,8 @@ class MarkerInfoBottomSheet extends StatelessWidget {
               Icon(Icons.label, color: Colors.blue),
               SizedBox(height: 10),
               Text(
-                '${keyword}',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                keyword.isNotEmpty ? keyword : '기본 키워드',
+                style: TextStyle(color: Colors.black,fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           )
@@ -1111,5 +1103,3 @@ class MarkerInfoBottomSheet extends StatelessWidget {
     );
   }
 }
-
-
