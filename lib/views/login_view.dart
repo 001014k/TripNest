@@ -2,13 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/login_viewmodel.dart';
 
-class LoginView extends StatelessWidget {
+class LoginView extends StatefulWidget {
+  @override
+  _LoginViewState createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<LoginView> {
+  late TextEditingController _emailController;
+  late TextEditingController _passwordController;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final viewModel = context.read<LoginViewModel>();
+      _emailController.text = viewModel.email;
+      _passwordController.text = viewModel.password;
+
+      // 컨트롤러 텍스트 변경 시 뷰모델에 반영
+      _emailController.addListener(() {
+        viewModel.setEmail(_emailController.text);
+      });
+      _passwordController.addListener(() {
+        viewModel.setPassword(_passwordController.text);
+      });
+    });
+  }
+
+  @override
+  void initstate() {
+    super.initState();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (context) => LoginViewModel()..loadUserPreferences(),
       child: Consumer<LoginViewModel>(
         builder: (context, viewModel, child) {
+
+          // 텍스트필드 값과 viewmodel 상태 동기화
+          _emailController.text = viewModel.email;
+          _passwordController.text = viewModel.password;
+
           return Scaffold(
             backgroundColor: Colors.black,
             appBar: AppBar(title: Text('FlutterTrip')),
@@ -32,8 +73,8 @@ class LoginView extends StatelessWidget {
                       border: OutlineInputBorder(),
                       labelStyle: TextStyle(color: Colors.white),
                     ),
+                    controller: _emailController,
                     onChanged: viewModel.setEmail,
-                    controller: TextEditingController(text: viewModel.email),
                   ),
                   SizedBox(height: 20),
                   TextField(
@@ -46,8 +87,9 @@ class LoginView extends StatelessWidget {
                       border: OutlineInputBorder(),
                       labelStyle: TextStyle(color: Colors.white),
                     ),
+                    controller: _passwordController,
                     onChanged: viewModel.setPassword,
-                    controller: TextEditingController(text: viewModel.password),
+                    //obscureText: true,
                   ),
                   SizedBox(height: 20),
                   CheckboxListTile(
