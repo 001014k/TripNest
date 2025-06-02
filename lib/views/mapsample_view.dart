@@ -547,15 +547,15 @@ class _MapSampleViewState extends State<MapSampleView> {
           Consumer<MapSampleViewModel>(
             builder: (context, viewModel, child) {
               return GoogleMap(
-                onMapCreated: (GoogleMapController controller) {
+                onMapCreated: (GoogleMapController controller) async {
                   viewModel.controller = controller;
                   setState(() {
                     _isMapInitialized = true;
                     print('_isMapInitialized set to true');
                   });
                   viewModel.controller = controller;
-                  viewModel.loadMarkers();
-                  viewModel.applyMarkersToCluster(); // 클러스터 매니저 초기화
+                  await viewModel.loadMarkers();
+                  await viewModel.applyMarkersToCluster(controller); // 클러스터 매니저 초기화
                   controller.setMapStyle(viewModel.mapStyle);
 
                   //현재 위치가 설정된 경우 카메라 이동
@@ -588,12 +588,12 @@ class _MapSampleViewState extends State<MapSampleView> {
                 // 내 위치 버튼 숨기기
                 myLocationButtonEnabled: false,
                 // 마커 표시
-                markers: Set<Marker>.of(viewModel.clusteredMarkers),
+                markers: viewModel.displayMarkers,
                 // 클러스터링된 마커 사용
                 onTap: (latLng) => _onMapTapped(context, latLng),
-                onCameraMove: (CameraPosition position) {
-                  viewModel.currentZoom = position.zoom;
-                  viewModel.updateClusters();
+                onCameraMove: (position) {
+                  viewModel.onCameraMove(position);
+                  viewModel.clusterManager?.onCameraMove(position);
                 },
               );
             },
