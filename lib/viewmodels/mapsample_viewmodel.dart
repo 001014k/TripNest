@@ -123,6 +123,7 @@ class MapSampleViewModel extends ChangeNotifier {
         _filteredMarkers = uniqueMarkerMap.values.toSet();
       }
 
+      // 키워드에 맞게 클러스터링에 있는 마커 갯수 표현
       _filteredPlaces = _filteredMarkers.map((marker){
         return Place(
           id: marker.markerId.value,
@@ -139,9 +140,7 @@ class MapSampleViewModel extends ChangeNotifier {
       print('Clustered Markers count: ${_clusteredMarkers.length}');
       print('Clustered Marker IDs: ${_clusteredMarkers.map((m) => m.markerId.value).toSet().length}');
 
-
-
-      //_clusterManager?.setItems(_filteredPlaces);
+      _clusterManager?.setItems(_filteredPlaces); // 키워드에 맞게 클러스터링에 있는 마커 갯수 표현
       notifyListeners(); // 상태 변경알림
   }
 
@@ -316,12 +315,27 @@ class MapSampleViewModel extends ChangeNotifier {
             cluster.isMultiple ? 125 : 75,           // 클러스터 크기 다르게
             text: cluster.isMultiple ? cluster.count.toString() : null,  // 묶음 개수 표시
           ),
-          onTap: () {
+          onTap: () async {
+            if (cluster.isMultiple) {
+              if (_controller != null) {
+                _controller!.animateCamera(
+                  CameraUpdate.newLatLngZoom(cluster.location, 15),
+                );
+              }
+            } else {
+              onSinglePlaceTap(cluster.items.first);
+            }
             print('클러스터 클릭됨: ${cluster.getId()} - 아이템 개수: ${cluster.count}');
             cluster.items.forEach((item) => print(item));
           },
         );
       };
+
+  void onSinglePlaceTap(Place place) {
+    // 여기서 place에 대한 상세 처리 구현
+    print('단일 마커 클릭됨: ${place.title}');
+    // 예: _selectedPlace = place; notifyListeners(); 등
+  }
 
   Future<BitmapDescriptor> _getMarkerBitmap(int size, {String? text}) async {
     final PictureRecorder pictureRecorder = PictureRecorder();
@@ -364,20 +378,13 @@ class MapSampleViewModel extends ChangeNotifier {
 
 
   Future<void> applyMarkersToCluster(GoogleMapController controller) async {
-    /*_filteredPlaces = _filteredMarkers.map((marker) {
-      return Place(
-        id: marker.markerId.value,
-        title: marker.infoWindow.title ?? '',
-        snippet: marker.infoWindow.snippet ?? '',
-        latLng: marker.position,
-      );
-    }).toList(); */
-
     if (_clusterManager == null) {
       _clusterManager = cluster_manager.ClusterManager<Place>(
         _filteredPlaces,
         _updateMarkers,
         markerBuilder: _markerBuilder,
+        levels: [1, 5, 10, 15, 20],
+        extraPercent: 0.2,
       );
       _clusterManager!.setMapId(controller.mapId);
     } else {
