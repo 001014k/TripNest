@@ -1,49 +1,65 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
+import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/marker_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:location/location.dart' as location;
 import 'package:geocoding/geocoding.dart' as geocoding;
-import 'package:markers_cluster_google_maps_flutter/markers_cluster_google_maps_flutter.dart';
-import '../config.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart'as cluster_manager;
 import 'package:flutter/services.dart';
+import '../config.dart';
 import 'package:http/http.dart' as http;
+import '../models/place.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
-  List<Marker> _clusteredMarkers = [];
+  Set<Marker> _clusteredMarkers = {};
+  Set<Marker> get clusteredMarkers => _clusteredMarkers;
+
+  Set<Marker> _filteredMarkers = {};
+  Set<Marker> get filteredMarkers => _filteredMarkers;
+
+  Set<Marker> get displayMarkers {
+    if (currentZoom >= 15) {
+      return _filteredMarkers; // 개별 마커
+    } else {
+      return _clusteredMarkers.toSet(); // 클러스터 마커
+    }
+  }
+
+
+  cluster_manager.ClusterManager<Place>? _clusterManager;
+  cluster_manager.ClusterManager<Place>? get clusterManager => _clusterManager;
+
+  List<Place> _filteredPlaces = [];
+  Set<Marker> _allMarkers = {}; // 모든 마커 저장
+
   File? _image;
   File? get image => _image;
   Marker? _selectedMarker; // 선택된 마커를 저장
   Marker? get selectedMarker => _selectedMarker; // 외부에서 접근용 getter
   final Map<MarkerId, String> _markerKeywords = {}; //마커의 키워드 저장
-  Set<Marker> _allMarkers = {}; // 모든 마커 저장
-  Set<Marker>  _filteredMarkers = {}; // 필터링된 마커 저장
-  Set<Marker>  get filteredMarkers => _filteredMarkers; // 필터링된 마커 저장
   Map<String, IconData> get keywordIcons => _keywordIcons;
-  List<Marker> get clusteredMarkers => _clusteredMarkers;
   LatLng? _currentLocation;
   LatLng? get currentLocation => _currentLocation;
   LatLng get seoulCityHall => _seoulCityHall;
   String get mapStyle => _mapStyle;
-  double get currentZoom => _currentZoom;
-  set currentZoom(double value) {_currentZoom = value;}
-  double _currentZoom = 15.0; // 초기 줌 레벨
+  double currentZoom = 15.0; // 초기 줌 레벨
   Set<String> activeKeywords = {}; //활성화 된 키워드 저장
   final location.Location _location = location.Location();
-  final Set<Marker> _markers = {};
+  late Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   GoogleMapController? _controller;
   set controller(GoogleMapController controller) {
     _controller = controller;
   }
-  MarkersClusterManager? _clusterManager;
-  MarkersClusterManager? get clusterManager => _clusterManager;
   List<Marker> searchResults = [];
   List<Marker> bookmarkedMarkers = [];
   CollectionReference markersCollection =
@@ -98,12 +114,34 @@ class MapSampleViewModel extends ChangeNotifier {
           final markerKeyword = _markerKeywords[marker.markerId]?.toLowerCase() ?? '';
           return activeKeywords.contains(markerKeyword);
         }).toSet();
+
+        // 중복 마커 제거
+        final uniqueMarkerMap = <MarkerId, Marker>{};
+        for (var marker in filteredMarkers) {
+          uniqueMarkerMap[marker.markerId] = marker;
+        }
+        _filteredMarkers = uniqueMarkerMap.values.toSet();
       }
 
-      print("Active Keywords: $activeKeywords");
-      print("Filtered Markers Count: ${_filteredMarkers.length}");
+      _filteredPlaces = _filteredMarkers.map((marker){
+        return Place(
+          id: marker.markerId.value,
+          title: marker.infoWindow.title ?? '',
+          snippet: marker.infoWindow.snippet ?? '',
+          latLng: marker.position,
+        );
+      }).toList();
 
-      await applyMarkersToCluster(); // 클러스터 매니저에 필터링된 마커 적용
+      print("Active Keywords: $activeKeywords");
+      print('Filtered Markers count: ${_filteredMarkers.length}');
+      print('Filtered Marker IDs: ${_filteredMarkers.map((m) => m.markerId.value).toSet().length}');
+
+      print('Clustered Markers count: ${_clusteredMarkers.length}');
+      print('Clustered Marker IDs: ${_clusteredMarkers.map((m) => m.markerId.value).toSet().length}');
+
+
+
+      //_clusterManager?.setItems(_filteredPlaces);
       notifyListeners(); // 상태 변경알림
   }
 
@@ -151,7 +189,7 @@ class MapSampleViewModel extends ChangeNotifier {
     required String? snippet,
     required LatLng position,
     required String keyword,
-    required void Function(MarkerId) onTapCallback, // 👈 콜백 추가
+    required void Function(MarkerId) onTapCallback, // 콜백 추가
   }) async {
     // 키워드에 따른 이미지 경로를 가져옴
     final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
@@ -193,7 +231,7 @@ class MapSampleViewModel extends ChangeNotifier {
     await _markerService.saveMarkerOfflineOrOnline(markerData);
 
     // 클러스터링을 새로 갱신하여 지도에 마커를 반영
-    applyMarkersToCluster(); // 클러스터 갱신
+    _clusterManager?.setItems(_filteredPlaces); // 클러스터 갱신
   }
 
   Future<void> loadMarkers() async {
@@ -208,6 +246,10 @@ class MapSampleViewModel extends ChangeNotifier {
 
       _markers.clear();
       _allMarkers.clear();
+
+      // markerId 기준 중복 제거용 Map 생성
+      final Map<MarkerId, Marker> uniqueMarkersMap = {};
+
       for (var doc in querySnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final String keyword = data['keyword'] ?? 'default';
@@ -240,78 +282,119 @@ class MapSampleViewModel extends ChangeNotifier {
             onMarkerTapped(MarkerId(doc.id));
           },
         );
-        _markers.add(marker); //화면에 표시될 마커만 _markers에 저장
-        _allMarkers.add(marker); //모든 마커 저장
-        _markerKeywords[marker.markerId] = data['keyword'] ?? '';
-      }
 
-      _filteredMarkers = _allMarkers; //초기 상태에서 모든 마커 표시
-      // 클러스터 갱신
-      await applyMarkersToCluster();
+        uniqueMarkersMap[marker.markerId] = marker; // 중복 제거하며 저장
+        _markerKeywords[marker.markerId] = keyword;
+      }
+      // 중복 제거된 마커들을 _markers와 _allMarkers에 저장
+      _markers = uniqueMarkersMap.values.toSet();
+      _allMarkers = uniqueMarkersMap.values.toSet();
+      _filteredMarkers = _allMarkers.toSet(); //초기 상태에서 모든 마커 표시
+
+      _filteredPlaces = _filteredMarkers.map((marker){
+        return Place(
+          id: marker.markerId.value,
+          title: marker.infoWindow.title ?? '',
+          snippet: marker.infoWindow.snippet ?? '',
+          latLng: marker.position,
+        );
+      }).toList();
+
+      //_clusterManager?.setItems(_filteredPlaces);
+      _clusterManager?.updateMap();
       notifyListeners(); // 상태 변경 알림
+
     }
   }
 
-  Future<BitmapDescriptor> createCustomMarkerImage(String imagePath, int width, int height) async {
-    // 이미지 파일 로드
-    final ByteData data = await rootBundle.load(imagePath);
-    final Uint8List bytes = data.buffer.asUint8List();
+  Future<Marker> Function(cluster_manager.Cluster<Place>) get _markerBuilder =>
+          (cluster) async {
+        return Marker(
+          markerId: MarkerId(cluster.getId()),       // 클러스터 ID
+          position: cluster.location,                 // 클러스터 위치
+          icon: await _getMarkerBitmap(
+            cluster.isMultiple ? 125 : 75,           // 클러스터 크기 다르게
+            text: cluster.isMultiple ? cluster.count.toString() : null,  // 묶음 개수 표시
+          ),
+          onTap: () {
+            print('클러스터 클릭됨: ${cluster.getId()} - 아이템 개수: ${cluster.count}');
+            cluster.items.forEach((item) => print(item));
+          },
+        );
+      };
 
-    // 이미지 디코딩 및 크기 조정
-    final ui.Codec codec = await ui.instantiateImageCodec(bytes,
-        targetWidth: width, targetHeight: height);
-    final ui.FrameInfo frameInfo = await codec.getNextFrame();
-    final ByteData? byteData =
-    await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
+  Future<BitmapDescriptor> _getMarkerBitmap(int size, {String? text}) async {
+    final PictureRecorder pictureRecorder = PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+    final Paint paint1 = Paint()..color = Colors.blue;   // 외곽 원 색
+    final Paint paint2 = Paint()..color = Colors.white;  // 내부 원 색
 
-    // 크기 조정된 이미지 데이터를 바이트 배열로 변환
-    final Uint8List resizedBytes = byteData!.buffer.asUint8List();
+    // 외곽 원
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint1);
+    // 내부 원
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.2, paint2);
+    // 더 작은 외곽 원
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.8, paint1);
 
-    // BitmapDescriptor로 변환
-    return BitmapDescriptor.fromBytes(resizedBytes);
-  }
-
-  Future<void> applyMarkersToCluster() async {
-    if (_clusterManager == null) {
-      _clusterManager = MarkersClusterManager(
-        clusterColor: Colors.black,
-        clusterBorderThickness: 10.0,
-        clusterBorderColor: Colors.black,
-        clusterOpacity: 1.0,
-        clusterTextStyle: TextStyle(
-          fontSize: 20,
+    // 텍스트가 있으면 중앙에 숫자 표시
+    if (text != null) {
+      TextPainter painter = TextPainter(
+        textDirection: TextDirection.ltr,
+      );
+      painter.text = TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: size / 3,
           color: Colors.white,
           fontWeight: FontWeight.bold,
         ),
-        onMarkerTap: (LatLng position) async {
-          if (_controller == null) return;
-          _controller!.animateCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(target: position, zoom: 16.0),
-            ),
-          );
-        },
+      );
+      painter.layout();
+      painter.paint(
+        canvas,
+        Offset(size / 2 - painter.width / 2, size / 2 - painter.height / 2),
       );
     }
 
-    _clusteredMarkers.clear();
-    print('Applying ${_filteredMarkers.length} filtered markers to cluster');
-
-    for (var marker in _filteredMarkers) {
-      if (!_clusteredMarkers.any((m) => m.markerId == marker.markerId)) {
-        _clusterManager!.addMarker(marker);
-        _clusteredMarkers.add(marker);
-      }
-    }
-
-    await updateClusters();
+    // 이미지로 변환
+    final img = await pictureRecorder.endRecording().toImage(size, size);
+    final data = await img.toByteData(format: ImageByteFormat.png);
+    return BitmapDescriptor.fromBytes(data!.buffer.asUint8List());
   }
 
 
-  Future<void> updateClusters() async {
-    if (_clusterManager != null) {
-      await _clusterManager!.updateClusters(zoomLevel: _currentZoom);
+  Future<void> applyMarkersToCluster(GoogleMapController controller) async {
+    /*_filteredPlaces = _filteredMarkers.map((marker) {
+      return Place(
+        id: marker.markerId.value,
+        title: marker.infoWindow.title ?? '',
+        snippet: marker.infoWindow.snippet ?? '',
+        latLng: marker.position,
+      );
+    }).toList(); */
+
+    if (_clusterManager == null) {
+      _clusterManager = cluster_manager.ClusterManager<Place>(
+        _filteredPlaces,
+        _updateMarkers,
+        markerBuilder: _markerBuilder,
+      );
+      _clusterManager!.setMapId(controller.mapId);
+    } else {
+      _clusterManager!.setItems(_filteredPlaces);
     }
+
+    // 클러스터 업데이트
+    _clusterManager!.updateMap();
+  }
+
+  void onCameraMove(CameraPosition position) {
+    currentZoom = position.zoom;
+    notifyListeners();
+  }
+
+  void _updateMarkers(markers) {
+    _clusteredMarkers = markers.toSet();
     notifyListeners();
   }
 
@@ -336,6 +419,25 @@ class MapSampleViewModel extends ChangeNotifier {
 
       updateMarker(newMarker, keyword, markerImagePath);
     }
+  }
+
+  Future<BitmapDescriptor> createCustomMarkerImage(String imagePath, int width, int height) async {
+    // 이미지 파일 로드
+    final ByteData data = await rootBundle.load(imagePath);
+    final Uint8List bytes = data.buffer.asUint8List();
+
+    // 이미지 디코딩 및 크기 조정
+    final ui.Codec codec = await ui.instantiateImageCodec(bytes,
+        targetWidth: width, targetHeight: height);
+    final ui.FrameInfo frameInfo = await codec.getNextFrame();
+    final ByteData? byteData =
+    await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
+
+    // 크기 조정된 이미지 데이터를 바이트 배열로 변환
+    final Uint8List resizedBytes = byteData!.buffer.asUint8List();
+
+    // BitmapDescriptor로 변환
+    return BitmapDescriptor.fromBytes(resizedBytes);
   }
 
   void updateMarker(Marker marker, String keyword,
