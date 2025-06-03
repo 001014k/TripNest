@@ -13,17 +13,18 @@ import '../views/markerdetail_view.dart';
 
 
 class MapSampleView extends StatefulWidget {
-  const MapSampleView({Key? key}) : super(key: key);
+  const MapSampleView({Key? key}) : super(key: key); // MapSampleView 생성자
 
   @override
   _MapSampleViewState createState() => _MapSampleViewState();
 }
 
 class _MapSampleViewState extends State<MapSampleView> {
+
   late GoogleMapController _controller;
-  Set<Marker> _markers = {};
-  Set<Marker> _allMarkers = {};
-  Map<MarkerId, String> _markerKeywords = {};
+  Set<Marker> _markers = {}; // 현재 화면에 표시되는 마커들
+  Set<Marker> _allMarkers = {}; // 전체 마커들
+  Map<MarkerId, String> _markerKeywords = {}; // 마커 ID와 키워드 매핑
   TextEditingController _searchController = TextEditingController();
   bool _isMapInitialized = false;
   final Map<String, String> keywordMarkerImages = {
@@ -33,8 +34,8 @@ class _MapSampleViewState extends State<MapSampleView> {
     '음식점': 'assets/restaurant_marker.png',
     '전시회': 'assets/exhibition_marker.png',
   };
-  LatLng? _pendingLatLng;
-  List<Marker> bookmarkedMarkers = [];
+  LatLng? _pendingLatLng; // 마커 생성 대기 중인 위치
+  List<Marker> bookmarkedMarkers = []; // 북마크 된 마커 리스트
 
   @override
   void initState() {
@@ -413,6 +414,7 @@ class _MapSampleViewState extends State<MapSampleView> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final List<String> keywords = context.read<MapSampleViewModel>().keywordIcons.keys.toList();
+    final searchResults = context.watch<MapSampleViewModel>().searchResults;
 
     return Scaffold(
       drawer: Drawer(
@@ -782,40 +784,29 @@ class _MapSampleViewState extends State<MapSampleView> {
             ),
           ),
           // 검색창에 입력한 제목을 화면 하단에 검색 결과를 표시하는 기능
-          if (context.read<MapSampleViewModel>().searchResults.isNotEmpty) ...[
+          if (searchResults.isNotEmpty) ...[
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
               child: Dismissible(
-                key: ValueKey('searchResultsBottomSheet'),
+                key: ValueKey('searchResultsBottomSheet_${searchResults.length}'),
                 direction: DismissDirection.down, // 아래로 스와이프 가능
                 onDismissed: (direction) {
-                  setState(() {
-                    context.read<MapSampleViewModel>().searchResults.clear(); // 스와이프하면 검색 결과 숨김
+                    // 상태를 즉시 바꿔서 트리에서 제거되도록 유도
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    context.read<MapSampleViewModel>().clearSearchResults();
                   });
                 },
                 child: Container(
+                  margin: EdgeInsets.only(bottom: 8), // 지도가 완전히 가려지지 않도록
                   constraints: BoxConstraints(
-                    maxHeight: MediaQuery
-                        .of(context)
-                        .size
-                        .height *
-                        0.4, // 화면의 40% 높이 제한
+                    maxHeight: MediaQuery.of(context).size.height * 0.4, // 화면의 40% 높이 제한
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 8,
-                        offset: Offset(0, -2),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                    boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -835,16 +826,16 @@ class _MapSampleViewState extends State<MapSampleView> {
                           padding: EdgeInsets.zero,
                           //리스트 상하 여백 제거
                           shrinkWrap: true,
-                          itemCount: context.read<MapSampleViewModel>().searchResults.length,
+                          itemCount: context.watch<MapSampleViewModel>().searchResults.length,
                           separatorBuilder: (context, index) =>
                               Divider(
                                 color: Colors.grey,
                                 thickness: 1,
                               ),
                           itemBuilder: (context, index) {
-                            final marker = context.read<MapSampleViewModel>().searchResults[index];
-                            final keyword = _markerKeywords[marker.markerId];
-                            final icon = context.read<MapSampleViewModel>().keywordIcons[keyword];
+                            final marker = context.watch<MapSampleViewModel>().searchResults[index]; // 검색 결과에서 마커 가져오기
+                            final keyword = _markerKeywords[marker.markerId]; // 키워드 가져오기
+                            final icon = context.watch<MapSampleViewModel>().keywordIcons[keyword]; // 키워드에 해당하는 아이콘 가져오기
 
                             return ListTile(
                               leading: Icon(
@@ -888,7 +879,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                                 ],
                               ),
                               subtitle: Text(
-                                marker.infoWindow.snippet ?? '',
+                                marker.infoWindow.snippet ?? 'Untitled',
                                 style: TextStyle(color: Colors.grey[600]),
                               ),
                               onTap: () {

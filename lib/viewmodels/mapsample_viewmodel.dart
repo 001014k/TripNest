@@ -41,6 +41,13 @@ class MapSampleViewModel extends ChangeNotifier {
   List<Place> _filteredPlaces = [];
   Set<Marker> _allMarkers = {}; // 모든 마커 저장
 
+  List<Marker> _searchResults = [];
+  List<Marker> get searchResults => _searchResults;
+  void clearSearchResults() {
+    searchResults.clear();
+    notifyListeners();
+  }
+
   void Function(Marker)? onMarkerTappedCallback; // 마커 클릭 콜백
   File? _image;
   File? get image => _image;
@@ -61,7 +68,6 @@ class MapSampleViewModel extends ChangeNotifier {
   set controller(GoogleMapController controller) {
     _controller = controller;
   }
-  List<Marker> searchResults = [];
   List<Marker> bookmarkedMarkers = [];
   CollectionReference markersCollection =
   FirebaseFirestore.instance.collection('users');
@@ -574,7 +580,6 @@ class MapSampleViewModel extends ChangeNotifier {
           (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
-
     // 마커 위치로 카메라 이동 (await 작업은 마커를 눌렀을때만 적용 나머지는 불필요함)
     print('Marker Position: ${marker.position}');
 
@@ -609,48 +614,36 @@ class MapSampleViewModel extends ChangeNotifier {
         for (var marker in filteredMarkers) marker.markerId: marker
       }.values.toList();
 
-        searchResults = uniqueResults;
+        _searchResults = uniqueResults;
     }
   }
 
-  void onSearchSubmitted(String query) async {
-    // 1. 사용자 마커 검색
-    // 검색어가 비어 있는 경우
-    if (query.trim().isEmpty) {
-        searchResults = []; // 검색 결과를 비웁니다.
-      return; // 검색을 중단합니다.
-    } else {
-      final filteredMarkers = _markers.where((marker) {
-        final title = marker.infoWindow.title?.toLowerCase() ?? '';
-        return title.contains(query.toLowerCase());
-      }).toList();
 
-      // 중복 제거: MarkerId로 중복 확인
-      final uniqueResults = {
-        for (var marker in filteredMarkers) marker.markerId: marker
-      }.values.toList();
-        searchResults = uniqueResults;
+  // 검색어가 제출되었을때 호출되는 함수
+  // 불필요한 api 호출 방지, places api 호출 했을때 주소가 없을 경우에 geocoding api로 보완
+  // 하단창에서 마커 제목 및 주소가 출력이 됨(주소가 null값으로 나오는 경우 해결)
+  void onSearchSubmitted(String query) async {
+    if (query.trim().isEmpty) {
+      _searchResults = [];
+      notifyListeners();
+      return;
     }
 
-    // 2. Places API (new) POST 요청: Find Place from Text
+    // 1. 사용자 마커 필터링
+    final filteredMarkers = _markers.where((marker) {
+      final title = marker.infoWindow.title?.toLowerCase() ?? '';
+      return title.contains(query.toLowerCase());
+    }).toList();
 
-    // 인코딩 : 사람이 읽을수 있는 문자열 -> URL-safe 문자열
-    // ex) Uri.encodeComponent("서울역 & 강남역")
-    //     결과: %EC%84%9C%EC%9A%B8%EC%97%AD%20%26%20%EA%B0%95%EB%82%A8%EC%97%AD
-    // 디코딩 : URL-safe 문자열 -> 사람이 읽을 수 있는 문자열
-    // ex) Uri.decodeComponent("%EC%84%9C%EC%9A%B8%EC%97%AD%20%26%20%EA%B0%95%EB%82%A8%EC%97%AD")
-    //     결과: "서울역 & 강남역"
-    // 즉 인코딩은 사용자 입력값 또는 동적으로 생성된 값이 URL에 포함될 때 사용
-    final encodedQuery = Uri.encodeComponent(query);
-    // URL 구성 – 여기서는 textsearch 대신 findplacefromtext 대신 textsearch 엔드포인트 사용 예시
-    // 만약 findplacefromtext를 사용하려면 아래 URL을 사용하세요:
-    // 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=$encodedQuery&inputtype=textquery&fields=place_id,name,geometry,formatted_address&language=ko&key=$_apiKey'
-    //
-    // 여기서는 설명서에 따른 textsearch 엔드포인트(POST)를 사용합니다.
+    final uniqueResults = {
+      for (var marker in filteredMarkers) marker.markerId: marker
+    }.values.toList();
+
+    _searchResults = uniqueResults;
+
+    // 2. Places API 호출
     final placesUrl = Uri.parse(
         'https://places.googleapis.com/v1/places:searchText?&key=${Config.placesApiKey}');
-
-    // 요청 본문 (JSON 형식)
     final requestBody = json.encode({
       "textQuery": query,
       "languageCode": "ko",
@@ -661,9 +654,8 @@ class MapSampleViewModel extends ChangeNotifier {
         placesUrl,
         headers: {
           'Content-Type': 'application/json',
-          // 요청에 필요한 추가 헤더가 있다면 여기에 추가합니다.
           'X-Goog-FieldMask':
-          'places.displayName,places.formattedAddress,places.priceLevel,places.location'
+          'places.displayName,places.formattedAddress,places.priceLevel,places.location,places.id',
         },
         body: requestBody,
       );
@@ -678,31 +670,48 @@ class MapSampleViewModel extends ChangeNotifier {
           List<Marker> placesMarkers = [];
 
           for (var result in placesResults) {
-            // 결과에서 장소 정보 추출
-            // 예: displayName (텍스트), formattedAddress, 그리고 location (lat, lng)
             final displayName = result['displayName']['text'];
             final formattedAddress = result['formattedAddress'];
-            // 예시 응답에서는 "location"이라는 필드가 있어야 합니다.
             final locationJson = result['location'];
             final lat = locationJson['latitude'];
             final lng = locationJson['longitude'];
             final latLng = LatLng(lat, lng);
-            // place_id가 없는 경우에는 fallback으로 displayName 사용 (여기서는 간단히 처리)
-            final placeId = result['place_id'] ?? displayName;
+            final placeId = result['id'] ?? '$lat,$lng';
+
+            String finalAddress = formattedAddress ?? '';
+
+            // 만약 주소가 없거나 짧으면 Geocoding으로 보완
+            if (finalAddress.trim().isEmpty ||
+                finalAddress.trim().length < 8) {
+              try {
+                List<geocoding.Placemark> placemarks =
+                await geocoding.placemarkFromCoordinates(lat, lng);
+                if (placemarks.isNotEmpty) {
+                  final place = placemarks.first;
+                  finalAddress =
+                      "${place.administrativeArea ?? ''} ${place.locality ?? ''} ${place.street ?? ''}".trim();
+                }
+              } catch (e) {
+                print("Geocoding fallback failed: $e");
+              }
+            }
+
+            print('Marker added: title=$displayName, address=$finalAddress');
 
             placesMarkers.add(
               Marker(
                 markerId: MarkerId(placeId),
                 position: latLng,
-                infoWindow:
-                InfoWindow(title: displayName, snippet: formattedAddress),
+                infoWindow: InfoWindow(
+                  title: displayName,
+                  snippet: finalAddress,
+                ),
               ),
             );
           }
 
-            searchResults = placesMarkers;
+          _searchResults = placesMarkers;
 
-          // 첫 번째 결과로 지도 이동
           if (placesMarkers.isNotEmpty) {
             final firstResult = placesMarkers.first.position;
             _controller?.animateCamera(
@@ -711,6 +720,7 @@ class MapSampleViewModel extends ChangeNotifier {
               ),
             );
           }
+          return;
         } else {
           print("No places API results found.");
         }
@@ -722,7 +732,7 @@ class MapSampleViewModel extends ChangeNotifier {
       print("Error during Places API call: $e");
     }
 
-    // 3. geocoding API를 사용하여 주소반환
+    // 3. Places API도 실패 시 fallback – Geocoding API
     try {
       List<geocoding.Location> locations =
       await geocoding.locationFromAddress(query);
@@ -730,29 +740,47 @@ class MapSampleViewModel extends ChangeNotifier {
         final location = locations.first;
         final latlng = LatLng(location.latitude, location.longitude);
 
-        //지도 위치 이동
-        if (_controller != null) {
-          _controller!.animateCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(
-                target: latlng,
-                zoom: 20, // 확대 비율
-              ),
-            ),
-          );
+        String fallbackAddress = '';
+        try {
+          List<geocoding.Placemark> placemarks =
+          await geocoding.placemarkFromCoordinates(
+              location.latitude, location.longitude);
+          if (placemarks.isNotEmpty) {
+            final place = placemarks.first;
+            fallbackAddress =
+                "${place.administrativeArea ?? ''} ${place.locality ?? ''} ${place.street ?? ''}".trim();
+          }
+        } catch (e) {
+          print("Placemark parsing failed: $e");
         }
-          searchResults = [
-            Marker(
-              markerId: MarkerId('searchLocation'),
-              position: latlng,
-              infoWindow: InfoWindow(title: query),
-            )
-          ];
+
+        _searchResults = [
+          Marker(
+            markerId: MarkerId('geocodingFallback'),
+            position: latlng,
+            infoWindow: InfoWindow(
+              title: query,
+              snippet: fallbackAddress,
+            ),
+          )
+        ];
+
+        _controller?.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: latlng,
+              zoom: 20,
+            ),
+          ),
+        );
       }
     } catch (e) {
-      print('Error: $e');
+      print('Geocoding search failed: $e');
     }
+    // 최종적으로 검색 결과 업데이트
+    notifyListeners();
   }
+
 
   void showUserLists(BuildContext context) async {
     List<QueryDocumentSnapshot> userLists = await getUserLists();
