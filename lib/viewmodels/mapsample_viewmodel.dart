@@ -41,6 +41,7 @@ class MapSampleViewModel extends ChangeNotifier {
   List<Place> _filteredPlaces = [];
   Set<Marker> _allMarkers = {}; // 모든 마커 저장
 
+  void Function(Marker)? onMarkerTappedCallback; // 마커 클릭 콜백
   File? _image;
   File? get image => _image;
   Marker? _selectedMarker; // 선택된 마커를 저장
@@ -573,6 +574,7 @@ class MapSampleViewModel extends ChangeNotifier {
           (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
+
     // 마커 위치로 카메라 이동 (await 작업은 마커를 눌렀을때만 적용 나머지는 불필요함)
     print('Marker Position: ${marker.position}');
 
@@ -587,6 +589,8 @@ class MapSampleViewModel extends ChangeNotifier {
 
     _selectedMarker = marker;
     notifyListeners(); // View가 마커 상태를 알 수 있도록 알림
+
+    onMarkerTappedCallback?.call(marker); // 콜백 호출
   }
 
   void updateSearchResults(String query) {

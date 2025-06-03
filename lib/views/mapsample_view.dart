@@ -9,7 +9,7 @@ import '../views/profile_view.dart';
 import '../views/friend_management_view.dart';
 import '../services/bookmark_provider.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
-import '../views/page_view.dart';
+import '../views/markerdetail_view.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -42,6 +42,38 @@ class _MapSampleViewState extends State<MapSampleView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final viewModel = context.read<MapSampleViewModel>();
       viewModel.loadMarkers(); // 첫 로딩 시점에서 호출
+
+      viewModel.onMarkerTappedCallback = (marker) {
+        showModalBottomSheet(
+          context: context,
+          builder: (_) => MarkerInfoBottomSheet(
+            marker: marker,
+            keyword: marker.infoWindow.title ?? '기본 키워드',
+            onSave: (m, value) async {
+              // 저장 처리
+            },
+            onDelete: (m) {
+              // 삭제 처리
+            },
+            onBookmark: (m) {
+              // 북마크 처리
+            },
+            navigateToMarkerDetailPage: (context, m) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MarkerDetailView(
+                    marker: m, keyword: '',
+                    onSave: (Marker , String ) {  },
+                    onDelete: (Marker ) {  },
+                    onBookmark: (Marker ) {  },
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      };
     });
   }
 
