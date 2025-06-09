@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
 import '../viewmodels/bookmark_viewmodel.dart';
 import '../views/markerdetail_view.dart';
 
@@ -11,16 +12,17 @@ class BookmarkView extends StatefulWidget {
 }
 
 class _BookmarkViewState extends State<BookmarkView> {
-  late BookmarkViewmodel _viewmodel;
 
   @override
   Widget build(BuildContext context) {
+    final viewModel = context.watch<BookmarkViewmodel>();
+
     return Scaffold(
       appBar: AppBar(
         title: Text('북마크 목록'),
       ),
       body: FutureBuilder<List<Marker>>(
-        future: _viewmodel.loadBookmarks(), // 직접 Firestore에서 북마크 불러오기
+        future: viewModel.loadBookmarks(), // 직접 Firestore에서 북마크 불러오기
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
