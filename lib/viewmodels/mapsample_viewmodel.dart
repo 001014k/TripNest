@@ -602,7 +602,7 @@ class MapSampleViewModel extends ChangeNotifier {
     query = query.trim();
 
     if (query.isEmpty) {
-        searchResults.clear();
+      searchResults.clear();
     } else {
       final filteredMarkers = _markers.where((marker) {
         final title = marker.infoWindow.title?.toLowerCase() ?? '';
@@ -614,14 +614,10 @@ class MapSampleViewModel extends ChangeNotifier {
         for (var marker in filteredMarkers) marker.markerId: marker
       }.values.toList();
 
-        _searchResults = uniqueResults;
+      _searchResults = uniqueResults;
     }
   }
 
-
-  // 검색어가 제출되었을때 호출되는 함수
-  // 불필요한 api 호출 방지, places api 호출 했을때 주소가 없을 경우에 geocoding api로 보완
-  // 하단창에서 마커 제목 및 주소가 출력이 됨(주소가 null값으로 나오는 경우 해결)
   void onSearchSubmitted(String query) async {
     if (query.trim().isEmpty) {
       _searchResults = [];
@@ -641,7 +637,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
     _searchResults = uniqueResults;
 
-    // 2. Places API 호출
+    // 2. Places API 호출 (places:searchText)
     final placesUrl = Uri.parse(
         'https://places.googleapis.com/v1/places:searchText?&key=${Config.placesApiKey}');
     final requestBody = json.encode({
@@ -655,7 +651,7 @@ class MapSampleViewModel extends ChangeNotifier {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-FieldMask':
-          'places.displayName,places.formattedAddress,places.priceLevel,places.location,places.id',
+          'places.displayName,places.formattedAddress,places.location,places.id',
         },
         body: requestBody,
       );
@@ -664,46 +660,89 @@ class MapSampleViewModel extends ChangeNotifier {
         final placesData = json.decode(placesResponse.body);
         print("Places API Response: ${placesResponse.body}");
 
-        if (placesData['places'] != null &&
-            (placesData['places'] as List).isNotEmpty) {
+        if (placesData['places'] != null && (placesData['places'] as List).isNotEmpty) {
           final placesResults = placesData['places'] as List;
           List<Marker> placesMarkers = [];
 
           for (var result in placesResults) {
-            final displayName = result['displayName']['text'];
-            final formattedAddress = result['formattedAddress'];
+            final placeId = result['id'] ?? '';
+            final formattedAddress = result['formattedAddress'] ?? '';
             final locationJson = result['location'];
             final lat = locationJson['latitude'];
             final lng = locationJson['longitude'];
             final latLng = LatLng(lat, lng);
-            final placeId = result['id'] ?? '$lat,$lng';
 
-            String finalAddress = formattedAddress ?? '';
+            String? title;
+            String displayNameRaw = result['displayName']?['text']?.trim() ?? '';
 
-            // 만약 주소가 없거나 짧으면 Geocoding으로 보완
-            if (finalAddress.trim().isEmpty ||
-                finalAddress.trim().length < 8) {
+            // 1단계: displayName이 의미 있고 숫자만 아니면 우선 사용
+            if (displayNameRaw.isNotEmpty && !RegExp(r'^\d+$').hasMatch(displayNameRaw)) {
+              title = displayNameRaw;
+            }
+
+            // 2단계: displayName이 숫자거나 무의미하면 Place Details API 호출해서 장소명 가져오기
+            if (title == null || title.trim().isEmpty || RegExp(r'^\d+$').hasMatch(displayNameRaw)) {
+              try {
+                final detailsUrl = Uri.parse(
+                    'https://maps.googleapis.com/maps/api/place/details/json'
+                        '?place_id=$placeId&language=ko&fields=name,formatted_address&key=${Config.placesApiKey}'
+                );
+                final detailsResponse = await http.get(detailsUrl);
+
+                if (detailsResponse.statusCode == 200) {
+                  final detailsData = json.decode(detailsResponse.body);
+                  final result = detailsData['result'];
+
+                  if (result != null) {
+                    final placeName = result['name'] ?? '';
+                    final placeAddress = result['formatted_address'] ?? '';
+
+                    if (placeName.isNotEmpty) {
+                      title = placeName;
+                    }
+                    if (placeAddress.isNotEmpty) {
+                      // 필요시 주소 업데이트
+                      // formattedAddress = placeAddress;
+                    }
+                  }
+                } else {
+                  print("Place Details API failed: ${detailsResponse.statusCode}");
+                }
+              } catch (e) {
+                print("Place Details API exception: $e");
+              }
+            }
+
+            // 3단계: 그래도 title 없으면 geocoding fallback
+            if (title == null || title.trim().isEmpty) {
               try {
                 List<geocoding.Placemark> placemarks =
                 await geocoding.placemarkFromCoordinates(lat, lng);
                 if (placemarks.isNotEmpty) {
                   final place = placemarks.first;
-                  finalAddress =
-                      "${place.administrativeArea ?? ''} ${place.locality ?? ''} ${place.street ?? ''}".trim();
+                  title = place.name ??
+                      place.street ??
+                      place.locality ??
+                      formattedAddress ??
+                      query;
                 }
               } catch (e) {
                 print("Geocoding fallback failed: $e");
+                title = formattedAddress.isNotEmpty ? formattedAddress : query;
               }
             }
 
-            print('Marker added: title=$displayName, address=$finalAddress');
+            final finalTitle = title ?? query;
+            final finalAddress = formattedAddress;
+
+            print('Marker added: title=$finalTitle, address=$finalAddress');
 
             placesMarkers.add(
               Marker(
                 markerId: MarkerId(placeId),
                 position: latLng,
                 infoWindow: InfoWindow(
-                  title: displayName,
+                  title: finalTitle,
                   snippet: finalAddress,
                 ),
               ),
@@ -720,6 +759,8 @@ class MapSampleViewModel extends ChangeNotifier {
               ),
             );
           }
+
+          notifyListeners();
           return;
         } else {
           print("No places API results found.");
@@ -732,19 +773,19 @@ class MapSampleViewModel extends ChangeNotifier {
       print("Error during Places API call: $e");
     }
 
-    // 3. Places API도 실패 시 fallback – Geocoding API
+    // 3. Places API 실패 시 Geocoding fallback
     try {
-      List<geocoding.Location> locations =
-      await geocoding.locationFromAddress(query);
+      List<geocoding.Location> locations = await geocoding.locationFromAddress(query);
       if (locations.isNotEmpty) {
         final location = locations.first;
         final latlng = LatLng(location.latitude, location.longitude);
 
         String fallbackAddress = '';
         try {
-          List<geocoding.Placemark> placemarks =
-          await geocoding.placemarkFromCoordinates(
-              location.latitude, location.longitude);
+          List<geocoding.Placemark> placemarks = await geocoding.placemarkFromCoordinates(
+            location.latitude,
+            location.longitude,
+          );
           if (placemarks.isNotEmpty) {
             final place = placemarks.first;
             fallbackAddress =
@@ -777,9 +818,10 @@ class MapSampleViewModel extends ChangeNotifier {
     } catch (e) {
       print('Geocoding search failed: $e');
     }
-    // 최종적으로 검색 결과 업데이트
+
     notifyListeners();
   }
+
 
 
   void showUserLists(BuildContext context) async {
