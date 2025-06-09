@@ -2,13 +2,24 @@ import 'package:flutter/material.dart';
 import '../views/bookmark_view.dart';
 import '../views/list_view.dart';
 
-class MainPage extends StatefulWidget {
+class BookmarklisttabView extends StatefulWidget {
+  final int initialIndex;
+
+  BookmarklisttabView({Key? key, this.initialIndex = 0}) : super(key: key);
+
+
   @override
   _MainPageState createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
-  int _currentIndex = 0; // 현재 보여질 페이지의 인덱스
+class _MainPageState extends State<BookmarklisttabView> {
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex; // 초기 인덱스 설정
+  }
 
   // 페이지 위젯 리스트
   final List<Widget> _pages = [
