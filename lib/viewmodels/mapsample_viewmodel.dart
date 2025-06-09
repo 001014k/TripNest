@@ -309,15 +309,58 @@ class MapSampleViewModel extends ChangeNotifier {
         );
       }).toList();
 
-      //_clusterManager?.setItems(_filteredPlaces);
-      _clusterManager?.updateMap();
+      _clusterManager?.setItems(_filteredPlaces); // 클러스터링에 반영
+      _clusterManager?.updateMap(); // 지도 갱신
       notifyListeners(); // 상태 변경 알림
 
     }
   }
 
-  Future<Marker> Function(cluster_manager.Cluster<Place>) get _markerBuilder =>
-          (cluster) async {
+  Future<void> loadMarkersForList(String listId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final markerSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('lists')
+        .doc(listId)
+        .collection('bookmarks')
+        .get();
+
+    final markers = await Future.wait(markerSnapshot.docs.map((doc) async {
+      final data = doc.data() as Map<String, dynamic>;
+      final String keyword = data['keyword'] ?? 'default'.trim();
+      final String? markerImagePath = keywordMarkerImages[keyword];
+
+      print('마커 키워드: $keyword');
+      print('이미지 경로: $markerImagePath');
+
+      final BitmapDescriptor markerIcon = markerImagePath != null
+          ? await createCustomMarkerImage(markerImagePath, 128, 128)
+          : BitmapDescriptor.defaultMarkerWithHue(
+        data['hue'] != null
+            ? (data['hue'] as num).toDouble()
+            : BitmapDescriptor.hueOrange,
+      );
+
+      return Marker(
+        markerId: MarkerId(doc.id),
+        position: LatLng(data['lat'], data['lng']),
+        infoWindow: InfoWindow(
+          title: data['title'] ?? '제목 없음',
+          snippet: data['snippet'] ?? '설명 없음',
+        ),
+        icon: markerIcon,
+        onTap: () => onMarkerTapped(MarkerId(doc.id)),
+      );
+    }).toList());
+
+    setFilteredMarkers(markers);
+  }
+
+
+  Future<Marker> Function(cluster_manager.Cluster<Place>) get _markerBuilder => (cluster) async {
         return Marker(
           markerId: MarkerId(cluster.getId()),       // 클러스터 ID
           position: cluster.location,                 // 클러스터 위치
@@ -439,13 +482,13 @@ class MapSampleViewModel extends ChangeNotifier {
   }
 
   Future<BitmapDescriptor> createCustomMarkerImage(String imagePath, int width, int height) async {
+    print('커스텀 마커 이미지 생성 시작: $imagePath, 크기: ${width}x$height');
     // 이미지 파일 로드
     final ByteData data = await rootBundle.load(imagePath);
     final Uint8List bytes = data.buffer.asUint8List();
 
     // 이미지 디코딩 및 크기 조정
-    final ui.Codec codec = await ui.instantiateImageCodec(bytes,
-        targetWidth: width, targetHeight: height);
+    final ui.Codec codec = await ui.instantiateImageCodec(bytes, targetWidth: width, targetHeight: height);
     final ui.FrameInfo frameInfo = await codec.getNextFrame();
     final ByteData? byteData =
     await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
@@ -453,6 +496,7 @@ class MapSampleViewModel extends ChangeNotifier {
     // 크기 조정된 이미지 데이터를 바이트 배열로 변환
     final Uint8List resizedBytes = byteData!.buffer.asUint8List();
 
+    print('커스텀 마커 이미지 생성 완료: $imagePath');
     // BitmapDescriptor로 변환
     return BitmapDescriptor.fromBytes(resizedBytes);
   }
@@ -528,6 +572,28 @@ class MapSampleViewModel extends ChangeNotifier {
       );
       notifyListeners();
     });
+  }
+
+  // 리스트에 있는 마커를 필터링하여 지도에 표시
+  void setFilteredMarkers(List<Marker> markers) {
+    _filteredMarkers = markers.toSet();
+
+    _filteredPlaces = markers.map((marker) {
+      return Place(
+        latLng: marker.position,
+        title: marker.infoWindow.title ?? '',
+        snippet: marker.infoWindow.snippet ?? '',
+        id: marker.markerId.value,
+      );
+    }).toList();
+
+    // 클러스터 매니저에 새 데이터 세팅
+    if (_clusterManager != null) {
+      _clusterManager!.setItems(_filteredPlaces);
+      _clusterManager!.updateMap();
+    }
+
+    notifyListeners();
   }
 
   Future<List<QueryDocumentSnapshot>> getUserLists() async {
@@ -823,19 +889,6 @@ class MapSampleViewModel extends ChangeNotifier {
     }
 
     notifyListeners();
-  }
-
-
-
-  void showUserLists(BuildContext context) async {
-    List<QueryDocumentSnapshot> userLists = await getUserLists();
-
-    if (userLists.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장된 리스트가 없습니다')),
-      );
-      return;
-    }
   }
 }
 

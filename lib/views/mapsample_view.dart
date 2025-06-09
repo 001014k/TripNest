@@ -19,7 +19,6 @@ class MapSampleView extends StatefulWidget {
 }
 
 class _MapSampleViewState extends State<MapSampleView> {
-
   late GoogleMapController _controller;
   Set<Marker> _markers = {}; // 현재 화면에 표시되는 마커들
   Set<Marker> _allMarkers = {}; // 전체 마커들
@@ -290,8 +289,7 @@ class _MapSampleViewState extends State<MapSampleView> {
               shrinkWrap: true,
               itemCount: userLists.length,
               itemBuilder: (context, index) {
-                final list =
-                userLists[index].data() as Map<String, dynamic>;
+                final list = userLists[index].data() as Map<String, dynamic>;
                 final listName = list['name'] ?? '이름 없음';
 
                 return ListTile(
@@ -330,30 +328,9 @@ class _MapSampleViewState extends State<MapSampleView> {
   }
 
   void showMarkersForSelectedList(BuildContext context,String listId) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final markerSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('lists')
-        .doc(listId)
-        .collection('bookmarks')
-        .get();
-
-    final markers = markerSnapshot.docs.map((doc) {
-      final data = doc.data();
-      return Marker(
-        markerId: MarkerId(doc.id),
-        position: LatLng(data['lat'], data['lng']),
-        infoWindow: InfoWindow(
-          title: data['title'] ?? '제목 없음',
-          snippet: data['snippet'] ?? '설명 없음',
-        ),
-        onTap: () => context.read<MapSampleViewModel>().onMarkerTapped(MarkerId(doc.id)),
-      );
-    }).toList();
-
+    final viewModel = context.read<MapSampleViewModel>();
+    await viewModel.loadMarkersForList(listId);
+    final markers = viewModel.filteredMarkers.toList();
 
     if (markers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -776,7 +753,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 ),
                 SizedBox(height: 16),
                 FloatingActionButton(
-                  onPressed: () => context.read<MapSampleViewModel>().showUserLists(context),
+                  onPressed: () => showUserLists(context),
                   backgroundColor: Colors.white,
                   child: Icon(Icons.list),
                 )
