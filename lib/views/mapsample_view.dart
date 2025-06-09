@@ -9,7 +9,7 @@ import '../views/profile_view.dart';
 import '../views/friend_management_view.dart';
 import '../services/bookmark_provider.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
-import '../views/markerdetail_view.dart';
+import '../views/BookmarkListTab_view.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -548,7 +548,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => PageView(),
+                    builder: (_) => BookmarklisttabView(initialIndex: 0), // 북마크 탭 index
                   ),
                 );
               },
