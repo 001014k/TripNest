@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../viewmodels/markerdetail_viewmodel.dart';
 import '../views/Imageview_view.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MarkerDetailView extends StatefulWidget {
-
   final Marker marker;
-  final String keyword;
   final Function(Marker, String) onSave;
   final Function(Marker) onDelete;
+  final String keyword;
   final Function(Marker) onBookmark;
 
-  const MarkerDetailView({
-    Key? key,
+  MarkerDetailView({
     required this.marker,
-    required this.keyword,
     required this.onSave,
     required this.onDelete,
+    required this.keyword,
     required this.onBookmark,
-  }) : super(key: key);
+  });
 
 
   @override
@@ -26,7 +25,8 @@ class MarkerDetailView extends StatefulWidget {
 }
 
 class _MarkerDetailPageState extends State<MarkerDetailView> {
-  late MarkerDetailViewmodel _viewmodel;
+  late final MarkerDetailViewmodel _viewmodel;
+
 
   @override
   void initState() {
@@ -34,12 +34,8 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
     _viewmodel = MarkerDetailViewmodel(
       marker: widget.marker,
       keyword: widget.keyword,
-      onSave: widget.onSave,
-      onDelete: widget.onDelete,
-      onBookmark: widget.onBookmark,
     );
   }
-
 
   void _showBottomSheet(BuildContext context) {
     showModalBottomSheet(
@@ -224,8 +220,7 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
               children: [
                 Icon(Icons.label, color: Colors.blue), // 키워드 옆에 아이콘 추가
                 SizedBox(width: 8),
-                Text(
-                  '$_viewmodel.keyword',
+                Text(_viewmodel.keyword ?? '키워드 없음',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -237,7 +232,7 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
                       Icon(Icons.location_on,
                           color: Colors.red), // 주소 옆에 아이콘 추가
                       SizedBox(width: 8),
-                      Text('$_viewmodel.address',
+                      Text(_viewmodel.address ?? '주소 없음',
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
@@ -253,7 +248,7 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
                       // 버튼 간의 간격을 균등하게 분배
                       children: [
                         ElevatedButton(
-                          onPressed: () => _showBottomSheet,
+                          onPressed: () => _showBottomSheet(context),
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.zero, // 모서리를 직각으로 설정

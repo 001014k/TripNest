@@ -14,30 +14,26 @@ import '../views/mapsample_view.dart';
 
 
 class MarkerDetailViewmodel extends ChangeNotifier {
+  final Marker _marker;
+  final String _keyword;
+  String? _address;
+
+  MarkerDetailViewmodel({
+    required Marker marker,
+    required String keyword,
+  })  : _marker = marker,
+        _keyword = keyword;
+
+  Marker get marker => _marker;
+  String get keyword => _keyword;
+  String? get address => _address;
+
   late TextEditingController _titleController;
-  late Marker _marker;
-  late String? _keyword;
-  String? address;
   bool isLoadingImages = false; // 로딩 상태를 나타내는 변수
   bool isBookmarked = false; // 북마크 상태를 추적하는 변수
   List<Marker> bookmarkedMarkers = [];
   List<String> imageUrls = []; // 사진 URL을 저장할 리스트
   final ImagePicker _picker = ImagePicker(); // ImagePicker 인스턴스 생성
-
-
-  final Marker marker;
-  final String keyword;
-  final Function(Marker, String) onSave;
-  final Function(Marker) onDelete;
-  final Function(Marker) onBookmark;
-
-  MarkerDetailViewmodel({
-    required this.marker,
-    required this.keyword,
-    required this.onSave,
-    required this.onDelete,
-    required this.onBookmark,
-  });
 
 
   void openGoogleMaps(BuildContext context) async {
@@ -68,7 +64,7 @@ class MarkerDetailViewmodel extends ChangeNotifier {
         desiredAccuracy: LocationAccuracy.high);
 
     final Uri googleMapsUrl = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&origin=${currentPosition.latitude},${currentPosition.longitude}&destination=${marker.position.latitude},${marker.position.longitude}');
+        'https://www.google.com/maps/dir/?api=1&origin=${currentPosition.latitude},${currentPosition.longitude}&destination=${_marker.position.latitude},${_marker.position.longitude}');
     if (await canLaunchUrl(googleMapsUrl)) {
       await launchUrl(googleMapsUrl);
     } else {
@@ -87,8 +83,8 @@ class MarkerDetailViewmodel extends ChangeNotifier {
 
       // 카카오 맵 URL 생성
       final String kakaoMapUrl = Platform.isAndroid
-          ? 'kakaomap://route?sp=$userLat,$userLng&ep=${marker.position.latitude},${marker.position.longitude}&by=CAR'
-          : 'kakaomap://route?sp=$userLat,$userLng&ep=${marker.position.latitude},${marker.position.longitude}&by=CAR';
+          ? 'kakaomap://route?sp=$userLat,$userLng&ep=${_marker.position.latitude},${_marker.position.longitude}&by=CAR'
+          : 'kakaomap://route?sp=$userLat,$userLng&ep=${_marker.position.latitude},${_marker.position.longitude}&by=CAR';
 
       final Uri kakaoMapUri = Uri.parse(kakaoMapUrl);
 
@@ -125,8 +121,8 @@ class MarkerDetailViewmodel extends ChangeNotifier {
 
       // 네이버 맵 URL 생성
       final String naverMapUrl = Platform.isAndroid
-          ? 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${marker.position.latitude}&dlng=${marker.position.longitude}&dname=Destination'
-          : 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${marker.position.latitude}&dlng=${marker.position.longitude}&dname=Destination';
+          ? 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${_marker.position.latitude}&dlng=${_marker.position.longitude}&dname=Destination'
+          : 'nmap://route/car?slat=$userLat&slng=$userLng&sname=Current%20Location&dlat=${_marker.position.latitude}&dlng=${_marker.position.longitude}&dname=Destination';
 
       final Uri naverMapUri = Uri.parse(naverMapUrl);
 
@@ -162,8 +158,8 @@ class MarkerDetailViewmodel extends ChangeNotifier {
 
       // 티맵 URL 생성
       final String tmapUrl = Platform.isAndroid
-          ? 'tmap://route?goalLat=${marker.position.latitude}&goalLon=${marker.position.longitude}&startLat=$userLat&startLon=$userLng&goalName=목적지&startName=출발지'
-          : 'tmap://route?goalLat=${marker.position.latitude}&goalLon=${marker.position.longitude}&startLat=$userLat&startLon=$userLng&goalName=목적지&startName=출발지';
+          ? 'tmap://route?goalLat=${_marker.position.latitude}&goalLon=${_marker.position.longitude}&startLat=$userLat&startLon=$userLng&goalName=목적지&startName=출발지'
+          : 'tmap://route?goalLat=${_marker.position.latitude}&goalLon=${_marker.position.longitude}&startLat=$userLat&startLon=$userLng&goalName=목적지&startName=출발지';
 
       final Uri tmapUri = Uri.parse(tmapUrl);
 
@@ -333,7 +329,7 @@ class MarkerDetailViewmodel extends ChangeNotifier {
 
   Future<void> checkIfBookmarked(BuildContext context) async {
     try {
-      isBookmarked = await _isMarkerBookmarked(context,marker);
+      isBookmarked = await _isMarkerBookmarked(context,_marker);
     } catch (e) {
       // 오류 발생 시 기본값으로 설정
         isBookmarked = false;
@@ -342,19 +338,29 @@ class MarkerDetailViewmodel extends ChangeNotifier {
   }
 
   Future<bool> _isMarkerBookmarked(BuildContext context,Marker marker) async {
-    return await isBookmarked; // BookmarkProvider에서 정의된 메서드
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('bookmarks')
+          .doc(marker.markerId.value)
+          .get();
+      return doc.exists;
+    }
+    return false;
   }
 
   void bookmarkLocation(BuildContext context) async {
       if (isBookmarked) {
         // 이미 북마크 되어 있는 경우 북마크 해제
-        deleteBookmark(context,marker);
+        deleteBookmark(context,_marker);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('북마크가 해제되었습니다.')),
         );
       } else {
         // 북마크 되어 있지 않은 경우 북마크 추가
-        saveBookmark(context,marker, _keyword ?? '');
+        saveBookmark(context,_marker, _keyword ?? '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('북마크에 추가되었습니다.')),
         );
@@ -369,16 +375,18 @@ class MarkerDetailViewmodel extends ChangeNotifier {
       await placemarkFromCoordinates(latitude, longitude);
       if (placemarks.isNotEmpty) {
         final placemark = placemarks.first;
-          address =
-          ' ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
+        _address =
+        ' ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
       } else {
-          address = '주소를 찾을 수 없습니다';
+        _address = '주소를 찾을 수 없습니다';
       }
     } catch (e) {
       print('Error getting address: $e');
-        address = '주소를 가져오는 중 오류 발생';
+      _address = '주소를 가져오는 중 오류 발생';
     }
+    notifyListeners(); // 반드시 추가
   }
+
 
   @override
   void dispose() {
@@ -387,13 +395,14 @@ class MarkerDetailViewmodel extends ChangeNotifier {
   }
 
   void saveMarker(BuildContext context) {
-    final updatedMarker = marker.copyWith(
-      infoWindowParam: marker.infoWindow.copyWith(
+    final updatedMarker = _marker.copyWith(
+      infoWindowParam: _marker.infoWindow.copyWith(
         titleParam: _titleController.text,
       ),
     );
-    onSave(updatedMarker, _keyword ?? '');
+    //onSave(updatedMarker, _keyword ?? '');
     Navigator.pop(context);
+    notifyListeners();
   }
 
   Future<void> deleteMarker(BuildContext context) async {
@@ -422,7 +431,7 @@ class MarkerDetailViewmodel extends ChangeNotifier {
         );
 
         // onDelete 콜백 호출
-        onDelete(_marker);
+        //onDelete(_marker);
 
         // 페이지 전환 코드
         Navigator.pushAndRemoveUntil(
@@ -437,5 +446,6 @@ class MarkerDetailViewmodel extends ChangeNotifier {
         );
       }
     }
+    notifyListeners();
   }
 }
