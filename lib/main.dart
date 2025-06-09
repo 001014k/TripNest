@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/mapsample_viewmodel.dart';
-import '../viewmodels/bookmark_viewmodel.dart';
-import '../viewmodels/dashboard_viewmodel.dart';
-import '../viewmodels/forgot_password_viewmodel.dart';
-import '../viewmodels/friend_management_viewmodel.dart';
+import 'viewmodels/mapsample_viewmodel.dart';
+import 'viewmodels/bookmark_viewmodel.dart';
+import 'viewmodels/dashboard_viewmodel.dart';
+import 'viewmodels/forgot_password_viewmodel.dart';
+import 'viewmodels/friend_management_viewmodel.dart';
 import '../viewmodels/Imageview_viewmodel.dart';
 import '../viewmodels/list_viewmodel.dart';
-import '../viewmodels/login_viewmodel.dart';
+import 'viewmodels/login_viewmodel.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import '../viewmodels/signup_viewmodel.dart';
 import '../viewmodels/splash_viewmodel.dart';
@@ -17,13 +17,9 @@ import 'services/marker_service.dart';
 import 'views/bookmark_view.dart';
 import 'views/forgot_password_view.dart';
 import 'views/friend_management_view.dart';
-import 'views/Imageview_view.dart';
 import 'views/login_view.dart';
 import 'views/mapsample_view.dart';
-import 'views/marker_info_view.dart';
-import 'views/markerdetail_view.dart';
-import 'views/page_view.dart';
-import 'views/profile_view.dart';
+import 'views/BookmarkListTab_view.dart';
 import 'views/signup_view.dart';
 import 'views/splash_screen_view.dart';
 import 'views/user_list_view.dart';
@@ -71,7 +67,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/splash',
       routes: {
         '/friend_management' : (context) => FriendManagementView(),
-        '/page_view' : (context) => MainPage(),
+        '/page_view' : (context) => BookmarklisttabView(),
         '/bookmark' : (context) => BookmarkView(),
         '/splash': (context) => SplashScreenView(),
         '/login': (context) => LoginView(),
