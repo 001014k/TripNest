@@ -7,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../views/markerdetail_view.dart';
 import '../views/profile_view.dart';
 import '../views/friend_management_view.dart';
-import '../services/bookmark_provider.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
 import '../views/BookmarkListTab_view.dart';
 
@@ -45,11 +44,12 @@ class _MapSampleViewState extends State<MapSampleView> {
       viewModel.loadMarkers(); // 첫 로딩 시점에서 호출
 
       viewModel.onMarkerTappedCallback = (marker) {
+        String keyword = viewModel.getKeywordByMarkerId(marker.markerId.value) ?? '';
         showModalBottomSheet(
           context: context,
           builder: (_) => MarkerInfoBottomSheet(
             marker: marker,
-            keyword: marker.infoWindow.title ?? '기본 키워드',
+            keyword: keyword.isNotEmpty ? keyword : '',
             onSave: (m, value) async {
               // 저장 처리
             },
@@ -927,14 +927,6 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
   File? _image;
   String _address = 'Fetching address...';
 
-  @override
-  void initState() {
-    super.initState();
-    getAddressFromCoordinates(
-      widget.initialLatLng.latitude,
-      widget.initialLatLng.longitude,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {

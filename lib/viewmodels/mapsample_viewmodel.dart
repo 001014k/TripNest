@@ -54,6 +54,9 @@ class MapSampleViewModel extends ChangeNotifier {
   Marker? _selectedMarker; // 선택된 마커를 저장
   Marker? get selectedMarker => _selectedMarker; // 외부에서 접근용 getter
   final Map<MarkerId, String> _markerKeywords = {}; //마커의 키워드 저장
+  String getKeywordByMarkerId(String markerId) {
+    return _markerKeywords[MarkerId(markerId)] ?? '';
+  }
   Map<String, IconData> get keywordIcons => _keywordIcons;
   LatLng? _currentLocation;
   LatLng? get currentLocation => _currentLocation;
