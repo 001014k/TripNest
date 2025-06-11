@@ -344,6 +344,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                   borderRadius: BorderRadius.circular(16),
                   onTap: () {
                     context.read<MapSampleViewModel>().loadMarkers();
+                    context.read<MapSampleViewModel>().clearPolylines();
                     Navigator.pop(context);
                   },
                   child: const Padding(
@@ -393,93 +394,145 @@ class _MapSampleViewState extends State<MapSampleView> {
       ),
       backgroundColor: Theme.of(context).colorScheme.background,
       builder: (BuildContext context) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 리스트 영역
-              Expanded(
-                child: ListView.separated(
-                  itemCount: markers.length,
-                  separatorBuilder: (_, __) => const Divider(thickness: 0.5, height: 8),
-                  itemBuilder: (context, index) {
-                    final marker = markers[index];
-                    final title = marker.infoWindow.title ?? '제목 없음';
-                    final snippet = marker.infoWindow.snippet ?? '';
-                    final keyword = snippet.isNotEmpty ? snippet : '키워드 없음';
-
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      leading: const Icon(Icons.place, color: Colors.deepOrange),
-                      title: Text(
-                        title,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          keyword,
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _controller?.animateCamera(
-                          CameraUpdate.newLatLng(marker.position),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // 뒤로가기 카드 버튼
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    Navigator.pop(context); // 현재 bottom sheet 닫기
-                      showUserLists(context); // 리스트로 다시 이동
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 안내 메시지
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
                     child: Row(
                       children: [
-                        Icon(Icons.arrow_back, color: Colors.black87),
-                        SizedBox(width: 16),
+                        Icon(Icons.drag_handle, color: Colors.blue.shade600, size: 20),
+                        const SizedBox(width: 8),
                         Text(
-                          '뒤로가기',
+                          '드래그해서 순서를 변경하세요',
                           style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                            fontSize: 15,
+                            color: Colors.blue.shade700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+
+                  // 드래그로 순서 변경 가능한 리스트
+                  Expanded(
+                    child: ReorderableListView.builder(
+                      itemCount: markers.length,
+                      onReorder: (int oldIndex, int newIndex) {
+                        viewModel.reorderMarkers(oldIndex, newIndex);
+                        setState(() {
+                          if (oldIndex < newIndex) newIndex -= 1;
+                          final marker = markers.removeAt(oldIndex);
+                          markers.insert(newIndex, marker);
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        final marker = markers[index];
+                        final title = marker.infoWindow.title ?? '제목 없음';
+                        final snippet = marker.infoWindow.snippet ?? '';
+                        final keyword = snippet.isNotEmpty ? snippet : '키워드 없음';
+
+                        return Container(
+                          key: ValueKey(marker.markerId.value),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: Card(
+                            elevation: 1,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              leading: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.drag_handle, color: Colors.grey.shade600),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.place, color: Colors.deepOrange),
+                                ],
+                              ),
+                              title: Text(
+                                title,
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  keyword,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _controller?.animateCamera(
+                                  CameraUpdate.newLatLng(marker.position),
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // 뒤로가기 카드 버튼
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        Navigator.pop(context);
+                        showUserLists(context);
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        child: Row(
+                          children: [
+                            Icon(Icons.arrow_back, color: Colors.black87),
+                            SizedBox(width: 16),
+                            Text(
+                              '뒤로가기',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
+
 
 
 
@@ -696,6 +749,15 @@ class _MapSampleViewState extends State<MapSampleView> {
                 myLocationButtonEnabled: false,
                 // 마커 표시
                 markers: viewModel.displayMarkers,
+                polylines: {
+                  if (viewModel.polygonPoints.length >= 2)
+                    Polyline(
+                      polylineId: PolylineId('ordered_polyline'),
+                      points: viewModel.polygonPoints,
+                      color: Colors.blue,
+                      width: 5,
+                    ),
+                },
                 // 클러스터링된 마커 사용
                 onTap: (latLng) => _onMapTapped(context, latLng),
                 onCameraMove: (position) {

@@ -34,6 +34,13 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   }
 
+  // 리스트별로 순서가 있는 마커 저장
+  List<Marker> _orderedMarkers = [];
+  List<Marker> get orderedMarkers => _orderedMarkers;
+
+  List<LatLng> _polygonPoints = [];
+  List<LatLng> get polygonPoints => _polygonPoints;
+
 
   cluster_manager.ClusterManager<Place>? _clusterManager;
   cluster_manager.ClusterManager<Place>? get clusterManager => _clusterManager;
@@ -105,6 +112,8 @@ class MapSampleViewModel extends ChangeNotifier {
     '음식점': Icons.restaurant,
     '전시회': Icons.art_track,
   };
+
+
 
   void setMapController(GoogleMapController controller) {
     _controller = controller;
@@ -316,6 +325,25 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   }
 
+  void clearPolylines() {
+    _polygonPoints.clear();
+    notifyListeners();
+  }
+
+
+  void reorderMarkers(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) newIndex -= 1;
+    final marker = _orderedMarkers.removeAt(oldIndex);
+    _orderedMarkers.insert(newIndex, marker);
+    _updatePolygonPoints();
+    notifyListeners();
+  }
+
+  void _updatePolygonPoints() {
+    _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
+  }
+
+
   Future<void> loadMarkersForList(String listId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -356,7 +384,15 @@ class MapSampleViewModel extends ChangeNotifier {
       );
     }).toList());
 
+    // 1. 순서가 있는 리스트에 저장
+    _orderedMarkers = markers;
+
+    // 2. polygonPoints 갱신
+    _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
+
     setFilteredMarkers(markers);
+
+    notifyListeners(); // 상태 변경 알림
   }
 
 
