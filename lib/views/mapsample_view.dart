@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../viewmodels/add_markers_to_list_viewmodel.dart';
 import '../views/markerdetail_view.dart';
 import '../views/profile_view.dart';
 import '../views/friend_management_view.dart';
@@ -431,65 +432,81 @@ class _MapSampleViewState extends State<MapSampleView> {
                   Expanded(
                     child: ReorderableListView.builder(
                       itemCount: markers.length,
-                      onReorder: (int oldIndex, int newIndex) {
-                        viewModel.reorderMarkers(oldIndex, newIndex);
-                        setState(() {
-                          if (oldIndex < newIndex) newIndex -= 1;
-                          final marker = markers.removeAt(oldIndex);
-                          markers.insert(newIndex, marker);
-                        });
+                      onReorder: (int oldIndex, int newIndex) async {
+                        await viewModel.reorderMarkers(
+                          oldIndex,
+                          newIndex,
+                          listId, // 현재 리스트의 ID
+                          context.read<AddMarkersToListViewModel>(), // 필요한 ViewModel 인스턴스
+                        );
+                        setState(() {});
                       },
-                      itemBuilder: (context, index) {
-                        final marker = markers[index];
-                        final title = marker.infoWindow.title ?? '제목 없음';
-                        final snippet = marker.infoWindow.snippet ?? '';
-                        final keyword = snippet.isNotEmpty ? snippet : '키워드 없음';
+                        itemBuilder: (context, index) {
+                          final marker = viewModel.orderedMarkers[index];
+                          final title = marker.infoWindow.title ?? '제목 없음';
+                          final snippet = marker.infoWindow.snippet ?? '';
+                          final keyword = snippet.isNotEmpty ? snippet : '키워드 없음';
+                          final orderNumber = index + 1; // 1번부터 시작
 
-                        return Container(
-                          key: ValueKey(marker.markerId.value),
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Card(
-                            elevation: 1,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              leading: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.drag_handle, color: Colors.grey.shade600),
-                                  const SizedBox(width: 8),
-                                  const Icon(Icons.place, color: Colors.deepOrange),
-                                ],
+                          return Container(
+                            key: ValueKey(marker.markerId.value),
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: Card(
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(color: Colors.grey.shade300),
                               ),
-                              title: Text(
-                                title,
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  keyword,
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                leading: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.drag_handle, color: Colors.grey.shade600),
+                                    const SizedBox(width: 8),
+                                    // 번호를 동그라미로 표시
+                                    CircleAvatar(
+                                      backgroundColor: Colors.deepOrange,
+                                      radius: 14,
+                                      child: Text(
+                                        orderNumber.toString(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.place, color: Colors.deepOrange),
+                                  ],
+                                ),
+                                title: Text(
+                                  title,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                                ),
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    keyword,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _controller?.animateCamera(
+                                    CameraUpdate.newLatLng(marker.position),
+                                  );
+                                },
                               ),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () {
-                                Navigator.pop(context);
-                                _controller?.animateCamera(
-                                  CameraUpdate.newLatLng(marker.position),
-                                );
-                              },
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
                     ),
                   ),
 
@@ -532,9 +549,6 @@ class _MapSampleViewState extends State<MapSampleView> {
       },
     );
   }
-
-
-
 
   @override
   Widget build(BuildContext context) {

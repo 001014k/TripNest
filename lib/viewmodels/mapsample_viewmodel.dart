@@ -18,6 +18,7 @@ import 'package:flutter/services.dart';
 import '../config.dart';
 import 'package:http/http.dart' as http;
 import '../models/place.dart';
+import '../viewmodels/add_markers_to_list_viewmodel.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
   Set<Marker> _clusteredMarkers = {};
@@ -330,14 +331,19 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-
-  void reorderMarkers(int oldIndex, int newIndex) {
+  Future<void> reorderMarkers(int oldIndex, int newIndex, String listId, AddMarkersToListViewModel addMarkersVM) async {
     if (oldIndex < newIndex) newIndex -= 1;
     final marker = _orderedMarkers.removeAt(oldIndex);
     _orderedMarkers.insert(newIndex, marker);
+    _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
+
+    // context.read 대신, 인스턴스를 직접 전달받아 사용
+    await addMarkersVM.updateMarkerOrders(listId, _orderedMarkers);
+    await loadMarkersForList(listId);
     _updatePolygonPoints();
     notifyListeners();
   }
+
 
   void _updatePolygonPoints() {
     _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
@@ -354,6 +360,7 @@ class MapSampleViewModel extends ChangeNotifier {
         .collection('lists')
         .doc(listId)
         .collection('bookmarks')
+        .orderBy('order')
         .get();
 
     final markers = await Future.wait(markerSnapshot.docs.map((doc) async {
