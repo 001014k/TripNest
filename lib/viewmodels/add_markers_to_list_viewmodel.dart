@@ -79,6 +79,16 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    // 현재 리스트의 마커 개수 조회 (order 값으로 사용)
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('lists')
+        .doc(listId)
+        .collection('bookmarks')
+        .get();
+    int order = snapshot.docs.length;
+
     await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
@@ -92,6 +102,7 @@ class AddMarkersToListViewModel extends ChangeNotifier {
       'title': marker.infoWindow.title,
       'snippet': marker.infoWindow.snippet,
       'keyword': _markerKeywords[marker.markerId] ?? '',
+      'order': order,
     });
 
     _markersInLists.putIfAbsent(listId, () => <String>{});
@@ -117,8 +128,8 @@ class AddMarkersToListViewModel extends ChangeNotifier {
           .collection('lists')
           .doc(listId)
           .collection('bookmarks')
+          .orderBy('order')
           .get();
-
       final markerIds = snapshot.docs.map((doc) => doc.id).toSet();
 
       _markersInLists[listId] = markerIds;
@@ -127,6 +138,27 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     } catch (e) {
       _error = 'Failed to load markers in list: $e';
       notifyListeners();
+    }
+  }
+
+  Future<void> updateMarkerOrders(String listId, List<Marker> orderedMarkers) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    for (int i = 0; i < orderedMarkers.length; i++) {
+      final markerId = orderedMarkers[i].markerId.value;
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('lists')
+            .doc(listId)
+            .collection('bookmarks')
+            .doc(markerId)
+            .update({'order': i});
+      } catch (e) {
+        print('order update error for $markerId: $e');
+      }
     }
   }
 }
