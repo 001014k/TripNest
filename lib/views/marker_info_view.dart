@@ -11,6 +11,7 @@ class MarkerInfoPage extends StatefulWidget {
   @override
   _MarkerInfoPageState createState() => _MarkerInfoPageState();
 }
+
 class _MarkerInfoPageState extends State<MarkerInfoPage> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
@@ -22,6 +23,12 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
     viewModel = MarkerInfoViewModel(listId: widget.listId);
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    viewModel.dispose();
+    super.dispose();
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -50,25 +57,26 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => MarkerInfoViewModel(listId: widget.listId),
+    return ChangeNotifierProvider<MarkerInfoViewModel>.value(
+      value: viewModel,
       child: Scaffold(
-        appBar: AppBar(title: Text('Marker Info')),
-
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: Text('Marker Info', style: TextStyle(fontWeight: FontWeight.w600)),
+          elevation: 4,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+        ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
-          backgroundColor: Colors.black,
-          // BottomNavigationBar 배경색
-          selectedItemColor: Colors.white,
-          // 선택된 아이템의 색상
-          unselectedItemColor: Colors.white.withOpacity(0.6),
-          // 선택되지 않은 아이템의 색상
-          selectedLabelStyle: TextStyle(fontWeight: FontWeight.bold),
-          // 선택된 아이템 라벨의 스타일
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.black,
+          unselectedItemColor: Colors.grey[400],
+          selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600),
           unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal),
-          // 선택되지 않은 아이템 라벨의 스타일
-          items: const <BottomNavigationBarItem>[
+          iconSize: 28,
+          items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.add_location),
               label: 'Add Markers',
@@ -79,48 +87,81 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
             ),
           ],
         ),
-
         body: Consumer<MarkerInfoViewModel>(
-          builder: (context, viewModel, child) {
-            if (viewModel.isLoading) {
-              return Center(child: CircularProgressIndicator());
+          builder: (context, vm, child) {
+            if (vm.isLoading) {
+              return const Center(child: CircularProgressIndicator());
             }
 
-            if (viewModel.error != null) {
-              return Center(child: Text(viewModel.error!, style: TextStyle(color: Colors.red)));
+            if (vm.error != null) {
+              return Center(
+                child: Text(
+                  vm.error!,
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                ),
+              );
             }
 
-            if (viewModel.markers.isEmpty) {
-              return Center(child: Text('No markers found.'));
+            if (vm.markers.isEmpty) {
+              return const Center(
+                child: Text(
+                  'No markers found.',
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
+                ),
+              );
             }
 
             return ListView.builder(
-              itemCount: viewModel.markers.length,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              itemCount: vm.markers.length,
               itemBuilder: (context, index) {
-                final marker = viewModel.markers[index];
+                final marker = vm.markers[index];
 
                 return FutureBuilder<String>(
-                  future: viewModel.getAddress(marker.lat, marker.lng),
+                  future: vm.getAddress(marker.lat, marker.lng),
                   builder: (context, snapshot) {
-                    String address = snapshot.data ?? 'Loading address...';
+                    final address = snapshot.data ?? 'Loading address...';
 
-                    return Column(
-                      children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.all(16),
-                          leading: Icon(Icons.location_on, color: Colors.blue),
-                          title: Text(
-                            marker.title,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                          ),
-                          subtitle: Text(address),
-                          trailing: IconButton(
-                            icon: Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _confirmDelete(context, viewModel, marker.id),
-                          ),
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 3,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.location_on_outlined, color: Colors.blueGrey, size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    marker.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 26),
+                                  onPressed: () => _confirmDelete(context, vm, marker.id),
+                                  tooltip: 'Delete Marker',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              address,
+                              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                            ),
+                          ],
                         ),
-                        Divider(color: Colors.grey, thickness: 1),
-                      ],
+                      ),
                     );
                   },
                 );
@@ -132,21 +173,42 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
     );
   }
 
-  void _confirmDelete(BuildContext context, MarkerInfoViewModel viewModel, String markerId) async {
-    final result = await showDialog(
+  void _confirmDelete(BuildContext context, MarkerInfoViewModel vm, String markerId) async {
+    final result = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return AlertDialog(
-          title: Text('삭제 확인'),
-          content: Text('이 마커를 삭제하시겠습니까?'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          title: const Text(
+            '삭제하시겠습니까?',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          ),
+          content: const Text(
+            '이 마커를 삭제하면 되돌릴 수 없습니다.',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
           actions: [
-            TextButton(
+            ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text('삭제', style: TextStyle(color: Colors.red)),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.blueGrey,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              child: const Text('삭제'),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('취소'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+                textStyle: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              child: const Text('취소'),
             ),
           ],
         );
@@ -154,16 +216,39 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
     );
 
     if (result == true) {
-      viewModel.deleteMarker(markerId);
+      vm.deleteMarker(markerId);
     }
   }
+
 
   void _showMusicPlatformBottomSheet() {
     showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) {
-        return Container(
-          padding: EdgeInsets.all(16),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) {
+        final musicPlatforms = [
+          {
+            'name': 'Spotify',
+            'asset': 'assets/spotify.png',
+            'action': () => viewModel.openSpotify(),
+          },
+          {
+            'name': 'Apple Music',
+            'asset': 'assets/applemusic.png',
+            'action': () => viewModel.openAppleMusic(),
+          },
+          {
+            'name': 'YouTube Music',
+            'asset': 'assets/YoutubeMusic.png',
+            'action': () => viewModel.openYouTubeMusic(),
+          },
+        ];
+
+        return Padding(
+          padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -171,93 +256,48 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   labelText: 'Search Music',
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.search),
                 ),
               ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
-                ),
-                onPressed: () {
-                  viewModel.openSpotify();
-                },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Image.asset(
-                      'assets/spotify.png', // 사용하고자 하는 이미지 경로
-                      width: 24, // 이미지의 너비
-                      height: 24, // 이미지의 높이
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Spotify',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize: 16,
+              const SizedBox(height: 20),
+              ...musicPlatforms.map((platform) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black87,
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                     ),
-                  ],
-                ),
-              ),
-              Divider(), //구분선 추가
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
-                ),
-                onPressed: () {
-                  viewModel.openAppleMusic();
-                },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Image.asset(
-                      'assets/applemusic.png', // 사용하고자 하는 이미지 경로
-                      width: 24, // 이미지의 너비
-                      height: 24, // 이미지의 높이
+                    onPressed: () {
+                      Navigator.pop(context); // 닫고 호출
+                      (platform['action'] as Function).call();
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          (platform['asset'] as Function).call(),
+                          width: 28,
+                          height: 28,
+                        ),
+                        const SizedBox(width: 14),
+                        Text(
+                          (platform['name'] as Function).call(),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                        ),
+                      ],
                     ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Apple Music',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(), // 구분선 추가
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black54, // 버튼의 배경색을 흰색으로 설정
-                ),
-                onPressed: () {
-                  viewModel.openYouTubeMusic();
-                },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Image.asset(
-                      'assets/YoutubeMusic.png', // 사용하고자 하는 이미지 경로
-                      width: 24, // 이미지의 너비
-                      height: 24, // 이미지의 높이
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'YouTube Music',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              }).toList(),
             ],
           ),
         );

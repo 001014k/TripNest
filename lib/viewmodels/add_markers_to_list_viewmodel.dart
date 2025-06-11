@@ -13,6 +13,14 @@ class AddMarkersToListViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  // 해당 리스트에 이미 추가된 마커인지 여부를 반환
+  bool isMarkerInList(Marker marker, String listId) {
+    if (!_markersInLists.containsKey(listId)) return false;
+    return _markersInLists[listId]!.contains(marker.markerId.value);
+  }
+
+  Map<String, Set<String>> _markersInLists = {};
+
   final Map<String, String> keywordMarkerImages = {
     '카페': 'assets/cafe_marker.png',
     '호텔': 'assets/hotel_marker.png',
@@ -86,10 +94,39 @@ class AddMarkersToListViewModel extends ChangeNotifier {
       'keyword': _markerKeywords[marker.markerId] ?? '',
     });
 
+    _markersInLists.putIfAbsent(listId, () => <String>{});
+    _markersInLists[listId]!.add(marker.markerId.value);
+
+    notifyListeners();
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${marker.infoWindow.title} added to list')),
     );
 
     Navigator.pop(context, true);
+  }
+
+  Future<void> loadMarkersInList(String listId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('lists')
+          .doc(listId)
+          .collection('bookmarks')
+          .get();
+
+      final markerIds = snapshot.docs.map((doc) => doc.id).toSet();
+
+      _markersInLists[listId] = markerIds;
+
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to load markers in list: $e';
+      notifyListeners();
+    }
   }
 }

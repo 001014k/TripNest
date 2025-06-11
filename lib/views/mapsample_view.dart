@@ -270,122 +270,218 @@ class _MapSampleViewState extends State<MapSampleView> {
   }
 
   void showUserLists(BuildContext context) async {
-    List<QueryDocumentSnapshot> userLists = await context.read<MapSampleViewModel>().getUserLists();
+    List<QueryDocumentSnapshot> userLists =
+    await context.read<MapSampleViewModel>().getUserLists();
 
     if (userLists.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장된 리스트가 없습니다')),
+        const SnackBar(content: Text('저장된 리스트가 없습니다')),
       );
       return;
     }
 
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Theme.of(context).colorScheme.background,
       builder: (BuildContext context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListView.separated(
-              shrinkWrap: true,
-              itemCount: userLists.length,
-              itemBuilder: (context, index) {
-                final list = userLists[index].data() as Map<String, dynamic>;
-                final listName = list['name'] ?? '이름 없음';
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListView.separated(
+                shrinkWrap: true,
+                itemCount: userLists.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final list = userLists[index].data() as Map<String, dynamic>;
+                  final listName = list['name'] ?? '이름 없음';
 
-                return ListTile(
-                  leading: Icon(Icons.list, color: Colors.blue),
-                  title: Text(
-                    listName,
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    showMarkersForSelectedList(context, userLists[index].id);
-                  },
-                );
-              },
-              separatorBuilder: (context, index) {
-                return Divider(color: Colors.grey, thickness: 1);
-              },
-            ),
-            Divider(color: Colors.grey, thickness: 1),
-            ListTile(
-              leading: Icon(Icons.refresh, color: Colors.red),
-              title: Text(
-                '초기화',
-                style:
-                TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                  return Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        Navigator.pop(context);
+                        showMarkersForSelectedList(context, userLists[index].id);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.list_alt_rounded, color: Colors.blueAccent),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                listName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: Colors.grey),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-              onTap: () {
-                context.read<MapSampleViewModel>().loadMarkers();
-                Navigator.pop(context);
-              },
-            ),
-          ],
+              const SizedBox(height: 16),
+              const Divider(thickness: 1),
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    context.read<MapSampleViewModel>().loadMarkers();
+                    Navigator.pop(context);
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        Icon(Icons.refresh, color: Colors.redAccent),
+                        SizedBox(width: 16),
+                        Text(
+                          '초기화',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  void showMarkersForSelectedList(BuildContext context,String listId) async {
+
+
+  void showMarkersForSelectedList(BuildContext context, String listId) async {
     final viewModel = context.read<MapSampleViewModel>();
     await viewModel.loadMarkersForList(listId);
     final markers = viewModel.filteredMarkers.toList();
 
     if (markers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('해당 리스트에 마커가 없습니다')),
+        const SnackBar(content: Text('해당 리스트에 마커가 없습니다.')),
       );
       return;
     }
 
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Theme.of(context).colorScheme.background,
       builder: (BuildContext context) {
-        return ListView.separated(
-          itemCount: markers.length,
-          itemBuilder: (context, index) {
-            final marker = markers[index];
-            final keyword = marker.infoWindow.snippet ?? '키워드 없음';
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 리스트 영역
+              Expanded(
+                child: ListView.separated(
+                  itemCount: markers.length,
+                  separatorBuilder: (_, __) => const Divider(thickness: 0.5, height: 8),
+                  itemBuilder: (context, index) {
+                    final marker = markers[index];
+                    final title = marker.infoWindow.title ?? '제목 없음';
+                    final snippet = marker.infoWindow.snippet ?? '';
+                    final keyword = snippet.isNotEmpty ? snippet : '키워드 없음';
 
-            return ListTile(
-              leading: Icon(Icons.location_on, color: Colors.red),
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    marker.infoWindow.title ?? '제목 없음',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    keyword,
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      leading: const Icon(Icons.place, color: Colors.deepOrange),
+                      title: Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          keyword,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _controller?.animateCamera(
+                          CameraUpdate.newLatLng(marker.position),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 뒤로가기 카드 버튼
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.pop(context); // 현재 bottom sheet 닫기
+                      showUserLists(context); // 리스트로 다시 이동
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        Icon(Icons.arrow_back, color: Colors.black87),
+                        SizedBox(width: 16),
+                        Text(
+                          '뒤로가기',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-              subtitle: Text(marker.infoWindow.snippet ?? '설명 없음'),
-              onTap: () {
-                Navigator.pop(context);
-                _controller?.animateCamera(
-                  CameraUpdate.newLatLng(marker.position),
-                );
-              },
-            );
-          },
-          separatorBuilder: (context, index) {
-            return Divider(
-              color: Colors.grey,
-              thickness: 1,
-            );
-          },
+            ],
+          ),
         );
       },
     );
   }
+
+
 
   @override
   Widget build(BuildContext context) {
