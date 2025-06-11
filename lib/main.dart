@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fluttertrip/views/add_markers_to_list_view.dart';
 import 'package:provider/provider.dart';
 import 'viewmodels/mapsample_viewmodel.dart';
 import 'viewmodels/bookmark_viewmodel.dart';
@@ -24,6 +25,7 @@ import 'views/signup_view.dart';
 import 'views/splash_screen_view.dart';
 import 'views/user_list_view.dart';
 import 'views/dashboard_view.dart';
+import 'viewmodels/add_markers_to_list_viewmodel.dart';
 
 Future<void> main() async {
   // Flutter 프레임워크 초기화
@@ -42,6 +44,7 @@ Future<void> main() async {
   runApp(
       MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AddMarkersToListViewModel()),
           ChangeNotifierProvider(create: (_) => MapSampleViewModel()),
           ChangeNotifierProvider(create: (_) => BookmarkViewmodel()),
           ChangeNotifierProvider(create: (_) => DashboardViewModel()),
