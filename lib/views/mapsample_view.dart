@@ -684,6 +684,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 '북마크/리스트',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
+              // 상태관리 무조건 할것
               onTap: () {
                 Navigator.push(
                   context,

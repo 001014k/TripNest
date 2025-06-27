@@ -2,57 +2,79 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../models/list_model.dart';
+import 'dart:async';
 
 class ListViewModel extends ChangeNotifier {
   List<ListModel> lists = [];
   bool isLoading = true;
   String? errorMessage;
 
+  StreamSubscription? _listsSubscription;
+  Map<String, StreamSubscription> _bookmarkSubscriptions = {};
+
   ListViewModel() {
-    fetchLists();
+    _subscribeToLists();
   }
 
-  Future<void> fetchLists() async {
+  @override
+  void dispose() {
+    _listsSubscription?.cancel();
+    _bookmarkSubscriptions.forEach((_, sub) => sub.cancel());
+    super.dispose();
+  }
+
+  void _subscribeToLists() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('lists')
-          .orderBy('createdAt', descending: true)
-          .get();
+    isLoading = true;
+    notifyListeners();
 
-      lists = await Future.wait(snapshot.docs.map((doc) async {
-        final markerCount = await _getMarkerCount(user.uid, doc.id);
+    _listsSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('lists')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .listen((snapshot) {
+      lists = snapshot.docs.map((doc) {
         return ListModel(
           id: doc.id,
           name: doc['name'],
           createdAt: (doc['createdAt'] as Timestamp).toDate(),
-          markerCount: markerCount,
+          markerCount: 0,
         );
-      }).toList());
+      }).toList();
 
-      errorMessage = null;
-    } catch (e) {
-      errorMessage = '데이터를 불러오는 중 오류 발생';
-    } finally {
+      _bookmarkSubscriptions.forEach((key, sub) => sub.cancel());
+      _bookmarkSubscriptions.clear();
+
+      for (var list in lists) {
+        final sub = FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('lists')
+            .doc(list.id)
+            .collection('bookmarks')
+            .snapshots()
+            .listen((bookmarkSnapshot) {
+          final count = bookmarkSnapshot.docs.length;
+          final index = lists.indexWhere((l) => l.id == list.id);
+          if (index != -1) {
+            lists[index] = lists[index].copyWith(markerCount: count);
+            notifyListeners();
+          }
+        });
+        _bookmarkSubscriptions[list.id] = sub;
+      }
+
       isLoading = false;
       notifyListeners();
-    }
-  }
-
-  Future<int> _getMarkerCount(String userId, String listId) async {
-    final bookmarksSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .collection('lists')
-        .doc(listId)
-        .collection('bookmarks')
-        .get();
-
-    return bookmarksSnapshot.docs.length;
+    }, onError: (e) {
+      errorMessage = '데이터 로드 중 오류 발생';
+      isLoading = false;
+      notifyListeners();
+    });
   }
 
   Future<void> createList(String name) async {

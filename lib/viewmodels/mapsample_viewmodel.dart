@@ -934,8 +934,3 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 }
-
-
-
-
-

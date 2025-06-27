@@ -4,6 +4,8 @@ import '../viewmodels/list_viewmodel.dart';
 import 'marker_info_view.dart';
 
 class ListPage extends StatelessWidget {
+  const ListPage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
@@ -12,12 +14,15 @@ class ListPage extends StatelessWidget {
         appBar: AppBar(
           title: const Text(
             '여행 리스트',
-            style: TextStyle(fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
           ),
           centerTitle: true,
           backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          elevation: 1,
+          elevation: 0.5,
+          iconTheme: const IconThemeData(color: Colors.black),
         ),
         body: Consumer<ListViewModel>(
           builder: (context, viewModel, child) {
@@ -35,22 +40,33 @@ class ListPage extends StatelessWidget {
             }
 
             return ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: viewModel.lists.length,
               itemBuilder: (context, index) {
                 final list = viewModel.lists[index];
-                return Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 2,
+                return Container(
                   margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
                   child: ListTile(
-                    leading: const Icon(Icons.format_list_bulleted, color: Colors.blueAccent),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: const Icon(Icons.list_alt_rounded, color: Colors.black87),
                     title: Text(
                       list.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
                     ),
-                    subtitle: Text('마커 갯수: ${list.markerCount}'),
-                    trailing: const Icon(Icons.more_vert),
+                    subtitle: Text(
+                      '마커 갯수: ${list.markerCount}',
+                      style: TextStyle(color: Colors.grey[700]),
+                    ),
+                    trailing: const Icon(Icons.more_vert, color: Colors.black54),
                     onTap: () => _showListOptions(context, list.id, viewModel),
                   ),
                 );
@@ -60,54 +76,87 @@ class ListPage extends StatelessWidget {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => _showCreateListDialog(context),
-          backgroundColor: Colors.blueAccent,
-          child: const Icon(Icons.add, color: Colors.white),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: const Icon(Icons.add),
         ),
+        backgroundColor: Colors.grey[100],
       ),
     );
   }
+
 
   void _showCreateListDialog(BuildContext context) {
     final TextEditingController _listNameController = TextEditingController();
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text(
-            '새 리스트 생성',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: TextField(
-            controller: _listNameController,
-            decoration: const InputDecoration(
-              labelText: '리스트 이름',
-              border: OutlineInputBorder(),
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '새 리스트',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _listNameController,
+                  decoration: const InputDecoration(
+                    hintText: '리스트 이름',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                      borderSide: BorderSide(color: Colors.grey),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        final name = _listNameController.text.trim();
+                        if (name.isNotEmpty) {
+                          Provider.of<ListViewModel>(context, listen: false).createList(name);
+                          Navigator.of(context).pop();
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black87,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        textStyle: const TextStyle(fontSize: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('생성'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('취소'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+              ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Provider.of<ListViewModel>(context, listen: false)
-                    .createList(_listNameController.text);
-                Navigator.of(context).pop();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('생성'),
-            ),
-          ],
         );
       },
     );
   }
+
 
   void _showListOptions(BuildContext context, String listId, ListViewModel viewModel) {
     showModalBottomSheet(
