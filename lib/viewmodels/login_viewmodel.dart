@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
+import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 
 class LoginViewModel extends ChangeNotifier {
@@ -71,29 +72,44 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Supabase Google OAuth 로그인 (웹 리디렉션 방식)
+  // 구글 로그인
   Future<void> signInWithGoogle() async {
     try {
-      await supa.Supabase.instance.client.auth.signInWithOAuth(
-        supa.OAuthProvider.google,
+      final response = await supa.Supabase.instance.client.auth.getOAuthSignInUrl(
+        provider: supa.OAuthProvider.google,
         redirectTo: 'io.supabase.flutter://login-callback',
       );
-      // 로그인 결과 확인은 호출 후 앱 복귀 시점에서 해야 함
+
+      final uri = Uri.parse(response.url);
+      debugPrint('Google OAuth URL: $uri');
+
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        debugPrint('외부 브라우저 열기 실패');
+        throw 'Could not launch $uri';
+      }
     } catch (e) {
       debugPrint('구글 로그인 실패: $e');
       rethrow;
     }
   }
 
+  // 카카오톡 로그인
   Future<void> signInWithKakao() async {
     try {
-      await supa.Supabase.instance.client.auth.signInWithOAuth(
-        supa.OAuthProvider.kakao, // ✅ 핵심 변경 포인트
+      final response = await supa.Supabase.instance.client.auth.getOAuthSignInUrl(
+        provider: supa.OAuthProvider.kakao,
         redirectTo: 'io.supabase.flutter://login-callback',
       );
+      final uri = Uri.parse(response.url);
+
+      print('Kakao OAuth URL: $uri');
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
       print('카카오 로그인 실패: $e');
       rethrow;
     }
   }
+
 }
