@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertrip/supabase_client.dart';
+import 'package:fluttertrip/services/user_service.dart';
+import 'package:fluttertrip/services/supabase_manager.dart';
+import 'package:fluttertrip/views/login_option_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:uni_links/uni_links.dart';
+import 'dart:async';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 // ViewModel imports...
 import 'viewmodels/mapsample_viewmodel.dart';
@@ -35,6 +40,9 @@ import 'views/dashboard_view.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  KakaoSdk.init(
+    nativeAppKey: 'eff3cb029a3acf98d819ee87f77f8274', // 카카오 네이티브 앱 키
+  );
   try {
     await SupabaseManager.initialize();
     await MarkerService().syncOfflineMarkers();
@@ -63,7 +71,40 @@ Future<void> main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  StreamSubscription<Uri?>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _sub = uriLinkStream.listen((Uri? uri) async {
+      if (uri != null) {
+        // 리디렉션 URL에서 세션을 받아옴
+        final response = await Supabase.instance.client.auth.getSessionFromUrl(uri);
+
+        if (response.session != null) {
+          // 로그인 성공 시 홈 화면으로 이동
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        } else {
+          // 로그인 실패 처리 (선택사항)
+          debugPrint('로그인 세션 파싱 실패');
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -80,6 +121,7 @@ class MyApp extends StatelessWidget {
         '/user_list': (context) => UserListView(),
         '/home': (context) => MapSampleView(),
         '/dashboard': (context) => DashboardView(),
+        '/login_option': (context) => LoginOptionView(),
       },
     );
   }

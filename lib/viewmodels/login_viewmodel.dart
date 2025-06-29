@@ -78,8 +78,21 @@ class LoginViewModel extends ChangeNotifier {
         supa.OAuthProvider.google,
         redirectTo: 'io.supabase.flutter://login-callback',
       );
+      // 로그인 결과 확인은 호출 후 앱 복귀 시점에서 해야 함
     } catch (e) {
       debugPrint('구글 로그인 실패: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> signInWithKakao() async {
+    try {
+      await supa.Supabase.instance.client.auth.signInWithOAuth(
+        supa.OAuthProvider.kakao, // ✅ 핵심 변경 포인트
+        redirectTo: 'io.supabase.flutter://login-callback',
+      );
+    } catch (e) {
+      print('카카오 로그인 실패: $e');
       rethrow;
     }
   }
