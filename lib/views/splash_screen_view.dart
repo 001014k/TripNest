@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:fluttertrip/views/login_option_view.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/splash_viewmodel.dart';
-import '../views/login_view.dart';
 
 class SplashScreenView extends StatelessWidget {
   @override
