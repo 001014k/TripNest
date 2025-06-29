@@ -1,12 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../views/dashboard_view.dart';
 
 class UserListView extends StatelessWidget {
+  UserListView({Key? key}) : super(key: key);
+
+  final supabase = Supabase.instance.client;
+
+  // Supabase Realtime 구독 스트림 함수
+  Stream<List<Map<String, dynamic>>> getUsersStream() {
+    return supabase
+        .from('users')
+        .stream(primaryKey: ['id'])
+        .execute()
+        .map((data) => List<Map<String, dynamic>>.from(data));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = supabase.auth.currentUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -15,32 +27,30 @@ class UserListView extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () async {
-              // 로그아웃 기능
-              await FirebaseAuth.instance.signOut();
-              // 로그인 페이지로 이동
+              await supabase.auth.signOut();
               Navigator.pushReplacementNamed(context, '/login');
             },
           ),
         ],
       ),
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance.collection('users').snapshots(),
-        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: getUsersStream(),
+        builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(child: Text('No users found'));
           }
 
-          final users = snapshot.data!.docs;
+          final users = snapshot.data!;
 
           return ListView.builder(
             itemCount: users.length,
             itemBuilder: (context, index) {
-              final user = users[index].data() as Map<String, dynamic>;
-              final email = user['email'] ?? 'No email';
+              final userData = users[index];
+              final email = userData['email'] ?? 'No email';
               return ListTile(
                 title: Text(email),
               );
@@ -59,13 +69,12 @@ class UserListView extends StatelessWidget {
               ),
               otherAccountsPictures: <Widget>[
                 CircleAvatar(
-                  backgroundColor: Colors.white,
                   backgroundImage: AssetImage('assets/profile.png'),
+                  backgroundColor: Colors.white,
                 ),
               ],
               accountName: Text('admin'),
-              accountEmail: Text(
-                  user != null ? user.email ?? 'No email' : 'Not logged in'),
+              accountEmail: Text(user?.email ?? 'Not logged in'),
               onDetailsPressed: () {},
               decoration: BoxDecoration(
                 color: Colors.blueGrey,
@@ -76,30 +85,22 @@ class UserListView extends StatelessWidget {
               ),
             ),
             ListTile(
-              leading: Icon(
-                Icons.assignment_ind,
-                color: Colors.grey,
-              ),
+              leading: Icon(Icons.assignment_ind, color: Colors.grey),
               title: Text('회원관리'),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => UserListView()),
-                  // 회원 관리 페이지로 이동하게 하는 로직 추가
                 );
               },
             ),
             ListTile(
-              leading: Icon(
-                Icons.dashboard,
-                color: Colors.grey,
-              ),
+              leading: Icon(Icons.dashboard, color: Colors.grey),
               title: Text('대시보드'),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => DashboardView()),
-                  // 대시보드로 이동하게 하는 로직 추가
                 );
               },
             )

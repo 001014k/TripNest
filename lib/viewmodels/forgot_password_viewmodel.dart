@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ForgotPasswordViewModel extends ChangeNotifier {
-  final AuthService _authService = AuthService();
-
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
@@ -14,8 +12,8 @@ class ForgotPasswordViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _authService.sendPasswordResetEmail(email);
-      return null; // 성공하면 null 반환
+      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+      return null; // 성공 시 null 반환
     } catch (e) {
       return e.toString();
     } finally {

@@ -1,7 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import '../services/auth_service.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginViewModel extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -12,8 +11,11 @@ class LoginViewModel extends ChangeNotifier {
   String _password = '';
 
   bool get isLoading => _isLoading;
+
   bool get rememberMe => _rememberMe;
+
   String get email => _email;
+
   String get password => _password;
 
   void setEmail(String value) {
@@ -31,7 +33,7 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 로그인 처리
+  /// 이메일/비밀번호 로그인
   Future<String?> login() async {
     if (_email.isEmpty || _password.isEmpty) {
       return "이메일과 비밀번호를 입력하세요.";
@@ -41,9 +43,17 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final user = await _authService.login(_email, _password);
-      await _authService.saveUserCredentials(_email, _password, _rememberMe);
-      return user != null ? null : "로그인 실패";
+      final res = await supa.Supabase.instance.client.auth.signInWithPassword(
+        email: _email,
+        password: _password,
+      );
+
+      if (res.user != null) {
+        await _authService.saveUserCredentials(_email, _password, _rememberMe);
+        return null;
+      } else {
+        return "로그인 실패";
+      }
     } catch (e) {
       return e.toString();
     } finally {
@@ -52,7 +62,7 @@ class LoginViewModel extends ChangeNotifier {
     }
   }
 
-  /// 저장된 로그인 정보 로드
+  /// 저장된 로그인 정보 불러오기
   Future<void> loadUserPreferences() async {
     final data = await _authService.loadUserCredentials();
     _rememberMe = data['rememberMe'];
@@ -61,19 +71,13 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-
+  /// Supabase Google OAuth 로그인 (웹 리디렉션 방식)
   Future<void> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return; // 사용자가 취소한 경우
-
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+      await supa.Supabase.instance.client.auth.signInWithOAuth(
+        supa.OAuthProvider.google,
+        redirectTo: 'io.supabase.flutter://login-callback',
       );
-
-      await FirebaseAuth.instance.signInWithCredential(credential);
     } catch (e) {
       debugPrint('구글 로그인 실패: $e');
       rethrow;

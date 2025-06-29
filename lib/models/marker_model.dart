@@ -17,14 +17,15 @@ class MarkerModel {
     required this.markerImagePath,
   });
 
-  factory MarkerModel.fromFirestore(String id, Map<String, dynamic> data) {
+  // Supabase에서 받은 Map<String, dynamic>용
+  factory MarkerModel.fromMap(Map<String, dynamic> data) {
     return MarkerModel(
-      id: id,
+      id: data['id'] as String,
       title: data['title'] ?? 'No Title',
       keyword: data['keyword'] ?? 'default',
       address: data['address'] ?? 'No Address',
-      lat: data['lat'] ?? 0.0,
-      lng: data['lng'] ?? 0.0,
+      lat: (data['lat'] ?? 0.0).toDouble(),
+      lng: (data['lng'] ?? 0.0).toDouble(),
       markerImagePath: data['markerImagePath'] ?? '',
     );
   }

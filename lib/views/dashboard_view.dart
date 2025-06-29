@@ -1,8 +1,7 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../views/user_list_view.dart';
 import '../viewmodels/dashboard_viewmodel.dart';
-
 
 class DashboardView extends StatefulWidget {
   const DashboardView({Key? key}) : super(key: key);
@@ -12,12 +11,25 @@ class DashboardView extends StatefulWidget {
 }
 
 class _DashboardViewState extends State<DashboardView> {
-  late DashboardViewModel _viewModel;
+  final DashboardViewModel _viewModel = DashboardViewModel();
+  bool _isLoading = true;
 
+  @override
+  void initState() {
+    super.initState();
+    _initializeDashboard();
+  }
+
+  Future<void> _initializeDashboard() async {
+    await _viewModel.fetchDashboardData();
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -26,28 +38,28 @@ class _DashboardViewState extends State<DashboardView> {
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () async {
-              //로그아웃 가능
-              await FirebaseAuth.instance.signOut();
-              //로그인 페이지로 이동
+              await Supabase.instance.client.auth.signOut();
               Navigator.pushReplacementNamed(context, '/login');
             },
           ),
         ],
       ),
-      body: Padding(
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Total Users: $_viewModel.totalUsers'),
-            Text('Total Markers: $_viewModel.totalMarkers'),
+            Text('Total Users: ${_viewModel.totalUsers}'),
+            Text('Total Markers: ${_viewModel.totalMarkers}'),
             SizedBox(height: 20),
             Expanded(
               child: ListView.builder(
-                itemCount: _viewModel.userMarkersCount.keys.length,
+                itemCount: _viewModel.userMarkersCount.length,
                 itemBuilder: (context, index) {
-                  String email = _viewModel.userMarkersCount.keys.elementAt(index);
-                  int markerCount = _viewModel.userMarkersCount[email]!;
+                  final email = _viewModel.userMarkersCount.keys.elementAt(index);
+                  final markerCount = _viewModel.userMarkersCount[email]!;
                   return ListTile(
                     title: Text('User: $email'),
                     subtitle: Text('Markers: $markerCount'),
@@ -61,22 +73,20 @@ class _DashboardViewState extends State<DashboardView> {
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
-          children: <Widget>[
+          children: [
             UserAccountsDrawerHeader(
               currentAccountPicture: CircleAvatar(
                 backgroundImage: AssetImage('assets/profile.png'),
                 backgroundColor: Colors.white,
               ),
-              otherAccountsPictures: <Widget>[
+              otherAccountsPictures: [
                 CircleAvatar(
                   backgroundImage: AssetImage('assets/profile.png'),
                   backgroundColor: Colors.white,
-                )
+                ),
               ],
               accountName: Text('admin'),
-              accountEmail: Text(
-                  user != null ? user.email ?? 'No email' : 'Not logged in'),
-              onDetailsPressed: () {},
+              accountEmail: Text(user?.email ?? 'Not logged in'),
               decoration: BoxDecoration(
                 color: Colors.blueGrey,
                 borderRadius: BorderRadius.only(
@@ -86,10 +96,7 @@ class _DashboardViewState extends State<DashboardView> {
               ),
             ),
             ListTile(
-              leading: Icon(
-                Icons.assignment_ind,
-                color: Colors.grey,
-              ),
+              leading: Icon(Icons.assignment_ind, color: Colors.grey),
               title: Text('회원관리'),
               onTap: () {
                 Navigator.push(
@@ -99,18 +106,15 @@ class _DashboardViewState extends State<DashboardView> {
               },
             ),
             ListTile(
-              leading: Icon(
-                Icons.dashboard,
-                color: Colors.grey,
-              ),
+              leading: Icon(Icons.dashboard, color: Colors.grey),
               title: Text('대시보드'),
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => DashboardView ()),
+                  MaterialPageRoute(builder: (context) => DashboardView()),
                 );
               },
-            )
+            ),
           ],
         ),
       ),

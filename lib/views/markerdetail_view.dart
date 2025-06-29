@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../viewmodels/markerdetail_viewmodel.dart';
 import '../views/Imageview_view.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -25,13 +24,13 @@ class MarkerDetailView extends StatefulWidget {
 }
 
 class _MarkerDetailPageState extends State<MarkerDetailView> {
-  late final MarkerDetailViewmodel _viewmodel;
+  late final MarkerDetailViewModel _viewmodel;
 
 
   @override
   void initState() {
     super.initState();
-    _viewmodel = MarkerDetailViewmodel(
+    _viewmodel = MarkerDetailViewModel(
       marker: widget.marker,
       keyword: widget.keyword,
     );
@@ -271,7 +270,7 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
                           ),
                         ),
                         ElevatedButton(
-                          onPressed: () => _viewmodel.bookmarkLocation(context),
+                          onPressed: () => _viewmodel.toggleBookmark(context),
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.zero, // 네모난 모서리

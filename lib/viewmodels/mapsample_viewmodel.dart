@@ -5,9 +5,9 @@ import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import '../config.dart';
 import '../services/marker_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:location/location.dart' as location;
@@ -15,7 +15,6 @@ import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart'as cluster_manager;
 import 'package:flutter/services.dart';
-import '../config.dart';
 import 'package:http/http.dart' as http;
 import '../models/place.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
@@ -80,10 +79,9 @@ class MapSampleViewModel extends ChangeNotifier {
     _controller = controller;
   }
   List<Marker> bookmarkedMarkers = [];
-  CollectionReference markersCollection =
-  FirebaseFirestore.instance.collection('users');
-  List<QueryDocumentSnapshot> _userLists = [];
-  List<QueryDocumentSnapshot> get userLists => _userLists;
+  final supabase = Supabase.instance.client;
+  List<Map<String, dynamic>> _userLists = [];
+  List<Map<String, dynamic>> get userLists => _userLists;
   final Map<String, String> keywordMarkerImages = {
     '카페': 'assets/cafe_marker.png',
     '호텔': 'assets/hotel_marker.png',
@@ -208,122 +206,123 @@ class MapSampleViewModel extends ChangeNotifier {
     required String? snippet,
     required LatLng position,
     required String keyword,
-    required void Function(MarkerId) onTapCallback, // 콜백 추가
+    required void Function(MarkerId) onTapCallback,
   }) async {
-    // 키워드에 따른 이미지 경로를 가져옴
     final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
-    // 원하는 크기 지정 (width와 height는 조정하고 싶은 크기로 설정)
-    final markerIcon = await createCustomMarkerImage(markerImagePath, 128, 128); // 128x128 크기로 설정
+    final markerIcon = await createCustomMarkerImage(markerImagePath, 128, 128);
     final markerId = MarkerId(position.toString());
 
     final marker = Marker(
       markerId: markerId,
       position: position,
-      infoWindow: InfoWindow(
-        title: title,
-        snippet: snippet,
-      ),
+      infoWindow: InfoWindow(title: title, snippet: snippet),
       icon: markerIcon,
       onTap: () {
         onTapCallback(markerId);
       },
     );
 
-      _markers.add(marker);
-      _allMarkers.add(marker); //모든 마커 저장
-      _filteredMarkers = _allMarkers; // 모든 마커를 필터링된 마커로 설정
-      _markerKeywords[marker.markerId] = keyword ?? ''; //키워드 저장
-      saveMarker(marker, keyword, markerImagePath); //키워드와 hue 값을 포함한 마커 저장
-      updateSearchResults(_searchController.text);
+    _markers.add(marker);
+    _allMarkers.add(marker);
+    _filteredMarkers = _allMarkers;
+    _markerKeywords[marker.markerId] = keyword;
 
-    // 마커 데이터를 Map으로 변환하여 오프라인/온라인 저장 처리
-    final markerData = {
-      'id': markerId.value,
-      'title': title,
-      'description': snippet,
-      'latitude': position.latitude,
-      'longitude': position.longitude,
-      'synced': 0, // 처음엔 비동기화 상태로 저장
-    };
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        final response = await Supabase.instance.client.from('user_markers').insert({
+          'user_id': user.id,
+          'title': title,
+          'snippet': snippet,
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'keyword': keyword,
+          'marker_image_path': markerImagePath,
+        }).select();
 
-    // 오프라인/온라인 상태에 따라 마커를 저장
-    await _markerService.saveMarkerOfflineOrOnline(markerData);
+        print('Insert 성공: $response');
+      } catch (error) {
+        print('Supabase insert 실패: $error');
+      }
+    }
 
-    // 클러스터링을 새로 갱신하여 지도에 마커를 반영
-    _clusterManager?.setItems(_filteredPlaces); // 클러스터 갱신
+
+    _filteredPlaces = _filteredMarkers.map((marker) {
+      return Place(
+        id: marker.markerId.value,
+        title: marker.infoWindow.title ?? '',
+        snippet: marker.infoWindow.snippet ?? '',
+        latLng: marker.position,
+      );
+    }).toList();
+
+    _clusterManager?.setItems(_filteredPlaces);
+    notifyListeners();
   }
 
+
   Future<void> loadMarkers() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final userMarkersCollection = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('user_markers');
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
 
-      final QuerySnapshot querySnapshot = await userMarkersCollection.get();
+    final response = await Supabase.instance.client
+        .from('user_markers')
+        .select()
+        .eq('user_id', user.id);
 
-      _markers.clear();
-      _allMarkers.clear();
+    _markers.clear();
+    _allMarkers.clear();
+    final Map<MarkerId, Marker> uniqueMarkersMap = {};
 
-      // markerId 기준 중복 제거용 Map 생성
-      final Map<MarkerId, Marker> uniqueMarkersMap = {};
+    for (var data in response) {
+      final String keyword = data['keyword'] ?? 'default';
+      final String? markerImagePath = keywordMarkerImages[keyword];
 
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final String keyword = data['keyword'] ?? 'default';
-        final String? markerImagePath = keywordMarkerImages[keyword];
+      final BitmapDescriptor markerIcon = markerImagePath != null
+          ? await createCustomMarkerImage(markerImagePath, 128, 128)
+          : BitmapDescriptor.defaultMarkerWithHue(
+        data['hue'] != null
+            ? (data['hue'] as num).toDouble()
+            : BitmapDescriptor.hueOrange,
+      );
 
-        // 커스텀 마커 이미지 로드 (비동기 처리) 및 크기 조절
-        final BitmapDescriptor markerIcon = markerImagePath != null
-            ? await createCustomMarkerImage(
-            markerImagePath, 128, 128) // 크기를 조정
-            : BitmapDescriptor.defaultMarkerWithHue(
-          data['hue'] != null
-              ? (data['hue'] as num).toDouble()
-              : BitmapDescriptor.hueOrange,
-        );
+      final lat = (data['lat'] as num).toDouble();
+      final lng = (data['lng'] as num).toDouble();
 
-        final lat =
-        data['lat'] != null ? data['lat'] as double : 0.0; // 기본값 0.0으로 설정
-        final lng =
-        data['lng'] != null ? data['lng'] as double : 0.0; // 기본값 0.0으로 설정
+      final markerId = MarkerId(data['id']);
+      final marker = Marker(
+        markerId: markerId,
+        position: LatLng(lat, lng),
+        infoWindow: InfoWindow(
+          title: data['title'],
+          snippet: data['snippet'],
+        ),
+        icon: markerIcon,
+        onTap: () {
+          onMarkerTapped(markerId);
+        },
+      );
 
-        final marker = Marker(
-          markerId: MarkerId(doc.id),
-          position: LatLng(lat, lng),
-          infoWindow: InfoWindow(
-            title: data['title'],
-            snippet: data['snippet'],
-          ),
-          icon: markerIcon,
-          onTap: () {
-            onMarkerTapped(MarkerId(doc.id));
-          },
-        );
-
-        uniqueMarkersMap[marker.markerId] = marker; // 중복 제거하며 저장
-        _markerKeywords[marker.markerId] = keyword;
-      }
-      // 중복 제거된 마커들을 _markers와 _allMarkers에 저장
-      _markers = uniqueMarkersMap.values.toSet();
-      _allMarkers = uniqueMarkersMap.values.toSet();
-      _filteredMarkers = _allMarkers.toSet(); //초기 상태에서 모든 마커 표시
-
-      _filteredPlaces = _filteredMarkers.map((marker){
-        return Place(
-          id: marker.markerId.value,
-          title: marker.infoWindow.title ?? '',
-          snippet: marker.infoWindow.snippet ?? '',
-          latLng: marker.position,
-        );
-      }).toList();
-
-      _clusterManager?.setItems(_filteredPlaces); // 클러스터링에 반영
-      _clusterManager?.updateMap(); // 지도 갱신
-      notifyListeners(); // 상태 변경 알림
-
+      uniqueMarkersMap[markerId] = marker;
+      _markerKeywords[markerId] = keyword;
     }
+
+    _markers = uniqueMarkersMap.values.toSet();
+    _allMarkers = uniqueMarkersMap.values.toSet();
+    _filteredMarkers = _allMarkers.toSet();
+
+    _filteredPlaces = _filteredMarkers.map((marker) {
+      return Place(
+        id: marker.markerId.value,
+        title: marker.infoWindow.title ?? '',
+        snippet: marker.infoWindow.snippet ?? '',
+        latLng: marker.position,
+      );
+    }).toList();
+
+    _clusterManager?.setItems(_filteredPlaces);
+    _clusterManager?.updateMap();
+    notifyListeners();
   }
 
   void clearPolylines() {
@@ -351,55 +350,43 @@ class MapSampleViewModel extends ChangeNotifier {
 
 
   Future<void> loadMarkersForList(String listId) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
-    final markerSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('lists')
-        .doc(listId)
-        .collection('bookmarks')
-        .orderBy('order')
-        .get();
+    final response = await Supabase.instance.client
+        .from('list_bookmarks')
+        .select('id, title, snippet, lat, lng, keyword')
+        .eq('list_id', listId)
+        .order('order')
+        .limit(100) // optional
+        .withConverter<List<Map<String, dynamic>>>((data) => data as List<Map<String, dynamic>>);
 
-    final markers = await Future.wait(markerSnapshot.docs.map((doc) async {
-      final data = doc.data() as Map<String, dynamic>;
-      final String keyword = data['keyword'] ?? 'default'.trim();
+    final markers = await Future.wait(response.map((doc) async {
+      final String keyword = doc['keyword']?.toString() ?? 'default';
       final String? markerImagePath = keywordMarkerImages[keyword];
-
-      print('마커 키워드: $keyword');
-      print('이미지 경로: $markerImagePath');
 
       final BitmapDescriptor markerIcon = markerImagePath != null
           ? await createCustomMarkerImage(markerImagePath, 128, 128)
           : BitmapDescriptor.defaultMarkerWithHue(
-        data['hue'] != null
-            ? (data['hue'] as num).toDouble()
-            : BitmapDescriptor.hueOrange,
+        (doc['hue'] as num?)?.toDouble() ?? BitmapDescriptor.hueOrange,
       );
 
       return Marker(
-        markerId: MarkerId(doc.id),
-        position: LatLng(data['lat'], data['lng']),
+        markerId: MarkerId(doc['id']),
+        position: LatLng(doc['lat'], doc['lng']),
         infoWindow: InfoWindow(
-          title: data['title'] ?? '제목 없음',
-          snippet: data['snippet'] ?? '설명 없음',
+          title: doc['title'] ?? '제목 없음',
+          snippet: doc['snippet'] ?? '설명 없음',
         ),
         icon: markerIcon,
-        onTap: () => onMarkerTapped(MarkerId(doc.id)),
+        onTap: () => onMarkerTapped(MarkerId(doc['id'])),
       );
     }).toList());
 
-    // 1. 순서가 있는 리스트에 저장
     _orderedMarkers = markers;
-
-    // 2. polygonPoints 갱신
     _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
-
     setFilteredMarkers(markers);
-
-    notifyListeners(); // 상태 변경 알림
+    notifyListeners();
   }
 
 
@@ -544,21 +531,23 @@ class MapSampleViewModel extends ChangeNotifier {
     return BitmapDescriptor.fromBytes(resizedBytes);
   }
 
-  void updateMarker(Marker marker, String keyword,
-      String markerImagePath) async {
-    final user = FirebaseAuth.instance.currentUser;
+  void updateMarker(Marker marker, String keyword, String markerImagePath) async {
+    final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
-      final userMarkersCollection = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('user_markers');
-
-      await userMarkersCollection.doc(marker.markerId.value).update({
+      final response = await Supabase.instance.client
+          .from('user_markers')
+          .update({
         'title': marker.infoWindow.title,
         'snippet': marker.infoWindow.snippet,
         'keyword': keyword,
-        'markerImagePath': markerImagePath,
-      });
+        'marker_image_path': markerImagePath,
+      })
+          .eq('user_id', user.id)
+          .eq('id', marker.markerId.value);
+
+      if (response.error != null) {
+        print('Error updating marker: ${response.error!.message}');
+      }
     }
   }
 
@@ -567,30 +556,31 @@ class MapSampleViewModel extends ChangeNotifier {
 // update: 문서가 이미 존재하는 경우에만 특정 필드를 수정하며 문서가 존재하지 않으면 에러를 발생
 
 // 새 마커 생성
-  void saveMarker(Marker marker, String keyword,
-      String markerImagePath) async {
-    final user = FirebaseAuth.instance.currentUser;
+  void saveMarker(Marker marker, String keyword, String markerImagePath) async {
+    final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
-      final userMarkersCollection = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('user_markers');
-
-      // 좌표로부터 주소를 가져온다
-      String address = await getAddressFromCoordinates(
+      final address = await getAddressFromCoordinates(
         marker.position.latitude,
         marker.position.longitude,
       );
 
-      await userMarkersCollection.doc(marker.markerId.value).set({
+      final response = await Supabase.instance.client
+          .from('user_markers')
+          .insert({
+        'id': marker.markerId.value,
+        'user_id': user.id,
         'title': marker.infoWindow.title,
         'snippet': marker.infoWindow.snippet,
         'lat': marker.position.latitude,
         'lng': marker.position.longitude,
         'address': address,
         'keyword': keyword,
-        'markerImagePath': markerImagePath,
+        'marker_image_path': markerImagePath,
       });
+
+      if (response.error != null) {
+        print('Error saving marker: ${response.error!.message}');
+      }
     }
   }
 
@@ -639,35 +629,32 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<QueryDocumentSnapshot>> getUserLists() async {
-    final user = FirebaseAuth.instance.currentUser;
+  Future<List<Map<String, dynamic>>> getUserLists() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return [];
 
-    if (user == null) {
+    try {
+      final List<dynamic> response = await Supabase.instance.client
+          .from('lists')
+          .select()
+          .eq('user_id', user.id);
+
+      return response.cast<Map<String, dynamic>>();
+    } catch (e) {
+      print('Error fetching user lists: $e');
       return [];
     }
-
-    final listSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('lists')
-        .get();
-
-    return listSnapshot.docs;
   }
 
   void moveToCurrentLocation() async {
     if (_controller != null && _currentLocation != null) {
-      // 사용자의 현재 위치로 이동
       LatLng currentLatLng = LatLng(
         _currentLocation!.latitude!,
         _currentLocation!.longitude!,
       );
 
-      // 카메라를 현재 위치로 바로 이동
-      _controller!.animateCamera(
-        CameraUpdate.newLatLngZoom(
-            currentLatLng, 18.0 // 사용자의 현재 위치를 중앙으로 이동 및 확대
-        ),
+      await _controller!.animateCamera(
+        CameraUpdate.newLatLngZoom(currentLatLng, 18.0),
       );
     }
   }
@@ -676,7 +663,7 @@ class MapSampleViewModel extends ChangeNotifier {
     try {
       return _markers.firstWhere((m) => m.markerId == markerId);
     } catch (e) {
-      return null; // 못 찾으면 null 반환
+      return null;
     }
   }
 
@@ -685,15 +672,11 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-
-
   Future<void> onMarkerTapped(MarkerId markerId) async {
     final marker = _markers.firstWhere(
           (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
-    // 마커 위치로 카메라 이동 (await 작업은 마커를 눌렀을때만 적용 나머지는 불필요함)
-    print('Marker Position: ${marker.position}');
 
     if (_controller == null) {
       print("GoogleMapController has not been initialized yet.");
@@ -705,29 +688,30 @@ class MapSampleViewModel extends ChangeNotifier {
     );
 
     _selectedMarker = marker;
-    notifyListeners(); // View가 마커 상태를 알 수 있도록 알림
+    notifyListeners();
 
-    onMarkerTappedCallback?.call(marker); // 콜백 호출
+    onMarkerTappedCallback?.call(marker);
   }
 
   void updateSearchResults(String query) {
     query = query.trim();
 
     if (query.isEmpty) {
-      searchResults.clear();
+      _searchResults.clear();
     } else {
       final filteredMarkers = _markers.where((marker) {
         final title = marker.infoWindow.title?.toLowerCase() ?? '';
         return title.contains(query.toLowerCase());
       }).toList();
 
-      // 중복 제거: MarkerId로 중복 확인
       final uniqueResults = {
         for (var marker in filteredMarkers) marker.markerId: marker
       }.values.toList();
 
       _searchResults = uniqueResults;
     }
+
+    notifyListeners();
   }
 
   void onSearchSubmitted(String query) async {

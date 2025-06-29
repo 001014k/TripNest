@@ -1,10 +1,9 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geocoding/geocoding.dart';
-import '../models/marker_model.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../models/marker_model.dart';
 
 class MarkerInfoViewModel extends ChangeNotifier {
   final String listId;
@@ -13,25 +12,24 @@ class MarkerInfoViewModel extends ChangeNotifier {
   String? error;
   final TextEditingController _searchController = TextEditingController();
 
+  final supabase = Supabase.instance.client;
+
   MarkerInfoViewModel({required this.listId}) {
     loadMarkers();
   }
 
   Future<void> loadMarkers() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = supabase.auth.currentUser;
     if (user == null) return;
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('lists')
-          .doc(listId)
-          .collection('bookmarks')
-          .get();
+      final data = await supabase
+          .from('list_bookmarks')
+          .select()
+          .eq('list_id', listId);
 
-      markers = snapshot.docs
-          .map((doc) => MarkerModel.fromFirestore(doc.id, doc.data()))
+      markers = (data as List)
+          .map((json) => MarkerModel.fromMap(json as Map<String, dynamic>))
           .toList();
 
       isLoading = false;
@@ -43,18 +41,15 @@ class MarkerInfoViewModel extends ChangeNotifier {
   }
 
   Future<void> deleteMarker(String markerId) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = supabase.auth.currentUser;
     if (user == null) return;
 
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('lists')
-          .doc(listId)
-          .collection('bookmarks')
-          .doc(markerId)
-          .delete();
+      await supabase
+          .from('list_bookmarks')
+          .delete()
+          .eq('id', markerId)
+          .eq('user_id', user.id);
 
       markers.removeWhere((marker) => marker.id == markerId);
       notifyListeners();
@@ -130,10 +125,8 @@ class MarkerInfoViewModel extends ChangeNotifier {
         'https://play.google.com/store/apps/details?id=com.google.android.apps.youtube.music');
 
     try {
-      // 앱이 설치되어 있는지 확인하지 않고 바로 실행 시도
       await launchUrl(appUri, mode: LaunchMode.externalApplication);
     } catch (e) {
-      // 앱이 설치되지 않았거나 실행에 실패한 경우 설치 페이지로 이동
       try {
         await launchUrl(installUri, mode: LaunchMode.externalApplication);
       } catch (e) {

@@ -1,19 +1,65 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../viewmodels//friend_management_viewmodel.dart';
+import '../viewmodels/friend_management_viewmodel.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FriendManagementView extends StatefulWidget {
   const FriendManagementView({Key? key}) : super(key: key);
 
   @override
-  _FriendManagementViewState createState() => _FriendManagementViewState();
+  State<FriendManagementView> createState() => _FriendManagementViewState();
 }
 
 class _FriendManagementViewState extends State<FriendManagementView> {
-  late FriendManagementViewModel _viewModel;
+  final FriendManagementViewModel _viewModel = FriendManagementViewModel();
   final TextEditingController emailController = TextEditingController();
-  String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
+  // 상태 관리용 친구 요청 리스트, 친구 리스트를 Future로 관리
+  late Future<List<Map<String, dynamic>>> _receivedRequestsFuture;
+  late Future<List<Map<String, dynamic>>> _friendsListFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshData();
+  }
+
+  void _refreshData() {
+    setState(() {
+      _receivedRequestsFuture = _fetchReceivedFriendRequests();
+      _friendsListFuture = _viewModel.getFriendsList();
+    });
+  }
+
+  // 현재 유저의 friend_requests 배열에서 ID 목록을 가져와서 이메일로 변환
+  Future<List<Map<String, dynamic>>> _fetchReceivedFriendRequests() async {
+    final supabase = Supabase.instance.client;
+    final currentUserId = supabase.auth.currentUser!.id;
+
+    final userData = await supabase
+        .from('users')
+        .select('friend_requests')
+        .eq('id', currentUserId)
+        .maybeSingle();
+
+    if (userData == null) return [];
+
+    List<dynamic> requestUserIds = userData['friend_requests'] ?? [];
+
+    List<Map<String, dynamic>> requestUsers = [];
+
+    for (String userId in requestUserIds) {
+      final user = await supabase
+          .from('users')
+          .select('id, email')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (user != null) {
+        requestUsers.add(user);
+      }
+    }
+    return requestUsers;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,135 +76,94 @@ class _FriendManagementViewState extends State<FriendManagementView> {
             ),
             SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 String email = emailController.text.trim();
                 if (email.isNotEmpty) {
-                  _viewModel.sendFriendRequest(context,email);
+                  await _viewModel.sendFriendRequest(context, email);
+                  emailController.clear();
+                  _refreshData(); // 요청 보낸 후 리스트 갱신
                 } else {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text('이메일을 입력하세요.')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('이메일을 입력하세요.')));
                 }
               },
               child: Text("친구 요청 보내기"),
             ),
             SizedBox(height: 20),
             Divider(),
-            Text(
-              "받은 친구 요청",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-// 친구 요청 목록 표시
+            Text("받은 친구 요청", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+
+// 받은 친구 요청 리스트
             Expanded(
-              child: StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(currentUserId)
-                    .snapshots(),
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _receivedRequestsFuture,
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
+                  if (snapshot.connectionState == ConnectionState.waiting)
                     return Center(child: CircularProgressIndicator());
-                  }
 
-                  try {
-                    // DocumentSnapshot에서 데이터를 가져오고, Map<String, dynamic>으로 캐스팅
-                    Map<String, dynamic>? userData =
-                        snapshot.data!.data() as Map<String, dynamic>?;
+                  if (snapshot.hasError)
+                    return Center(child: Text("오류 발생: ${snapshot.error}"));
 
-                    // `friend_requests` 필드가 없으면 빈 배열 사용
-                    List<String> friendRequests =
-                        userData?.containsKey('friend_requests') == true
-                            ? (userData!['friend_requests'] as List<dynamic>)
-                                .map((item) => item.toString())
-                                .toList()
-                            : [];
+                  final requests = snapshot.data ?? [];
+                  if (requests.isEmpty)
+                    return Center(child: Text("받은 친구 요청이 없습니다."));
 
-                    if (friendRequests.isEmpty) {
-                      return Center(child: Text("받은 친구 요청이 없습니다."));
-                    }
-
-                    return ListView.builder(
-                      itemCount: friendRequests.length,
-                      itemBuilder: (context, index) {
-                        String friendUserId = friendRequests[index];
-
-                        // 친구 이메일 가져오기
-                        return FutureBuilder<DocumentSnapshot>(
-                          future: FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(friendUserId)
-                              .get(),
-                          builder: (context, userSnapshot) {
-                            if (!userSnapshot.hasData) {
-                              return ListTile(title: Text('Loading...'));
-                            }
-                            String friendEmail = userSnapshot.data!['email'];
-
-                            return ListTile(
-                              title: Text(friendEmail),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: Icon(Icons.check),
-                                    onPressed: () => _viewModel.acceptFriendRequest(
-                                        context,friendUserId), // 수락 함수 호출
-                                  ),
-                                  IconButton(
-                                    icon: Icon(Icons.clear),
-                                    onPressed: () => _viewModel.declineFriendRequest(
-                                        context,friendUserId), // 거절 함수 호출
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    );
-                  } catch (e, stackTrace) {
-// 오류 로그 출력
-                    print("Error processing friend requests: $e");
-                    print("Stack trace: $stackTrace");
-                    return Center(child: Text("친구 요청을 불러오는 중 오류가 발생했습니다."));
-                  }
+                  return ListView.builder(
+                    itemCount: requests.length,
+                    itemBuilder: (context, index) {
+                      final request = requests[index];
+                      return ListTile(
+                        title: Text(request['email']),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.check),
+                              onPressed: () async {
+                                await _viewModel.acceptFriendRequest(context, request['id']);
+                                _refreshData();
+                              },
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.clear),
+                              onPressed: () async {
+                                await _viewModel.declineFriendRequest(context, request['id']);
+                                _refreshData();
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
                 },
               ),
             ),
-            Divider(), // 친구 목록 구분선 추가
-            Text(
-              "친구 목록",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-// 친구 목록 표시
+            Divider(),
+            Text("친구 목록", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+
+// 친구 목록 리스트
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _viewModel.getFriendsList(), // 친구 목록 가져오기
+                future: _friendsListFuture,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (snapshot.connectionState == ConnectionState.waiting)
                     return Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text("오류 발생: ${snapshot.error}"));
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return Center(child: Text("친구가 없습니다."));
-                  }
 
-                  try {
-// 친구 목록을 ListView로 표시
-                    List<Map<String, dynamic>> friendsList = snapshot.data!;
-                    return ListView.builder(
-                      itemCount: friendsList.length,
-                      itemBuilder: (context, index) {
-                        return ListTile(
-                          title: Text(friendsList[index]['email']), // 친구 이메일 표시
-                        );
-                      },
-                    );
-                  } catch (e, stackTrace) {
-// 오류 로그 출력
-                    print("Error processing friends list: $e");
-                    print("Stack trace: $stackTrace");
-                    return Center(child: Text("친구 목록을 불러오는 중 오류가 발생했습니다."));
-                  }
+                  if (snapshot.hasError)
+                    return Center(child: Text("오류 발생: ${snapshot.error}"));
+
+                  final friends = snapshot.data ?? [];
+                  if (friends.isEmpty)
+                    return Center(child: Text("친구가 없습니다."));
+
+                  return ListView.builder(
+                    itemCount: friends.length,
+                    itemBuilder: (context, index) {
+                      final friend = friends[index];
+                      return ListTile(title: Text(friend['email']));
+                    },
+                  );
                 },
               ),
             ),

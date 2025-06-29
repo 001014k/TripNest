@@ -1,12 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// 자동 로그인 기능을 위한 SharedPreferences 저장/로드
+  /// 자동 로그인 정보 저장
   Future<void> saveUserCredentials(String email, String password, bool rememberMe) async {
     final prefs = await SharedPreferences.getInstance();
     if (rememberMe) {
@@ -20,6 +18,7 @@ class AuthService {
     }
   }
 
+  /// 자동 로그인 정보 로드
   Future<Map<String, dynamic>> loadUserCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     return {
@@ -29,30 +28,33 @@ class AuthService {
     };
   }
 
-  /// Firebase 로그인 처리
+  /// Supabase 로그인
   Future<User?> login(String email, String password) async {
     try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
-      return userCredential.user;
+      final response = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      return response.user;
     } catch (e) {
-      throw e.toString();
+      throw "로그인 실패: ${e.toString()}";
     }
   }
 
-  /// 비밀번호 재설정 이메일 전송
+  /// 비밀번호 재설정 이메일 보내기
   Future<void> sendPasswordResetEmail(String email) async {
     if (email.isEmpty) {
       throw "이메일을 입력해주세요.";
     }
 
     try {
-      await _auth.sendPasswordResetEmail(email: email);
+      await _supabase.auth.resetPasswordForEmail(email);
     } catch (e) {
       throw "비밀번호 재설정 이메일 전송 실패: ${e.toString()}";
     }
   }
 
-  /// 회원가입 처리 및 Firestore 저장
+  /// 회원가입
   Future<String?> signUp(String email, String password, String confirmPassword) async {
     if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
       return "모든 필드를 입력해주세요.";
@@ -62,27 +64,33 @@ class AuthService {
     }
 
     try {
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+      final response = await _supabase.auth.signUp(
         email: email,
         password: password,
       );
 
-      User? user = userCredential.user;
+      final user = response.user;
       if (user != null) {
-        DocumentReference userDocRef = _firestore.collection('users').doc(user.uid);
-        await userDocRef.set({
+        // Supabase의 profiles 테이블에 추가
+        await _supabase.from('profiles').insert({
+          'id': user.id,
           'email': email,
-          'createdAt': Timestamp.now(),
+          'created_at': DateTime.now().toIso8601String(),
         });
 
-        // 사용자의 마커 정보 초기화
-        await userDocRef.collection('user_markers').doc('init').set({
+        // 마커 초기화용 필드 추가 (선택)
+        await _supabase.from('user_markers').insert({
+          'user_id': user.id,
           'initialized': true,
+          'title': 'init',
+          'lat': 0.0,
+          'lng': 0.0,
         });
 
-        return null; // 성공 시 에러 메시지 없음
+        return null;
       }
-      return "회원가입 중 문제가 발생했습니다.";
+
+      return "회원가입 실패: 사용자 생성 실패";
     } catch (e) {
       return "회원가입 실패: ${e.toString()}";
     }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddMarkersToListViewModel extends ChangeNotifier {
   final Set<Marker> _markers = {};
@@ -13,12 +12,6 @@ class AddMarkersToListViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // 해당 리스트에 이미 추가된 마커인지 여부를 반환
-  bool isMarkerInList(Marker marker, String listId) {
-    if (!_markersInLists.containsKey(listId)) return false;
-    return _markersInLists[listId]!.contains(marker.markerId.value);
-  }
-
   Map<String, Set<String>> _markersInLists = {};
 
   final Map<String, String> keywordMarkerImages = {
@@ -29,135 +22,135 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     '전시회': 'assets/exhibition_marker.png',
   };
 
+  final supabase = Supabase.instance.client;
+
+  // 해당 리스트에 이미 추가된 마커인지 여부
+  bool isMarkerInList(Marker marker, String listId) {
+    if (!_markersInLists.containsKey(listId)) return false;
+    return _markersInLists[listId]!.contains(marker.markerId.value);
+  }
+
   Future<void> loadMarkers() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('user_markers')
-          .get();
+    _isLoading = true;
+    notifyListeners();
 
-      final markers = snapshot.docs
-          .map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        final String keyword = data['keyword'] ?? 'default';
-        final lat = data['lat'] as double?;
-        final lng = data['lng'] as double?;
+    try {
+      final data = await supabase
+          .from('user_markers')
+          .select()
+          .eq('user_id', user.id);
+
+      final loadedMarkers = (data as List<dynamic>).map((json) {
+        final keyword = json['keyword'] ?? 'default';
+        final lat = (json['lat'] as num?)?.toDouble();
+        final lng = (json['lng'] as num?)?.toDouble();
 
         if (lat == null || lng == null) return null;
 
         final marker = Marker(
-          markerId: MarkerId(doc.id),
+          markerId: MarkerId(json['id']),
           position: LatLng(lat, lng),
           infoWindow: InfoWindow(
-            title: data['title'] ?? 'No Title',
-            snippet: data['snippet'] ?? 'No Snippet',
+            title: json['title'] ?? 'No Title',
+            snippet: json['snippet'] ?? 'No Snippet',
           ),
         );
         _markerKeywords[marker.markerId] = keyword;
         return marker;
-      })
-          .where((m) => m != null)
-          .cast<Marker>()
-          .toSet();
+      }).whereType<Marker>().toSet();
 
       _markers.clear();
-      _markers.addAll(markers);
-      _isLoading = false;
-      notifyListeners();
+      _markers.addAll(loadedMarkers);
+      _error = null;
     } catch (e) {
       _error = 'Failed to load markers: $e';
-      _isLoading = false;
-      notifyListeners();
     }
+
+    _isLoading = false;
+    notifyListeners();
   }
 
   Future<void> addMarkerToList(Marker marker, String listId, BuildContext context) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    // 현재 리스트의 마커 개수 조회 (order 값으로 사용)
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('lists')
-        .doc(listId)
-        .collection('bookmarks')
-        .get();
-    int order = snapshot.docs.length;
-
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('lists')
-        .doc(listId)
-        .collection('bookmarks')
-        .doc(marker.markerId.value)
-        .set({
-      'lat': marker.position.latitude,
-      'lng': marker.position.longitude,
-      'title': marker.infoWindow.title,
-      'snippet': marker.infoWindow.snippet,
-      'keyword': _markerKeywords[marker.markerId] ?? '',
-      'order': order,
-    });
-
-    _markersInLists.putIfAbsent(listId, () => <String>{});
-    _markersInLists[listId]!.add(marker.markerId.value);
-
-    notifyListeners();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${marker.infoWindow.title} added to list')),
-    );
-
-    Navigator.pop(context, true);
-  }
-
-  Future<void> loadMarkersInList(String listId) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = supabase.auth.currentUser;
     if (user == null) return;
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('lists')
-          .doc(listId)
-          .collection('bookmarks')
-          .orderBy('order')
-          .get();
-      final markerIds = snapshot.docs.map((doc) => doc.id).toSet();
+      final orderData = await supabase
+          .from('bookmarks')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('list_id', listId);
 
-      _markersInLists[listId] = markerIds;
+      final orderCount = (orderData as List).length;
 
-      notifyListeners();
+      await supabase.from('list_bookmarks').insert({
+        'id': marker.markerId.value,
+        'list_id': listId,
+        'lat': marker.position.latitude,
+        'lng': marker.position.longitude,
+        'title': marker.infoWindow.title,
+        'snippet': marker.infoWindow.snippet,
+        'keyword': _markerKeywords[marker.markerId] ?? '',
+        'order': orderCount,
+      });
+
+      _markersInLists.putIfAbsent(listId, () => <String>{});
+      _markersInLists[listId]!.add(marker.markerId.value);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${marker.infoWindow.title} added to list')),
+      );
+
+      Navigator.pop(context, true);
+      _error = null;
     } catch (e) {
-      _error = 'Failed to load markers in list: $e';
+      _error = 'Failed to add marker to list: $e';
       notifyListeners();
     }
+
+    notifyListeners();
+  }
+
+  Future<void> loadMarkersInList(String listId) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final data = await supabase
+          .from('list_bookmarks')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('list_id', listId)
+          .order('order');
+
+      final markerIds = (data as List<dynamic>).map((e) => e['id'] as String).toSet();
+      _markersInLists[listId] = markerIds;
+      _error = null;
+    } catch (e) {
+      _error = 'Failed to load markers in list: $e';
+    }
+
+    notifyListeners();
   }
 
   Future<void> updateMarkerOrders(String listId, List<Marker> orderedMarkers) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = supabase.auth.currentUser;
     if (user == null) return;
 
     for (int i = 0; i < orderedMarkers.length; i++) {
       final markerId = orderedMarkers[i].markerId.value;
       try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('lists')
-            .doc(listId)
-            .collection('bookmarks')
-            .doc(markerId)
-            .update({'order': i});
+        await supabase
+            .from('list_bookmarks')
+            .update({'order': i})
+            .eq('id', markerId)
+            .eq('user_id', user.id)
+            .eq('list_id', listId);
       } catch (e) {
-        print('order update error for $markerId: $e');
+        print('Order update error for $markerId: $e');
       }
     }
   }

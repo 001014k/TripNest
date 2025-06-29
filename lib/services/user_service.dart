@@ -1,96 +1,92 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:geocoding/geocoding.dart' as geocoding;
 
+final supabase = Supabase.instance.client;
 
+// UserService: 사용자 통계 조회
 class UserService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  /// 사용자 통계를 가져오는 메서드
+  /// 사용자 통계 정보 반환 (user_markers, lists, bookmarks)
   Future<Map<String, int>> getUserStats(String userId) async {
-    final userDoc = _firestore.collection('users').doc(userId);
-
-    final markersSnapshot = await userDoc.collection('user_markers').get();
-    final markersCount = markersSnapshot.size;
-
-    final listsSnapshot = await userDoc.collection('lists').get();
-    final listsCount = listsSnapshot.size;
-
-    final bookmarksSnapshot = await userDoc.collection('bookmarks').get();
-    final bookmarksCount = bookmarksSnapshot.size;
+    final markers = await supabase
+        .from('user_markers')
+        .select('id')
+        .eq('user_id', userId);
+    final lists = await supabase
+        .from('lists')
+        .select('id')
+        .eq('user_id', userId);
+    final bookmarks = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('user_id', userId);
 
     return {
-      'markers': markersCount,
-      'lists': listsCount,
-      'bookmarks': bookmarksCount,
+      'markers': (markers as List).length,
+      'lists': (lists as List).length,
+      'bookmarks': (bookmarks as List).length,
     };
   }
 
-  Future<List<QueryDocumentSnapshot>> _getUserLists() async {
-    final user = FirebaseAuth.instance.currentUser;
+  /// 현재 사용자 리스트 가져오기
+  Future<List<Map<String, dynamic>>> getUserLists() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return [];
 
-    if (user == null) {
-      return [];
-    }
+    final response = await supabase
+        .from('lists')
+        .select()
+        .eq('user_id', user.id);
 
-    final listSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('lists')
-        .get();
-
-    return listSnapshot.docs;
+    return List<Map<String, dynamic>>.from(response);
   }
 }
 
+// BookmarkService: 리스트에 저장된 마커 조회
 class BookmarkService {
-  Future<List<Marker>> getMarkersForList(String uid, String listId, Function(MarkerId) onTap) async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('lists')
-        .doc(listId)
-        .collection('bookmarks')
-        .get();
+  /// 리스트에 속한 마커 반환
+  Future<List<Marker>> getMarkersForList(String userId, String listId, Function(MarkerId) onTap) async {
+    final response = await supabase
+        .from('list_bookmarks')
+        .select()
+        .eq('list_id', listId);
 
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
+    return (response as List).map((data) {
       return Marker(
-        markerId: MarkerId(doc.id),
+        markerId: MarkerId(data['id']),
         position: LatLng(data['lat'], data['lng']),
         infoWindow: InfoWindow(
           title: data['title'] ?? '제목 없음',
           snippet: data['snippet'] ?? '설명 없음',
         ),
-        onTap: () => onTap(MarkerId(doc.id)),
+        onTap: () => onTap(MarkerId(data['id'])),
       );
     }).toList();
   }
 }
 
-// services/user_list_service.dart
+// UserListService: 사용자 리스트 조회
 class UserListService {
-  Future<List<QueryDocumentSnapshot>> fetchUserLists(String uid) async {
-    final listSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('lists')
-        .get();
-    return listSnapshot.docs;
+  Future<List<Map<String, dynamic>>> fetchUserLists(String userId) async {
+    final response = await supabase
+        .from('lists')
+        .select()
+        .eq('user_id', userId);
+    return List<Map<String, dynamic>>.from(response);
   }
 }
 
+// SearchService: Google Places API와 지오코딩 검색
 class SearchService {
   final String apiKey;
 
   SearchService({required this.apiKey});
 
+  /// Google Places API 검색
   Future<List<Marker>> searchPlacesWithQuery(String query) async {
-    final url = Uri.parse(
-        'https://places.googleapis.com/v1/places:searchText?&key=$apiKey');
+    final url = Uri.parse('https://places.googleapis.com/v1/places:searchText?&key=$apiKey');
 
     final requestBody = json.encode({
       "textQuery": query,
@@ -101,8 +97,7 @@ class SearchService {
       url,
       headers: {
         'Content-Type': 'application/json',
-        'X-Goog-FieldMask':
-        'places.displayName,places.formattedAddress,places.location'
+        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location'
       },
       body: requestBody,
     );
@@ -131,6 +126,7 @@ class SearchService {
     return [];
   }
 
+  /// 지오코딩을 이용한 검색
   Future<Marker?> geocodeSearch(String query) async {
     try {
       final locations = await geocoding.locationFromAddress(query);
@@ -146,5 +142,3 @@ class SearchService {
     return null;
   }
 }
-
-

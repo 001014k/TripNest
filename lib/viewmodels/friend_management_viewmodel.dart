@@ -1,112 +1,156 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FriendManagementViewModel extends ChangeNotifier {
-  String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+  final supabase = Supabase.instance.client;
 
+  String get currentUserId => supabase.auth.currentUser?.id ?? '';
 
   // 친구 요청 보내기 함수
-  Future<void> sendFriendRequest(BuildContext context,String email) async {
+  Future<void> sendFriendRequest(BuildContext context, String email) async {
     try {
-      // 이메일로 사용자 문서 찾기
-      var userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: email)
-          .get();
+      // 1. 이메일로 사용자 찾기
+      final userResponse = await supabase
+          .from('users')
+          .select('id, friend_requests')
+          .eq('email', email)
+          .maybeSingle();
 
-      if (userDoc.docs.isNotEmpty) {
-        // 요청받는 사용자 UID 가져오기
-        String toUserId = userDoc.docs.first.id;
-
-        // 현재 사용자 ID가 있는지 확인
-        if (currentUserId.isNotEmpty) {
-          // 수신자의 사용자 문서 가져오기
-          var toUserDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(toUserId)
-              .get();
-
-          // `friend_requests` 필드가 없다면 필드를 생성
-          if (!toUserDoc.exists ||
-              !toUserDoc.data()!.containsKey('friend_requests')) {
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(toUserId)
-                .update({
-              'friend_requests': [],
-            });
-          }
-
-          // 수신자의 `friend_requests` 필드에 현재 사용자 ID 추가
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(toUserId)
-              .update({
-            'friend_requests': FieldValue.arrayUnion([currentUserId]),
-          });
-
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('친구 요청이 전송되었습니다.')));
-        }
-      } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('사용자를 찾을 수 없습니다.')));
+      if (userResponse == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('사용자를 찾을 수 없습니다.')),
+        );
+        return;
       }
+
+      final toUserId = userResponse['id'] as String;
+      List<dynamic> friendRequests = userResponse['friend_requests'] ?? [];
+
+      // 중복 친구 요청 방지
+      if (friendRequests.contains(currentUserId)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('이미 친구 요청을 보냈습니다.')),
+        );
+        return;
+      }
+
+      // 2. friend_requests 배열에 현재 사용자 ID 추가
+      friendRequests.add(currentUserId);
+
+      final updateResponse = await supabase
+          .from('users')
+          .update({'friend_requests': friendRequests})
+          .eq('id', toUserId);
+
+      if (updateResponse.error != null) {
+        throw Exception(updateResponse.error!.message);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('친구 요청이 전송되었습니다.')),
+      );
     } catch (e) {
       print('오류 발생: $e');
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('오류 발생: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류 발생: $e')),
+      );
     }
   }
 
   // 친구 요청 수락 함수
-  Future<void> acceptFriendRequest(BuildContext context,String friendUserId) async {
+  Future<void> acceptFriendRequest(BuildContext context, String friendUserId) async {
     try {
-      // 친구 추가 (현재 사용자와 요청 보낸 사용자 모두 업데이트)
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUserId)
-          .update({
-        'friends': FieldValue.arrayUnion([friendUserId]),
-      });
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(friendUserId)
-          .update({
-        'friends': FieldValue.arrayUnion([currentUserId]),
-      });
+      // 1. 현재 사용자 데이터 조회
+      final currentUserResponse = await supabase
+          .from('users')
+          .select('friends, friend_requests')
+          .eq('id', currentUserId)
+          .maybeSingle();
 
-      // 친구 요청 목록에서 요청 보낸 사용자 제거
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUserId)
-          .update({
-        'friend_requests': FieldValue.arrayRemove([friendUserId]),
-      });
+      // 2. 친구 데이터 조회
+      final friendUserResponse = await supabase
+          .from('users')
+          .select('friends')
+          .eq('id', friendUserId)
+          .maybeSingle();
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('친구 요청을 수락했습니다.')));
+      if (currentUserResponse == null || friendUserResponse == null) {
+        throw Exception('사용자 정보를 불러오지 못했습니다.');
+      }
+
+      List<dynamic> currentUserFriends = currentUserResponse['friends'] ?? [];
+      List<dynamic> currentUserFriendRequests = currentUserResponse['friend_requests'] ?? [];
+      List<dynamic> friendUserFriends = friendUserResponse['friends'] ?? [];
+
+      // 3. 친구 목록에 서로 추가
+      if (!currentUserFriends.contains(friendUserId)) {
+        currentUserFriends.add(friendUserId);
+      }
+      if (!friendUserFriends.contains(currentUserId)) {
+        friendUserFriends.add(currentUserId);
+      }
+
+      // 4. friend_requests에서 친구 요청자 제거
+      currentUserFriendRequests.remove(friendUserId);
+
+      // 5. 업데이트 수행 (트랜잭션이 아니므로 순서대로)
+      await supabase
+          .from('users')
+          .update({
+        'friends': currentUserFriends,
+        'friend_requests': currentUserFriendRequests,
+      })
+          .eq('id', currentUserId);
+
+      await supabase
+          .from('users')
+          .update({'friends': friendUserFriends})
+          .eq('id', friendUserId);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('친구 요청을 수락했습니다.')),
+      );
     } catch (e) {
       print('오류 발생: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류 발생: $e')),
+      );
     }
   }
 
   // 친구 요청 거절 함수
-  Future<void> declineFriendRequest(BuildContext context,String friendUserId) async {
+  Future<void> declineFriendRequest(BuildContext context, String friendUserId) async {
     try {
-      // 친구 요청 목록에서 요청 보낸 사용자 제거
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUserId)
-          .update({
-        'friend_requests': FieldValue.arrayRemove([friendUserId]),
-      });
+      // 현재 사용자 데이터 조회
+      final currentUserResponse = await supabase
+          .from('users')
+          .select('friend_requests')
+          .eq('id', currentUserId)
+          .maybeSingle();
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('친구 요청을 거절했습니다.')));
+      if (currentUserResponse == null) {
+        throw Exception('사용자 정보를 불러오지 못했습니다.');
+      }
+
+      List<dynamic> currentUserFriendRequests = currentUserResponse['friend_requests'] ?? [];
+
+      // 친구 요청 목록에서 제거
+      currentUserFriendRequests.remove(friendUserId);
+
+      // 업데이트 수행
+      await supabase
+          .from('users')
+          .update({'friend_requests': currentUserFriendRequests})
+          .eq('id', currentUserId);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('친구 요청을 거절했습니다.')),
+      );
     } catch (e) {
       print('오류 발생: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류 발생: $e')),
+      );
     }
   }
 
@@ -114,28 +158,34 @@ class FriendManagementViewModel extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> getFriendsList() async {
     List<Map<String, dynamic>> friendsList = [];
 
-    // 현재 사용자 문서 조회
-    var userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(currentUserId)
-        .get();
-    // friends 필드에서 친구 UID 목록 가져오기
-    List<String> friends = List<String>.from(userDoc.data()?['friends'] ?? []);
+    try {
+      final currentUserResponse = await supabase
+          .from('users')
+          .select('friends')
+          .eq('id', currentUserId)
+          .maybeSingle();
 
-    // 각 친구 UID에 대해 친구 문서 조회
-    for (String friendId in friends) {
-      var friendDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(friendId)
-          .get();
-      if (friendDoc.exists) {
-        // 친구의 이메일과 UID를 포함한 정보를 추가
-        friendsList.add({
-          'id': friendDoc.id,
-          'email': friendDoc.data()?['email'],
-        });
+      if (currentUserResponse == null) {
+        return friendsList;
       }
+
+      List<dynamic> friendIds = currentUserResponse['friends'] ?? [];
+
+      for (var friendId in friendIds) {
+        final friendResponse = await supabase
+            .from('users')
+            .select('id, email')
+            .eq('id', friendId)
+            .maybeSingle();
+
+        if (friendResponse != null) {
+          friendsList.add(friendResponse);
+        }
+      }
+    } catch (e) {
+      print('오류 발생: $e');
     }
-    return friendsList; // 친구 목록 반환
+
+    return friendsList;
   }
 }

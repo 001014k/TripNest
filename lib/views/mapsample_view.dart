@@ -1,9 +1,8 @@
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
 import '../views/markerdetail_view.dart';
 import '../views/profile_view.dart';
@@ -271,8 +270,7 @@ class _MapSampleViewState extends State<MapSampleView> {
   }
 
   void showUserLists(BuildContext context) async {
-    List<QueryDocumentSnapshot> userLists =
-    await context.read<MapSampleViewModel>().getUserLists();
+    List<Map<String, dynamic>> userLists = await context.read<MapSampleViewModel>().getUserLists();
 
     if (userLists.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -298,7 +296,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 itemCount: userLists.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final list = userLists[index].data() as Map<String, dynamic>;
+                  final list = userLists[index];
                   final listName = list['name'] ?? '이름 없음';
 
                   return Card(
@@ -310,7 +308,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
                         Navigator.pop(context);
-                        showMarkersForSelectedList(context, userLists[index].id);
+                        showMarkersForSelectedList(context, userLists[index]['id']);
                       },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -552,7 +550,7 @@ class _MapSampleViewState extends State<MapSampleView> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     final List<String> keywords = context.read<MapSampleViewModel>().keywordIcons.keys.toList();
     final searchResults = context.watch<MapSampleViewModel>().searchResults;
 
@@ -613,9 +611,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                           );
                         },
                       );
-
                       if (confirm == true) {
-                        await FirebaseAuth.instance.signOut();
+                        await Supabase.instance.client.auth.signOut();
                         Navigator.of(context).pop(); // Drawer 닫기
                         Navigator.of(context)
                             .pushReplacementNamed('/login'); // 로그인 화면으로 이동
@@ -656,11 +653,11 @@ class _MapSampleViewState extends State<MapSampleView> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () async {
-                final user = FirebaseAuth.instance.currentUser;
+                final user = Supabase.instance.client.auth.currentUser;
 
                 if (user != null) {
                   // 로그인한 사용자가 있는 경우
-                  String userId = user.uid;
+                  String userId = user.id;
 
                   Navigator.push(
                     context,
