@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import '../viewmodels/login_viewmodel.dart';
+
 
 class LoginOptionView extends StatefulWidget {
   const LoginOptionView({super.key});
@@ -11,28 +14,38 @@ class LoginOptionView extends StatefulWidget {
 }
 
 class _LoginOptionViewState extends State<LoginOptionView> {
+  late final StreamSubscription<supa.AuthState> _authSubscription;
   @override
   void initState() {
     super.initState();
 
-    // 1. 기존 로그인 세션이 있는 경우 → 바로 홈으로 이동
     final session = supa.Supabase.instance.client.auth.currentSession;
     if (session != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/home');
+        if (!mounted) return;
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
       });
     }
 
-    // 2. 이후 로그인 시도 성공 시 리디렉션
-    supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authSubscription = supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final event = data.event;
       final session = data.session;
 
       if (event == supa.AuthChangeEvent.signedIn && session != null) {
         debugPrint('✅ 구글 로그인 성공! 홈으로 이동');
-        Navigator.pushReplacementNamed(context, '/home');
+        if (!mounted) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.pushReplacementNamed(context, '/home');
+        });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
   }
 
 
@@ -57,67 +70,61 @@ class _LoginOptionViewState extends State<LoginOptionView> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Google 로그인 이미지 버튼
-                    GestureDetector(
-                      onTap: () async {
-                        try {
-                          await viewModel.signInWithGoogle();
-
-                          // 콜백에서 자동 로그인 되면 onAuthStateChange에서 감지됨
-                          supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-                            final event = data.event;
-                            final session = data.session;
-
-                            if (event == supa.AuthChangeEvent.signedIn && session != null) {
-                              debugPrint('✅ 구글 로그인 성공 - 홈으로 이동');
-                              Navigator.pushReplacementNamed(context, '/home');
-                            } else {
-                              debugPrint('❌ 로그인 실패 또는 취소');
-                            }
-                          });
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Google 로그인 실패: $e')),
-                          );
-                        }
-                      },
-                      child: Image.asset(
-                        'assets/google_signin_button.png',
-                        width: 260,
+                    // Google 로그인 버튼
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () async {
+                          try {
+                            await viewModel.signInWithGoogle();
+                            // onAuthStateChange 리스너는 initState에 이미 있음
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Google 로그인 실패: $e')),
+                            );
+                          }
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset('assets/google_signin_button.png', height: 24),
+                            const SizedBox(width: 12),
+                            const Text('Google 로그인'),
+                          ],
+                        ),
                       ),
                     ),
 
                     const SizedBox(height: 16),
 
-                    // Kakao 로그인 이미지 버튼
-                    GestureDetector(
-                      onTap: () async {
-                        try {
+                    // Kakao 로그인 버튼
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFE812), // 카카오톡 노랑
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () async {
                           await viewModel.signInWithKakao();
-
-                          // 콜백에서 자동 로그인 되면 onAuthStateChange에서 감지됨
-                          supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-                            final event = data.event;
-                            final session = data.session;
-
-                            if (event == supa.AuthChangeEvent.signedIn && session != null) {
-                              debugPrint('✅ 카카오 로그인 성공 - 홈으로 이동');
-                              Navigator.pushReplacementNamed(context, '/home');
-                            } else {
-                              debugPrint('❌ 카카오 로그인 실패 또는 취소');
-                            }
-                          });
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Kakao 로그인 실패: $e')),
-                          );
-                        }
-                      },
-                      child: Image.asset(
-                        'assets/kakao_icon.png',
-                        width: 260,
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset('assets/kakao_icon.png', height: 24),
+                            const SizedBox(width: 12),
+                            const Text('Kakao 로그인'),
+                          ],
+                        ),
                       ),
                     ),
+
 
                     const SizedBox(height: 16),
 
