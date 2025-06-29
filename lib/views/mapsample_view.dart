@@ -138,64 +138,78 @@ class _MapSampleViewState extends State<MapSampleView> {
 
 //구글 마커 생성 클릭 이벤트
   void _onMapTapped(BuildContext context, LatLng latLng) async {
-    // 확인 대화상자 표시
     final bool? shouldAddMarker = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+          actionsPadding: const EdgeInsets.only(bottom: 12, right: 12, left: 12),
+
           title: Row(
-            children: [
+            children: const [
               Icon(
-                Icons.location_on,
-                color: Colors.red,
+                Icons.add_location_alt_outlined,
+                color: Colors.black87,
               ),
-              SizedBox(width: 8),
+              SizedBox(width: 10),
               Text(
-                '마커 생성',
+                '마커 추가',
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
                 ),
-              )
+              ),
             ],
           ),
-          content: Text('마커를 생성하시겠습니까?'),
-          actions: <Widget>[
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-              ),
-              child: Text(
-                '예',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop(true); // "예" 선택 시 true 반환
-              },
+
+          content: const Text(
+            '이 위치에 마커를 추가할까요?',
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.black87,
             ),
+          ),
+
+          actions: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
+                backgroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
-              child: Text(
-                '아니오',
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text(
+                '마커 추가',
                 style: TextStyle(
-                  color: Colors.black,
+                  color: Colors.white,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              onPressed: () {
-                Navigator.of(context).pop(false); // "아니오" 선택 시 false 반환
-              },
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text(
+                '취소',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.black54,
+                ),
+              ),
             ),
           ],
         );
       },
     );
 
-    // 사용자가 "예"를 선택한 경우에만 마커 생성 창으로 이동
     if (shouldAddMarker == true) {
       setState(() {
         _pendingLatLng = latLng;
@@ -588,8 +602,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                             content: Text('로그아웃하시겠습니까?'),
                             actions: [
                               ElevatedButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(true),
+                                onPressed: () => Navigator.of(context).pop(true),
                                 child: Text(
                                   '예',
                                   style: TextStyle(
@@ -615,7 +628,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                         await Supabase.instance.client.auth.signOut();
                         Navigator.of(context).pop(); // Drawer 닫기
                         Navigator.of(context)
-                            .pushReplacementNamed('/login'); // 로그인 화면으로 이동
+                            .pushReplacementNamed('/login_option'); // 로그인 화면으로 이동
                       }
                     },
                   ),

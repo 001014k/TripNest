@@ -70,7 +70,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
       img.Image? image = img.decodeImage(bytes);
 
       if (image != null) {
-        image = img.copyRotate(image, 90);
+        image = img.copyRotate(image, angle: 90);
         final width = 800;
         final height = (width * image.height) ~/ image.width;
         image = img.copyResize(image, width: width, height: height);
