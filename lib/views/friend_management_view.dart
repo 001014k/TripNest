@@ -1,6 +1,5 @@
 import '../viewmodels/friend_management_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FriendManagementView extends StatefulWidget {
   const FriendManagementView({Key? key}) : super(key: key);
