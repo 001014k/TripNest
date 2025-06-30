@@ -17,10 +17,10 @@ import 'viewmodels/profile_viewmodel.dart';
 import 'viewmodels/signup_viewmodel.dart';
 import 'viewmodels/splash_viewmodel.dart';
 import 'viewmodels/add_markers_to_list_viewmodel.dart';
+import 'viewmodels/nicknamesetup_viewmodel.dart';
 
 // Service imports...
 import 'services/marker_service.dart';
-import 'services/user_service.dart';
 import 'services/supabase_manager.dart';
 
 // View imports...
@@ -35,6 +35,7 @@ import 'views/splash_screen_view.dart';
 import 'views/user_list_view.dart';
 import 'views/dashboard_view.dart';
 import 'views/login_option_view.dart';
+import 'views/nicknamesetup_view.dart';
 
 /// ✅ 전역 Navigator Key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -43,6 +44,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await SupabaseManager.initialize();
+    await Supabase.instance.client.auth.getSessionFromUrl(Uri.base);
     await MarkerService().syncOfflineMarkers();
   } catch (e) {
     print('Error during initialization: $e');
@@ -125,6 +127,7 @@ class _MyAppState extends State<MyApp> {
         '/page_view': (context) => BookmarklisttabView(),
         '/bookmark': (context) => BookmarkView(),
         '/user_list': (context) => UserListView(),
+        '/nickname_setup': (context) => NicknameSetupPage(),
       },
     );
   }

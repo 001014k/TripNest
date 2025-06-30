@@ -3,6 +3,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../models/user_model.dart';
+import '../models/userprofile_model.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -41,6 +43,102 @@ class UserService {
         .eq('user_id', user.id);
 
     return List<Map<String, dynamic>>.from(response);
+  }
+
+  /// 닉네임 설정 여부 확인
+  Future<bool> hasNickname(String userId) async {
+    final response = await supabase
+        .from('profiles')
+        .select('nickname')
+        .eq('id', userId)
+        .maybeSingle();
+
+    final nickname = response != null ? response['nickname'] : null;
+    return nickname != null && nickname.toString().trim().isNotEmpty;
+  }
+
+  /// 닉네임으로 사용자 검색
+  Future<List<UserModel>> searchUsersByNickname(String nickname) async {
+    final response = await supabase
+        .from('profiles')
+        .select()
+        .ilike('nickname', '%$nickname%');
+
+    return (response as List).map((item) => UserModel.fromMap(item)).toList();
+  }
+
+  /// 팔로우하기
+  Future<void> followUser(String followerId, String followingId) async {
+    try {
+      await supabase.from('follows').insert({
+        'follower_id': followerId,
+        'following_id': followingId,
+      });
+    } catch (e) {
+      // 이미 팔로우 중이거나 기타 오류 처리
+      rethrow;
+    }
+  }
+
+  /// 내가 팔로우 중인 사용자 ID 리스트
+  Future<Set<String>> getFollowingIds(String userId) async {
+    final response = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId);
+
+    return (response as List)
+        .map<String>((item) => item['following_id'] as String)
+        .toSet();
+  }
+
+  Future<UserProfile> getProfileById(String userId) async {
+    final response = await supabase
+        .from('profiles')
+        .select()
+        .eq('id', userId)
+        .single();
+    return UserProfile.fromMap(response);
+  }
+
+  /// 닉네임 중복 여부 체크
+  Future<bool> isNicknameAvailable(String nickname) async {
+    final response = await supabase
+        .from('profiles')
+        .select('nickname')
+        .eq('nickname', nickname.trim())  // trim() 추가 권장
+        .limit(1);
+
+    // debug print 추가
+    print('닉네임 중복 검사 결과: $response');
+
+    return (response as List).isEmpty;  // 결과가 비어있으면 사용 가능(true)
+  }
+
+
+  /// 닉네임 업데이트
+  Future<void> updateNickname(String userId, String nickname) async {
+    final existing = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (existing == null) {
+      // insert
+      await supabase.from('profiles').insert({
+        'id': userId,
+        'email': supabase.auth.currentUser?.email,
+        'created_at': DateTime.now().toIso8601String(),
+        'nickname': nickname.trim(),
+      });
+    } else {
+      // update
+      await supabase
+          .from('profiles')
+          .update({'nickname': nickname.trim()})
+          .eq('id', userId);
+    }
   }
 }
 

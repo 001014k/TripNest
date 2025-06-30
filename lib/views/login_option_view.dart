@@ -1,10 +1,9 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import '../viewmodels/login_viewmodel.dart';
-
+import '../services/user_service.dart';
 
 class LoginOptionView extends StatefulWidget {
   const LoginOptionView({super.key});
@@ -15,31 +14,38 @@ class LoginOptionView extends StatefulWidget {
 
 class _LoginOptionViewState extends State<LoginOptionView> {
   late final StreamSubscription<supa.AuthState> _authSubscription;
+
   @override
   void initState() {
     super.initState();
 
-    final session = supa.Supabase.instance.client.auth.currentSession;
-    if (session != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-      });
-    }
-
-    _authSubscription = supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    // (선택 사항) auth 상태 변화 리스너 유지 (필요 없으면 삭제 가능)
+    _authSubscription = supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final event = data.event;
       final session = data.session;
 
       if (event == supa.AuthChangeEvent.signedIn && session != null) {
-        debugPrint('✅ 구글 로그인 성공! 홈으로 이동');
-        if (!mounted) return;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
+        final userId = session.user?.id;
+
+        if (!mounted || userId == null) return;
+
+        final hasNickname = await _hasNickname(userId);
+        if (hasNickname) {
           Navigator.pushReplacementNamed(context, '/home');
-        });
+        } else {
+          Navigator.pushReplacementNamed(context, '/nickname_setup');
+        }
       }
     });
+  }
+
+  Future<bool> _hasNickname(String userId) async {
+    try {
+      return await UserService().hasNickname(userId);
+    } catch (e) {
+      debugPrint('닉네임 확인 중 오류: $e');
+      return false;
+    }
   }
 
   @override
@@ -47,7 +53,6 @@ class _LoginOptionViewState extends State<LoginOptionView> {
     _authSubscription.cancel();
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +87,22 @@ class _LoginOptionViewState extends State<LoginOptionView> {
                         onPressed: () async {
                           try {
                             await viewModel.signInWithGoogle();
-                            // onAuthStateChange 리스너는 initState에 이미 있음
+
+                            final userId = supa.Supabase.instance.client.auth.currentUser?.id;
+                            if (userId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('로그인에 실패했습니다.')),
+                              );
+                              return;
+                            }
+
+                            final hasNickname = await _hasNickname(userId);
+
+                            if (hasNickname) {
+                              Navigator.pushReplacementNamed(context, '/home');
+                            } else {
+                              Navigator.pushReplacementNamed(context, '/nickname_setup');
+                            }
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Google 로그인 실패: $e')),
@@ -107,12 +127,34 @@ class _LoginOptionViewState extends State<LoginOptionView> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFE812), // 카카오톡 노랑
+                          backgroundColor: const Color(0xFFFFE812),
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         onPressed: () async {
-                          await viewModel.signInWithKakao();
+                          try {
+                            await viewModel.signInWithKakao();
+
+                            final userId = supa.Supabase.instance.client.auth.currentUser?.id;
+                            if (userId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('로그인에 실패했습니다.')),
+                              );
+                              return;
+                            }
+
+                            final hasNickname = await _hasNickname(userId);
+
+                            if (hasNickname) {
+                              Navigator.pushReplacementNamed(context, '/home');
+                            } else {
+                              Navigator.pushReplacementNamed(context, '/nickname_setup');
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Kakao 로그인 실패: $e')),
+                            );
+                          }
                         },
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -125,10 +167,9 @@ class _LoginOptionViewState extends State<LoginOptionView> {
                       ),
                     ),
 
-
                     const SizedBox(height: 16),
 
-                    // 이메일 로그인으로 이동 버튼
+                    // 이메일 로그인 버튼
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -137,10 +178,10 @@ class _LoginOptionViewState extends State<LoginOptionView> {
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        child: const Text('이메일로 로그인'),
                         onPressed: () {
                           Navigator.pushNamed(context, '/login');
                         },
+                        child: const Text('이메일로 로그인'),
                       ),
                     ),
                   ],
