@@ -33,7 +33,6 @@ class ProfileViewModel extends ChangeNotifier {
 
     try {
       _stats = await _userService.getUserStats(userId);
-      _followingIds = await _userService.getFollowingIds(userId);
 
       // 닉네임도 같이 가져오기
       final profile = await _userService.getProfileById(userId);
@@ -67,17 +66,5 @@ class ProfileViewModel extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
-  }
-
-  // 팔로우 하기
-  Future<void> followUser(String followerId, String followingId) async {
-    try {
-      await _userService.followUser(followerId, followingId);
-      _followingIds.add(followingId);
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = "팔로우 실패: 이미 팔로우했거나 오류 발생";
-      notifyListeners();
-    }
   }
 }

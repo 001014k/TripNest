@@ -111,14 +111,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           return ListTile(
                             title: Text(user.nickname ?? '닉네임 없음'),
                             subtitle: Text(user.email ?? ''),
-                            trailing: ElevatedButton(
-                              onPressed: isFollowing
-                                  ? null
-                                  : () {
-                                viewModel.followUser(widget.userId, user.id);
-                              },
-                              child: Text(isFollowing ? '팔로잉' : '팔로우'),
-                            ),
                           );
                         },
                       )
