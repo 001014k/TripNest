@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uni_links/uni_links.dart';
+import 'package:app_links/app_links.dart';
 import 'dart:async';
 
 // ViewModel imports...
@@ -75,22 +75,21 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri?>? _sub;
 
   @override
   void initState() {
     super.initState();
 
-    // ✅ 딥링크 수신 처리
-    _sub = uriLinkStream.listen((Uri? uri) async {
+    // 딥링크 수신 처리
+    _sub = _appLinks.uriLinkStream.listen((Uri? uri) async {
       if (uri != null) {
         try {
           debugPrint("✅ 딥링크 URI 수신됨: $uri");
-          final response = await Supabase.instance.client.auth
-              .getSessionFromUrl(uri);
+          final response = await Supabase.instance.client.auth.getSessionFromUrl(uri);
           if (response.session != null) {
-            navigatorKey.currentState?.pushNamedAndRemoveUntil(
-                '/home', (route) => false);
+            navigatorKey.currentState?.pushNamedAndRemoveUntil('/home', (route) => false);
           } else {
             debugPrint('❌ 세션 파싱 실패 (session == null)');
           }
@@ -101,7 +100,8 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-    @override
+
+  @override
   void dispose() {
     _sub?.cancel();
     super.dispose();

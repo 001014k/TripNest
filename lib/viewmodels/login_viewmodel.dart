@@ -111,5 +111,4 @@ class LoginViewModel extends ChangeNotifier {
       rethrow;
     }
   }
-
 }
