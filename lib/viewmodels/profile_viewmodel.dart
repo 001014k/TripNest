@@ -17,15 +17,15 @@ class ProfileViewModel extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  // 닉네임 검색 결과
+  String? _nickname;       // 닉네임 필드 추가
+  String? get nickname => _nickname;
+
   List<UserModel> _searchResults = [];
   List<UserModel> get searchResults => _searchResults;
 
-  // 팔로우 중인 사용자 ID 리스트 (팔로우 상태 확인용)
   Set<String> _followingIds = {};
   Set<String> get followingIds => _followingIds;
 
-  /// 사용자 통계 불러오기
   Future<void> fetchUserStats(String userId) async {
     _isLoading = true;
     _errorMessage = null;
@@ -33,8 +33,11 @@ class ProfileViewModel extends ChangeNotifier {
 
     try {
       _stats = await _userService.getUserStats(userId);
-      // 팔로우 중인 사용자 ID 리스트도 같이 가져오기
       _followingIds = await _userService.getFollowingIds(userId);
+
+      // 닉네임도 같이 가져오기
+      final profile = await _userService.getProfileById(userId);
+      _nickname = profile.nickname;
     } catch (e) {
       _errorMessage = "사용자 데이터를 불러오는 중 오류 발생";
     }

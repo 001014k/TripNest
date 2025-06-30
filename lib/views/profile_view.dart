@@ -46,6 +46,19 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 닉네임 출력
+                    if (viewModel.nickname != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 24.0),
+                        child: Text(
+                          '닉네임: ${viewModel.nickname}',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueGrey[800],
+                          ),
+                        ),
+                      ),
                     // 기존 통계 표시 UI
                     Text(
                       '사용자 통계',
