@@ -7,13 +7,13 @@ class FriendManagementViewModel extends ChangeNotifier {
   String get currentUserId => supabase.auth.currentUser?.id ?? '';
 
   // 친구 요청 보내기 함수
-  Future<void> sendFriendRequest(BuildContext context, String email) async {
+  Future<void> sendFriendRequest(BuildContext context, String nickname) async {
     try {
-      // 1. 이메일로 사용자 찾기
+      // 1. 닉네임으로 사용자 찾기
       final userResponse = await supabase
           .from('users')
           .select('id, friend_requests')
-          .eq('email', email)
+          .eq('nickname', nickname)
           .maybeSingle();
 
       if (userResponse == null) {

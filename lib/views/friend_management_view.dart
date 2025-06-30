@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import '../viewmodels/friend_management_viewmodel.dart';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FriendManagementView extends StatefulWidget {
@@ -11,9 +11,8 @@ class FriendManagementView extends StatefulWidget {
 
 class _FriendManagementViewState extends State<FriendManagementView> {
   final FriendManagementViewModel _viewModel = FriendManagementViewModel();
-  final TextEditingController emailController = TextEditingController();
+  final TextEditingController nicknameController = TextEditingController();
 
-  // 상태 관리용 친구 요청 리스트, 친구 리스트를 Future로 관리
   late Future<List<Map<String, dynamic>>> _receivedRequestsFuture;
   late Future<List<Map<String, dynamic>>> _friendsListFuture;
 
@@ -30,7 +29,7 @@ class _FriendManagementViewState extends State<FriendManagementView> {
     });
   }
 
-  // 현재 유저의 friend_requests 배열에서 ID 목록을 가져와서 이메일로 변환
+  // 받은 친구 요청 사용자 ID 목록에서 닉네임으로 변환하여 리스트 반환
   Future<List<Map<String, dynamic>>> _fetchReceivedFriendRequests() async {
     final supabase = Supabase.instance.client;
     final currentUserId = supabase.auth.currentUser!.id;
@@ -50,7 +49,7 @@ class _FriendManagementViewState extends State<FriendManagementView> {
     for (String userId in requestUserIds) {
       final user = await supabase
           .from('users')
-          .select('id, email')
+          .select('id, nickname')
           .eq('id', userId)
           .maybeSingle();
 
@@ -69,31 +68,31 @@ class _FriendManagementViewState extends State<FriendManagementView> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-// 친구 이메일 입력 및 요청 보내기
+            // 친구 닉네임 입력 및 요청 보내기
             TextField(
-              controller: emailController,
-              decoration: InputDecoration(labelText: "친구 이메일 입력"),
+              controller: nicknameController,
+              decoration: InputDecoration(labelText: "친구 닉네임 입력"),
             ),
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
-                String email = emailController.text.trim();
-                if (email.isNotEmpty) {
-                  await _viewModel.sendFriendRequest(context, email);
-                  emailController.clear();
-                  _refreshData(); // 요청 보낸 후 리스트 갱신
+                String nickname = nicknameController.text.trim();
+                if (nickname.isNotEmpty) {
+                  await _viewModel.sendFriendRequest(context, nickname);
+                  nicknameController.clear();
+                  _refreshData();
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('이메일을 입력하세요.')));
+                      SnackBar(content: Text('닉네임을 입력하세요.')));
                 }
               },
               child: Text("친구 요청 보내기"),
             ),
             SizedBox(height: 20),
             Divider(),
-            Text("받은 친구 요청", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-
-// 받은 친구 요청 리스트
+            Text("받은 친구 요청",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            // 받은 친구 요청 리스트
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
                 future: _receivedRequestsFuture,
@@ -113,21 +112,23 @@ class _FriendManagementViewState extends State<FriendManagementView> {
                     itemBuilder: (context, index) {
                       final request = requests[index];
                       return ListTile(
-                        title: Text(request['email']),
+                        title: Text(request['nickname'] ?? '알 수 없는 사용자'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: Icon(Icons.check),
                               onPressed: () async {
-                                await _viewModel.acceptFriendRequest(context, request['id']);
+                                await _viewModel.acceptFriendRequest(
+                                    context, request['id']);
                                 _refreshData();
                               },
                             ),
                             IconButton(
                               icon: Icon(Icons.clear),
                               onPressed: () async {
-                                await _viewModel.declineFriendRequest(context, request['id']);
+                                await _viewModel.declineFriendRequest(
+                                    context, request['id']);
                                 _refreshData();
                               },
                             ),
@@ -140,9 +141,9 @@ class _FriendManagementViewState extends State<FriendManagementView> {
               ),
             ),
             Divider(),
-            Text("친구 목록", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-
-// 친구 목록 리스트
+            Text("친구 목록",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            // 친구 목록 리스트
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
                 future: _friendsListFuture,
@@ -161,7 +162,8 @@ class _FriendManagementViewState extends State<FriendManagementView> {
                     itemCount: friends.length,
                     itemBuilder: (context, index) {
                       final friend = friends[index];
-                      return ListTile(title: Text(friend['email']));
+                      return ListTile(
+                          title: Text(friend['nickname'] ?? '알 수 없는 친구'));
                     },
                   );
                 },
