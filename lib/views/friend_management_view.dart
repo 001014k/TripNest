@@ -24,40 +24,10 @@ class _FriendManagementViewState extends State<FriendManagementView> {
 
   void _refreshData() {
     setState(() {
-      _receivedRequestsFuture = _fetchReceivedFriendRequests();
+      // ViewModel 함수 호출로 변경!
+      _receivedRequestsFuture = _viewModel.getReceivedFriendRequests();
       _friendsListFuture = _viewModel.getFriendsList();
     });
-  }
-
-  // 받은 친구 요청 사용자 ID 목록에서 닉네임으로 변환하여 리스트 반환
-  Future<List<Map<String, dynamic>>> _fetchReceivedFriendRequests() async {
-    final supabase = Supabase.instance.client;
-    final currentUserId = supabase.auth.currentUser!.id;
-
-    final userData = await supabase
-        .from('users')
-        .select('friend_requests')
-        .eq('id', currentUserId)
-        .maybeSingle();
-
-    if (userData == null) return [];
-
-    List<dynamic> requestUserIds = userData['friend_requests'] ?? [];
-
-    List<Map<String, dynamic>> requestUsers = [];
-
-    for (String userId in requestUserIds) {
-      final user = await supabase
-          .from('users')
-          .select('id, nickname')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (user != null) {
-        requestUsers.add(user);
-      }
-    }
-    return requestUsers;
   }
 
   @override
@@ -112,23 +82,21 @@ class _FriendManagementViewState extends State<FriendManagementView> {
                     itemBuilder: (context, index) {
                       final request = requests[index];
                       return ListTile(
-                        title: Text(request['nickname'] ?? '알 수 없는 사용자'),
+                        title: Text(request['requester']['nickname'] ?? '알 수 없는 사용자'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: Icon(Icons.check),
                               onPressed: () async {
-                                await _viewModel.acceptFriendRequest(
-                                    context, request['id']);
+                                await _viewModel.acceptFriendRequest(context, request['requester_id']);
                                 _refreshData();
                               },
                             ),
                             IconButton(
                               icon: Icon(Icons.clear),
                               onPressed: () async {
-                                await _viewModel.declineFriendRequest(
-                                    context, request['id']);
+                                await _viewModel.declineFriendRequest(context, request['requester_id']);
                                 _refreshData();
                               },
                             ),
