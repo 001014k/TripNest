@@ -10,7 +10,7 @@ class SplashScreenView extends StatelessWidget {
       create: (context) => SplashViewModel()..startSplash(() {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => LoginOptionView()),
+          MaterialPageRoute(builder: (context) => CombinedLoginView()),
         );
       }),
       child: Scaffold(
