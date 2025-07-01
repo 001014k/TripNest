@@ -9,7 +9,6 @@ class FriendManagementViewModel extends ChangeNotifier {
   // 친구 요청 보내기
   Future<void> sendFriendRequest(BuildContext context, String nickname) async {
     try {
-      // 1. 닉네임으로 사용자 찾기
       final userRes = await supabase
           .from('profiles')
           .select('id')
@@ -24,7 +23,6 @@ class FriendManagementViewModel extends ChangeNotifier {
       }
       final toUserId = userRes['id'] as String;
 
-      // 2. 이미 친구 요청 또는 친구인지 확인
       final existingReq = await supabase
           .from('friend_requests')
           .select()
@@ -50,16 +48,12 @@ class FriendManagementViewModel extends ChangeNotifier {
         return;
       }
 
-      // 3. 친구 요청 생성
-      final insertRes = await supabase.from('friend_requests').insert({
+      // insert는 List<dynamic> 반환이므로 에러처리는 try/catch로!
+      await supabase.from('friend_requests').insert({
         'requester_id': currentUserId,
         'requested_id': toUserId,
         'status': 'pending',
       });
-
-      if (insertRes.error != null) {
-        throw Exception(insertRes.error!.message);
-      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('친구 요청이 전송되었습니다.')),
@@ -79,14 +73,12 @@ class FriendManagementViewModel extends ChangeNotifier {
     try {
       final res = await supabase
           .from('friend_requests')
-          .select('requester_id, status, requester:profiles(id, nickname)')
+          .select('requester_id, status, requester:profiles!friend_requests_requester_id_fkey(id, nickname)')
           .eq('requested_id', currentUserId)
           .eq('status', 'pending');
 
-      // res는 List<dynamic> 타입으로 반환됨
       return List<Map<String, dynamic>>.from(res);
     } catch (e) {
-      // 에러가 발생하면 예외로 처리하거나 빈 리스트 반환
       print('오류 발생: $e');
       return [];
     }
@@ -97,16 +89,12 @@ class FriendManagementViewModel extends ChangeNotifier {
     final currentUserId = this.currentUserId;
 
     try {
-      // 1. friend_requests 상태 변경
-      final updateReq = await supabase
+      await supabase
           .from('friend_requests')
           .update({'status': 'accepted'})
           .eq('requester_id', requesterId)
           .eq('requested_id', currentUserId);
 
-      if (updateReq.error != null) throw Exception(updateReq.error!.message);
-
-      // 2. friends 테이블에 친구 추가 (중복 체크 포함)
       final existingFriend = await supabase
           .from('friends')
           .select()
@@ -114,12 +102,10 @@ class FriendManagementViewModel extends ChangeNotifier {
           .maybeSingle();
 
       if (existingFriend == null) {
-        final insertFriend = await supabase.from('friends').insert({
+        await supabase.from('friends').insert({
           'user1_id': currentUserId,
           'user2_id': requesterId,
         });
-
-        if (insertFriend.error != null) throw Exception(insertFriend.error!.message);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -138,13 +124,11 @@ class FriendManagementViewModel extends ChangeNotifier {
     final currentUserId = this.currentUserId;
 
     try {
-      final updateReq = await supabase
+      await supabase
           .from('friend_requests')
           .update({'status': 'declined'})
           .eq('requester_id', requesterId)
           .eq('requested_id', currentUserId);
-
-      if (updateReq.error != null) throw Exception(updateReq.error!.message);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('친구 요청을 거절했습니다.')),

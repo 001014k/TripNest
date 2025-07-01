@@ -23,7 +23,6 @@ class _FriendManagementViewState extends State<FriendManagementView> {
 
   void _refreshData() {
     setState(() {
-      // ViewModel 함수 호출로 변경!
       _receivedRequestsFuture = _viewModel.getReceivedFriendRequests();
       _friendsListFuture = _viewModel.getFriendsList();
     });
