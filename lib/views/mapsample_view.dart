@@ -3,12 +3,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+import '../services/user_service.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
+import '../viewmodels/nickname_dialog_viewmodel.dart';
 import '../views/markerdetail_view.dart';
 import '../views/profile_view.dart';
 import '../views/friend_management_view.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
 import '../views/BookmarkListTab_view.dart';
+import 'nickname_dialog_view.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -38,9 +41,26 @@ class _MapSampleViewState extends State<MapSampleView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final viewModel = context.read<MapSampleViewModel>();
       viewModel.loadMarkers(); // 첫 로딩 시점에서 호출
+
+      // ✅ 닉네임 확인 및 다이얼로그 표시
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final userService = UserService();
+        final hasNickname = await userService.hasNickname(user.id);
+        if (!hasNickname) {
+          showDialog(
+            context: context,
+            barrierDismissible: false, // 닫기 방지
+            builder: (_) => ChangeNotifierProvider(
+              create: (_) => NicknameDialogViewModel(userId: user.id),
+              child: NicknameDialogView(),
+            ),
+          );
+        }
+      }
 
       viewModel.onMarkerTappedCallback = (marker) {
         String keyword = viewModel.getKeywordByMarkerId(marker.markerId.value) ?? '';

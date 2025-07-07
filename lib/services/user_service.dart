@@ -43,15 +43,27 @@ class UserService {
 
   /// 닉네임 설정 여부 확인
   Future<bool> hasNickname(String userId) async {
-    final response = await supabase
-        .from('profiles')
-        .select('nickname')
-        .eq('id', userId)
-        .maybeSingle();
+    try {
+      final response = await supabase
+          .from('profiles')
+          .select('nickname')
+          .eq('id', userId)
+          .maybeSingle();
 
-    final nickname = response != null ? response['nickname'] : null;
-    return nickname != null && nickname.toString().trim().isNotEmpty;
+      if (response == null) return false; // 아예 프로필이 없으면 false
+
+      final nickname = response['nickname'];
+      if (nickname == null) return false;
+
+      final trimmed = nickname.toString().trim();
+      return trimmed.isNotEmpty;
+    } catch (e) {
+      // 오류 발생 시 false로 처리 (안전하게 닉네임 설정 화면으로 이동)
+      print('닉네임 체크 오류: $e');
+      return false;
+    }
   }
+
 
   /// 닉네임으로 사용자 검색
   Future<List<UserModel>> searchUsersByNickname(String nickname) async {
