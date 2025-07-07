@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:fluttertrip/widgets/menu_item.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import '../viewmodels/mapsample_viewmodel.dart';
 import '../views/BookmarkListTab_view.dart';
 import 'nickname_dialog_view.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
+import 'package:flutter/gestures.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -808,7 +810,10 @@ class _MapSampleViewState extends State<MapSampleView> {
       drawerShadowsBackgroundColor: Colors.black38, // 어두운 그림자 배경
       slideWidth: MediaQuery.of(context).size.width * 0.7,
       menuScreen: _buildMenuScreen(context),
-      mainScreen: _buildMainScreen(context),
+      mainScreen: IgnorePointer(
+        ignoring: false,
+        child: _buildMainScreen(context),
+      ),
     );
   }
 
@@ -823,6 +828,9 @@ class _MapSampleViewState extends State<MapSampleView> {
           Consumer<MapSampleViewModel>(
             builder: (context, viewModel, child) {
               return GoogleMap(
+                gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                  Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                },
                 onMapCreated: (GoogleMapController controller) async {
                   viewModel.controller = controller;
                   setState(() {
