@@ -34,24 +34,9 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
             final userId = session.user?.id;
 
             if (!mounted || userId == null) return;
-
-            final hasNickname = await _hasNickname(userId);
-            if (hasNickname) {
-              Navigator.pushReplacementNamed(context, '/home');
-            } else {
-              Navigator.pushReplacementNamed(context, '/nickname_setup');
-            }
+            Navigator.pushReplacementNamed(context, '/home');
           }
         });
-  }
-
-  Future<bool> _hasNickname(String userId) async {
-    try {
-      return await UserService().hasNickname(userId);
-    } catch (e) {
-      debugPrint('닉네임 확인 중 오류: $e');
-      return false;
-    }
   }
 
   @override
@@ -270,12 +255,7 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
         return;
       }
 
-      final hasNickname = await _hasNickname(userId);
-      if (hasNickname) {
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        Navigator.pushReplacementNamed(context, '/nickname_setup');
-      }
+      Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$failMessage: $e')));
     }
