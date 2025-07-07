@@ -3,89 +3,92 @@ import 'package:provider/provider.dart';
 import '../viewmodels/list_viewmodel.dart';
 import 'marker_info_view.dart';
 
-class ListPage extends StatelessWidget {
+class ListPage extends StatefulWidget {
   const ListPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ListViewModel(),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            '여행 리스트',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-          ),
-          centerTitle: true,
-          backgroundColor: Colors.white,
-          elevation: 0.5,
-          iconTheme: const IconThemeData(color: Colors.black),
-        ),
-        body: Consumer<ListViewModel>(
-          builder: (context, viewModel, child) {
-            if (viewModel.isLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
+  State<ListPage> createState() => _ListPageState();
+}
 
-            if (viewModel.errorMessage != null) {
-              return Center(
-                child: Text(
-                  viewModel.errorMessage!,
-                  style: const TextStyle(color: Colors.red),
+class _ListPageState extends State<ListPage> {
+  @override
+  Widget build(BuildContext context) {
+    // ChangeNotifierProvider 제거!!
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          '여행 리스트',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
+      body: Consumer<ListViewModel>(
+        builder: (context, viewModel, child) {
+          if (viewModel.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (viewModel.errorMessage != null) {
+            return Center(
+              child: Text(
+                viewModel.errorMessage!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: viewModel.lists.length,
+            itemBuilder: (context, index) {
+              final list = viewModel.lists[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: ListTile(
+                  key: ValueKey(list.id),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: const Icon(Icons.list_alt_rounded, color: Colors.black87),
+                  title: Text(
+                    list.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: Colors.black,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '마커 갯수: ${list.markerCount}',
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                  trailing: const Icon(Icons.more_vert, color: Colors.black54),
+                  onTap: () => _showListOptions(context, list.id, viewModel),
                 ),
               );
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: viewModel.lists.length,
-              itemBuilder: (context, index) {
-                final list = viewModel.lists[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: const Icon(Icons.list_alt_rounded, color: Colors.black87),
-                    title: Text(
-                      list.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: Colors.black,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '마커 갯수: ${list.markerCount}',
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                    trailing: const Icon(Icons.more_vert, color: Colors.black54),
-                    onTap: () => _showListOptions(context, list.id, viewModel),
-                  ),
-                );
-              },
-            );
-          },
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _showCreateListDialog(context),
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.add),
-        ),
-        backgroundColor: Colors.grey[100],
+            },
+          );
+        },
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showCreateListDialog(context),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: const Icon(Icons.add),
+      ),
+      backgroundColor: Colors.grey[100],
     );
   }
-
 
   void _showCreateListDialog(BuildContext context) {
     final TextEditingController _listNameController = TextEditingController();
@@ -124,11 +127,11 @@ class ListPage extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final name = _listNameController.text.trim();
                         if (name.isNotEmpty) {
-                          Provider.of<ListViewModel>(context, listen: false).createList(name);
-                          Navigator.of(context).pop();
+                          await Provider.of<ListViewModel>(context, listen: false).createList(name);
+                          Navigator.of(context).pop(); // createList 완료 후에 닫기
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -156,7 +159,6 @@ class ListPage extends StatelessWidget {
       },
     );
   }
-
 
   void _showListOptions(BuildContext context, String listId, ListViewModel viewModel) {
     showModalBottomSheet(

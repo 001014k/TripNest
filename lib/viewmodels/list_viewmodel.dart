@@ -16,7 +16,11 @@ class ListViewModel extends ChangeNotifier {
 
   Future<void> loadLists() async {
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      isLoading = false;
+      notifyListeners(); // 유저 없을 때도 반드시 호출
+      return;
+    }
 
     isLoading = true;
     notifyListeners();
@@ -35,8 +39,6 @@ class ListViewModel extends ChangeNotifier {
       for (var item in data) {
         final listId = item['id'];
 
-        // 마커 개수 구하기
-        // 수정 후 (list_bookmarks 테이블로 변경)
         final bookmarkCountResp = await supabase
             .from('list_bookmarks')
             .select('id')
@@ -44,7 +46,6 @@ class ListViewModel extends ChangeNotifier {
             .count(CountOption.exact);
 
         final markerCount = bookmarkCountResp.count ?? 0;
-
 
         lists.add(ListModel(
           id: listId,
@@ -57,10 +58,10 @@ class ListViewModel extends ChangeNotifier {
       errorMessage = null;
     } catch (e) {
       errorMessage = '리스트 불러오기 실패: $e';
+    } finally {
+      isLoading = false;
+      notifyListeners(); // 반드시 호출되도록 finally에서 처리
     }
-
-    isLoading = false;
-    notifyListeners();
   }
 
   Future<void> createList(String name) async {
@@ -68,24 +69,16 @@ class ListViewModel extends ChangeNotifier {
     if (user == null) return;
 
     try {
-      final response = await supabase.from('lists').insert({
+      await supabase.from('lists').insert({
         'user_id': user.id,
         'name': name,
         'created_at': DateTime.now().toIso8601String(),
-      }).select();
+      });
 
-      final inserted = (response as List).first;
+      await loadLists();
 
-      lists.insert(
-        0,
-        ListModel(
-          id: inserted['id'],
-          name: inserted['name'],
-          createdAt: DateTime.parse(inserted['created_at']),
-          markerCount: 0,
-        ),
-      );
-      notifyListeners();
+      print('리스트 생성 및 로드 완료');
+      notifyListeners(); // 확실히 호출되는지 확인
     } catch (e) {
       print('Error creating list: $e');
       errorMessage = '리스트 생성 중 오류: $e';
@@ -102,7 +95,6 @@ class ListViewModel extends ChangeNotifier {
       await supabase
           .from('list_bookmarks')
           .delete()
-          .eq('user_id', user.id)
           .eq('list_id', listId);
 
       // 이후 lists 삭제
