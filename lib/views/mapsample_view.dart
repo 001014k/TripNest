@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:fluttertrip/widgets/menu_item.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -12,6 +13,7 @@ import '../views/friend_management_view.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
 import '../views/BookmarkListTab_view.dart';
 import 'nickname_dialog_view.dart';
+import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -22,6 +24,14 @@ class MapSampleView extends StatefulWidget {
 }
 
 class _MapSampleViewState extends State<MapSampleView> {
+  int selectedIndex = 0; // 선택된 메뉴 인덱스 상태
+
+  void onItemSelected(int index) {
+    setState(() {
+      selectedIndex = index;
+    });
+  }
+  final ZoomDrawerController zoomDrawerController = ZoomDrawerController();
   late GoogleMapController _controller;
   Set<Marker> _markers = {}; // 현재 화면에 표시되는 마커들
   Set<Marker> _allMarkers = {}; // 전체 마커들
@@ -582,171 +592,232 @@ class _MapSampleViewState extends State<MapSampleView> {
     );
   }
 
+  Widget _buildMenuScreen(BuildContext context) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Material(
+      color: const Color(0xFF242629),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Card with Profile Picture and Email
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Color(0xFF242629), // 다크모드 조건 제거하고 무조건 흰색
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: colorScheme.primary,
+                      backgroundImage: AssetImage('assets/cad.png'),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "kim",
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            user != null
+                                ? user.email ?? 'No email'
+                                : 'Not logged in',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // 메뉴 항목들
+              MenuItem(
+                title: '지도',
+                icon: Icons.map,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                isSelected: selectedIndex == 0,
+                onTap: () {
+                  zoomDrawerController.toggle?.call();
+                  onItemSelected(0);
+                  context.read<MapSampleViewModel>().onItemTapped(0);
+                },
+              ),
+              MenuItem(
+                title: '프로필',
+                icon: Icons.account_circle,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                isSelected: selectedIndex == 1,
+                onTap: () async {
+                  zoomDrawerController.toggle?.call();
+                  onItemSelected(1);
+                  final user = Supabase.instance.client.auth.currentUser;
+                  if (user != null) {
+                    String userId = user.id;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfilePage(userId: userId),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('로그인 후 사용해 주세요.')),
+                    );
+                  }
+                },
+              ),
+              MenuItem(
+                title: '북마크/리스트',
+                icon: Icons.list,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                isSelected: selectedIndex == 2,
+                onTap: () {
+                  zoomDrawerController.toggle?.call();
+                  onItemSelected(2);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BookmarklisttabView(initialIndex: 0),
+                    ),
+                  );
+                },
+              ),
+              MenuItem(
+                title: '친구',
+                icon: Icons.person_add,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                isSelected: selectedIndex == 3,
+                onTap: () {
+                  zoomDrawerController.toggle?.call();
+                  onItemSelected(3);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FriendManagementView(),
+                    ),
+                  );
+                },
+              ),
+
+              const Spacer(),
+
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text('로그아웃',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          content: Text('로그아웃하시겠습니까?'),
+                          actions: [
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: Text('예',
+                                  style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: Text('아니오',
+                                  style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                    if (confirm == true) {
+                      await Supabase.instance.client.auth.signOut();
+                      Navigator.of(context).pop();
+                      Navigator.of(context)
+                          .pushReplacementNamed('/login_option');
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.errorContainer,
+                    foregroundColor: colorScheme.error,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  icon: const Icon(Icons.logout_rounded),
+                  label: Text(
+                    "로그아웃",
+                    style: textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
+
+    return ZoomDrawer(
+      controller: zoomDrawerController,
+      menuBackgroundColor: const Color(0xFF242629), // 어두운 배경
+      shadowLayer1Color: const Color(0xFF47454E),       // 어두운 그림자
+      shadowLayer2Color: const Color(0xFFE6E6E6).withOpacity(0.3), // 어두운 그림자 (반투명)
+      borderRadius: 32.0,
+      showShadow: true,
+      style: DrawerStyle.defaultStyle,
+      angle: -12.0,
+      drawerShadowsBackgroundColor: Colors.black38, // 어두운 그림자 배경
+      slideWidth: MediaQuery.of(context).size.width * 0.7,
+      menuScreen: _buildMenuScreen(context),
+      mainScreen: _buildMainScreen(context),
+    );
+  }
+
+  @override
+  Widget _buildMainScreen(BuildContext context) {
     final List<String> keywords = context.read<MapSampleViewModel>().keywordIcons.keys.toList();
     final searchResults = context.watch<MapSampleViewModel>().searchResults;
 
     return Scaffold(
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            UserAccountsDrawerHeader(
-              currentAccountPicture: CircleAvatar(
-                backgroundColor: Colors.white,
-                backgroundImage: AssetImage('assets/cad.png'),
-              ),
-              accountName: Text('kim'),
-              accountEmail: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      user != null ? user.email ?? 'No email' : 'Not logged in',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.logout, color: Colors.white),
-                    onPressed: () async {
-                      // 로그아웃 확인 다이얼로그 표시
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: Text(
-                              '로그아웃',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            content: Text('로그아웃하시겠습니까?'),
-                            actions: [
-                              ElevatedButton(
-                                onPressed: () => Navigator.of(context).pop(true),
-                                child: Text(
-                                  '예',
-                                  style: TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              ElevatedButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(false),
-                                child: Text(
-                                  '아니오',
-                                  style: TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                      if (confirm == true) {
-                        await Supabase.instance.client.auth.signOut();
-                        Navigator.of(context).pop(); // Drawer 닫기
-                        Navigator.of(context)
-                            .pushReplacementNamed('/login_option'); // 로그인 화면으로 이동
-                      }
-                    },
-                  ),
-                ],
-              ),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(40.0),
-                  bottomRight: Radius.circular(40.0),
-                ),
-              ),
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.map,
-                color: Colors.grey[850],
-              ),
-              title: Text(
-                '지도',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onTap: () {
-                context.read<MapSampleViewModel>().onItemTapped(0); //구글 맵 화면으로 이동
-              },
-            ),
-            Divider(),
-            ListTile(
-              leading: Icon(
-                Icons.account_circle,
-                color: Colors.grey[850],
-              ),
-              title: Text(
-                '프로필',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onTap: () async {
-                final user = Supabase.instance.client.auth.currentUser;
-
-                if (user != null) {
-                  // 로그인한 사용자가 있는 경우
-                  String userId = user.id;
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => ProfilePage(userId: userId)),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('로그인 후 사용해 주세요.')),
-                  );
-                }
-              },
-            ),
-            Divider(),
-            ListTile(
-              leading: Icon(
-                Icons.list,
-                color: Colors.grey[850],
-              ),
-              title: Text(
-                '북마크/리스트',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              // 상태관리 무조건 할것
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => BookmarklisttabView(initialIndex: 0), // 북마크 탭 index
-                  ),
-                );
-              },
-            ),
-            Divider(),
-            ListTile(
-              leading: Icon(
-                Icons.person_add,
-                color: Colors.grey[850],
-              ),
-              title: Text(
-                '친구',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => FriendManagementView(),
-                  ),
-                );
-              },
-            ),
-            Divider(),
-          ],
-        ),
-      ),
       body: Stack(
         children: [
           Consumer<MapSampleViewModel>(
@@ -836,7 +907,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                       children: [
                         GestureDetector(
                           onTap: () {
-                            Scaffold.of(context).openDrawer();
+                            zoomDrawerController.toggle?.call();
                           },
                           child: Icon(Icons.menu, color: Colors.white),
                         ),
@@ -904,7 +975,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
-                              isActive ? Colors.grey : Colors.black,
+                          isActive ? Colors.grey : Colors.black,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(50),
                           ),
@@ -973,7 +1044,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 key: ValueKey('searchResultsBottomSheet_${searchResults.length}'),
                 direction: DismissDirection.down, // 아래로 스와이프 가능
                 onDismissed: (direction) {
-                    // 상태를 즉시 바꿔서 트리에서 제거되도록 유도
+                  // 상태를 즉시 바꿔서 트리에서 제거되도록 유도
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     context.read<MapSampleViewModel>().clearSearchResults();
                   });
