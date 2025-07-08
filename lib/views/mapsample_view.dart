@@ -15,6 +15,7 @@ import '../viewmodels/mapsample_viewmodel.dart';
 import 'nickname_dialog_view.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
+import '../viewmodels/markercreationscreen_viewmodel.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -84,11 +85,15 @@ class _MapSampleViewState extends State<MapSampleView> {
 
       viewModel.onMarkerTappedCallback = (marker) {
         String keyword = viewModel.getKeywordByMarkerId(marker.markerId.value) ?? '';
+        final selectedListId = context.read<MapSampleViewModel>().selectedListId;
+
+
         showModalBottomSheet(
           context: context,
           builder: (_) => MarkerInfoBottomSheet(
             marker: marker,
             keyword: keyword.isNotEmpty ? keyword : '',
+            listId: selectedListId ?? 'default_list_id',
             onSave: (m, value) async {
               // 저장 처리
             },
@@ -292,7 +297,7 @@ class _MapSampleViewState extends State<MapSampleView> {
     );
   }
 
-  void _showMarkerInfoBottomSheet(BuildContext context,Marker marker, Function(Marker) onDelete, String keyword,) {
+  void _showMarkerInfoBottomSheet(BuildContext context,Marker marker, Function(Marker) onDelete, String keyword,String listId,) {
     print('showMarkerInfoBottomSheet called for marker: ${marker.markerId}');  // 디버깅용 로그
 
     showModalBottomSheet(
@@ -307,13 +312,19 @@ class _MapSampleViewState extends State<MapSampleView> {
             padding: EdgeInsets.all(16.0),
             child: MarkerInfoBottomSheet(
               marker: marker,
+              keyword: keyword,
+              listId: listId, // ✅ 전달
               onSave: (updatedMarker, keyword) async {
                 // 키워드에 따른 이미지 경로를 가져옴
                 final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
-                context.read<MarkerCreationScreenViewModel>().saveMarker(updatedMarker, keyword, markerImagePath);
+                context.read<MarkerCreationScreenViewModel>().saveMarker(
+                  marker: updatedMarker,
+                  keyword: keyword,
+                  markerImagePath: markerImagePath,
+                  listId: listId, // ✅ 전달
+                );
               },
               onDelete: onDelete,
-              keyword: keyword,
               onBookmark: (marker) {
                 _bookmarkLocation(context, marker);
               },
@@ -606,6 +617,7 @@ class _MapSampleViewState extends State<MapSampleView> {
   Widget _buildMainScreen(BuildContext context) {
     final List<String> keywords = context.read<MapSampleViewModel>().keywordIcons.keys.toList();
     final searchResults = context.watch<MapSampleViewModel>().searchResults;
+    final selectedListId = context.read<MapSampleViewModel>().selectedListId;
 
     return Scaffold(
       body: Stack(
@@ -937,6 +949,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                                     // 마커 삭제 로직 추가 가능
                                   },
                                   keyword ?? '',
+                                  selectedListId ?? '',
                                 );
                               },
                             );
@@ -963,6 +976,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
   final Function(Marker) onBookmark;
   final String keyword;
   final Function(BuildContext, Marker) navigateToMarkerDetailPage;
+  final String listId; // ✅ 추가
 
   MarkerInfoBottomSheet({
     required this.marker,
@@ -971,6 +985,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
     required this.onBookmark,
     required this.keyword,
     required this.navigateToMarkerDetailPage,
+    required this.listId, // ✅ 추가
   });
 
   @override

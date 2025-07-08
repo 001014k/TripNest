@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/user_service.dart';
 
 class MarkerCreationScreenViewModel extends ChangeNotifier {
 
@@ -15,8 +16,36 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
     '전시회': Icons.art_track,
   };
 
+  List<Map<String, dynamic>> _lists = [];
+  List<Map<String, dynamic>> get lists => _lists;
+
+
+  Future<void> fetchUserLists() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final response = await supabase
+          .from('lists')
+          .select()
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false);
+
+      _lists = (response as List).cast<Map<String, dynamic>>();
+      notifyListeners();
+    } catch (e) {
+      print('리스트 불러오기 실패: $e');
+    }
+  }
+
+
   // 새 마커 생성
-  void saveMarker(Marker marker, String keyword, String markerImagePath) async {
+  Future<void> saveMarker({
+    required Marker marker,
+    required String keyword,
+    required String markerImagePath,
+    String? listId,
+  }) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
       final address = await getAddressFromCoordinates(
@@ -24,25 +53,26 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
         marker.position.longitude,
       );
 
-      final response = await Supabase.instance.client
-          .from('user_markers')
-          .insert({
-        'id': marker.markerId.value,
-        'user_id': user.id,
-        'title': marker.infoWindow.title,
-        'snippet': marker.infoWindow.snippet,
-        'lat': marker.position.latitude,
-        'lng': marker.position.longitude,
-        'address': address,
-        'keyword': keyword,
-        'marker_image_path': markerImagePath,
-      });
-
-      if (response.error != null) {
-        print('Error saving marker: ${response.error!.message}');
+      try {
+        await Supabase.instance.client
+            .from('user_markers')
+            .insert({
+          'id': marker.markerId.value,
+          'user_id': user.id,
+          'list_id': listId, // ✅ 리스트 ID 저장
+          'title': marker.infoWindow.title,
+          'snippet': marker.infoWindow.snippet,
+          'lat': marker.position.latitude,
+          'lng': marker.position.longitude,
+          'address': address,
+          'keyword': keyword,
+        });
+      } catch (e) {
+        print('Error saving marker: $e');
       }
     }
   }
+
 
   Future<String> getAddressFromCoordinates(
       double latitude, double longitude) async {

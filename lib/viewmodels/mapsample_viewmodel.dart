@@ -54,6 +54,14 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  String? _selectedListId;
+  String? get selectedListId => _selectedListId;
+
+  void setSelectedListId(String? listId) {
+    _selectedListId = listId;
+    notifyListeners();
+  }
+
   void Function(Marker)? onMarkerTappedCallback; // 마커 클릭 콜백
   File? _image;
   File? get image => _image;
@@ -71,7 +79,6 @@ class MapSampleViewModel extends ChangeNotifier {
   Set<String> activeKeywords = {}; //활성화 된 키워드 저장
   final location.Location _location = location.Location();
   late Set<Marker> _markers = {};
-  final TextEditingController _searchController = TextEditingController();
   GoogleMapController? _controller;
   set controller(GoogleMapController controller) {
     _controller = controller;
@@ -87,7 +94,6 @@ class MapSampleViewModel extends ChangeNotifier {
     '음식점': 'assets/restaurant_marker.png',
     '전시회': 'assets/exhibition_marker.png',
   };
-  final MarkerService _markerService = MarkerService();
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
   final String _mapStyle = '''
   [

@@ -1,13 +1,13 @@
 import 'dart:io';
-import 'package:provider/provider.dart';
-import '../viewmodels/markercreationscreen_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
+import '../viewmodels/markercreationscreen_viewmodel.dart';
 
 class MarkerCreationScreen extends StatefulWidget {
   final LatLng initialLatLng;
 
-  MarkerCreationScreen({required this.initialLatLng}); //생성자에서 LatLng 받기
+  MarkerCreationScreen({required this.initialLatLng});
 
   @override
   _MarkerCreationScreenState createState() => _MarkerCreationScreenState();
@@ -16,14 +16,16 @@ class MarkerCreationScreen extends StatefulWidget {
 class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
   TextEditingController _titleController = TextEditingController();
   TextEditingController _snippetController = TextEditingController();
-  String? _selectedKeyword; // 드롭다운 메뉴를 통해 키워드 선택
+  String? _selectedKeyword;
+  String? _selectedListId;
   File? _image;
-  String _address = 'Fetching address...';
+  String _address = '주소 불러오는 중...';
 
   @override
   void initState() {
     super.initState();
-    _loadAddress(); // 🟡 주소를 비동기로 불러오는 메서드 호출
+    _loadAddress();
+    _loadUserLists();
   }
 
   Future<void> _loadAddress() async {
@@ -37,96 +39,165 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
     });
   }
 
+  Future<void> _loadUserLists() async {
+    final viewModel = Provider.of<MarkerCreationScreenViewModel>(context, listen: false);
+    await viewModel.fetchUserLists();
+    if (viewModel.lists.isNotEmpty) {
+      setState(() {
+        _selectedListId = viewModel.lists.first['id'];
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final viewModel = Provider.of<MarkerCreationScreenViewModel>(context, listen: false);
+    final viewModel = Provider.of<MarkerCreationScreenViewModel>(context);
     final List<String> keywords = viewModel.keywordIcons.keys.toList();
+    final List<Map<String, dynamic>> userLists = viewModel.lists;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('마커생성'),
-        titleTextStyle: TextStyle(
-            color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+        title: const Text('마커 생성'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 1,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: <Widget>[
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.title, color: Colors.black),
-                      SizedBox(width: 2),
-                      Text(
-                        '이름',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  )),
-            ),
-            TextField(
-              controller: _snippetController,
-              decoration: InputDecoration(
-                labelText: '설명',
-              ),
-            ),
-            SizedBox(height: 16),
-            Row(
+        child: Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.location_on, color: Colors.red),
-                SizedBox(width: 8),
-                Text(
-                  '$_address',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+
+                // 🔹 제목
+                const Text('이름', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(Icons.title),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    hintText: '마커 이름을 입력하세요',
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 🔹 설명
+                const Text('설명', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _snippetController,
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(Icons.notes),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    hintText: '간단한 설명을 입력하세요',
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 🔹 주소 표시
+                Row(
+                  children: [
+                    Icon(Icons.location_on, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _address,
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // 🔹 리스트 선택
+                const Text('리스트 선택', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedListId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  items: [
+                    DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('리스트에 추가하지 않음'),
+                    ),
+                    ...userLists.map((list) {
+                      return DropdownMenuItem<String>(
+                        value: list['id'],
+                        child: Text(list['name']),
+                      );
+                    }).toList(),
+                  ],
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedListId = newValue;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // 🔹 키워드 선택
+                const Text('키워드 선택', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedKeyword,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  items: keywords.map((keyword) {
+                    return DropdownMenuItem<String>(
+                      value: keyword,
+                      child: Row(
+                        children: [
+                          Icon(viewModel.keywordIcons[keyword], color: Colors.grey),
+                          SizedBox(width: 8),
+                          Text(keyword),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedKeyword = newValue;
+                    });
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // 🔹 저장 버튼
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: Icon(Icons.save),
+                    label: Text('저장하기'),
+                    onPressed: () {
+                      Navigator.pop(context, {
+                        'title': _titleController.text,
+                        'snippet': _snippetController.text,
+                        'keyword': _selectedKeyword,
+                        'image': _image,
+                        'listId': _selectedListId,
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
                 ),
               ],
             ),
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.label, color: Colors.blue),
-                  SizedBox(height: 8),
-                  Expanded(
-                    child: DropdownButton<String>(
-                      value: _selectedKeyword,
-                      hint: Text('키워드 선택'),
-                      items: keywords.map((String keyword) {
-                        return DropdownMenuItem<String>(
-                          value: keyword,
-                          child: Text(keyword),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedKeyword = newValue;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16.0),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-              ),
-              onPressed: () {
-                Navigator.pop(context, {
-                  'title': _titleController.text,
-                  'snippet': _snippetController.text,
-                  'keyword': _selectedKeyword, // 키워드 포함
-                  'image': _image,
-                });
-              },
-              child: Text('SAVE'),
-            ),
-          ],
+          ),
         ),
       ),
     );
