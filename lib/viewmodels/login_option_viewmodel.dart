@@ -75,6 +75,9 @@ class LoginViewModel extends ChangeNotifier {
   // 구글 로그인
   Future<void> signInWithGoogle() async {
     try {
+      // 현재 세션 로그아웃
+      await supa.Supabase.instance.client.auth.signOut();
+
       final response = await supa.Supabase.instance.client.auth.getOAuthSignInUrl(
         provider: supa.OAuthProvider.google,
         redirectTo: 'io.supabase.flutter://login-callback',
@@ -98,6 +101,9 @@ class LoginViewModel extends ChangeNotifier {
   // 카카오톡 로그인
   Future<void> signInWithKakao() async {
     try {
+      // 현재 세션 로그아웃
+      await supa.Supabase.instance.client.auth.signOut();
+
       final response = await supa.Supabase.instance.client.auth.getOAuthSignInUrl(
         provider: supa.OAuthProvider.kakao,
         redirectTo: 'io.supabase.flutter://login-callback',

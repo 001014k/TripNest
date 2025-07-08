@@ -33,7 +33,6 @@ import 'views/splash_screen_view.dart';
 import 'views/user_list_view.dart';
 import 'views/dashboard_view.dart';
 import 'views/login_option_view.dart';
-import 'views/nicknamesetup_view.dart';
 
 /// ✅ 전역 Navigator Key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -77,6 +76,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri?>? _sub;
+  StreamSubscription<AuthState>? _authSub;
 
   @override
   void initState() {
@@ -98,12 +98,38 @@ class _MyAppState extends State<MyApp> {
         }
       }
     });
+
+    // ✅ 인증 상태 변화 리스너 추가
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      final event = data.event;
+      final session = data.session;
+
+      if (event == AuthChangeEvent.signedIn && session != null) {
+        final userId = session.user.id;
+        debugPrint("✅ 로그인 완료: $userId");
+
+        // ViewModel 데이터 초기화
+        final context = navigatorKey.currentContext;
+        if (context != null) {
+          await context.read<ListViewModel>().loadLists();
+          await context.read<ProfileViewModel>().fetchUserStats(userId);
+
+          // 필요시 홈 화면으로 이동
+          navigatorKey.currentState?.pushNamedAndRemoveUntil('/home', (route) => false);
+        }
+      }
+
+      if (event == AuthChangeEvent.signedOut) {
+        debugPrint("🚪 로그아웃됨");
+      }
+    });
   }
 
 
   @override
   void dispose() {
     _sub?.cancel();
+    _authSub?.cancel();
     super.dispose();
   }
 
@@ -124,7 +150,6 @@ class _MyAppState extends State<MyApp> {
         '/page_view': (context) => BookmarklisttabView(),
         '/bookmark': (context) => BookmarkView(),
         '/user_list': (context) => UserListView(),
-        '/nickname_setup': (context) => NicknameSetupPage(),
       },
     );
   }
