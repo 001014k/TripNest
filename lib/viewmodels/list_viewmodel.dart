@@ -37,6 +37,7 @@ class ListViewModel extends ChangeNotifier {
           name: item['name'],
           createdAt: DateTime.parse(item['created_at']),
           markerCount: 0, // 추후 추가
+          collaboratorCount: 0, // 추후 추가
         );
       }).toList();
     } catch (e) {

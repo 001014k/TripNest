@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertrip/viewmodels/collaborator_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
@@ -62,6 +63,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => ProfileViewModel()),
         ChangeNotifierProvider(create: (_) => SignupViewModel()),
         ChangeNotifierProvider(create: (_) => SplashViewModel()),
+        ChangeNotifierProvider(create: (_) => CollaboratorViewModel()),
       ],
       child: MyApp(),
     ),
