@@ -18,6 +18,7 @@ import 'viewmodels/profile_viewmodel.dart';
 import 'viewmodels/signup_viewmodel.dart';
 import 'viewmodels/splash_viewmodel.dart';
 import 'viewmodels/add_markers_to_list_viewmodel.dart';
+import 'viewmodels/markercreationscreen_viewmodel.dart';
 
 // Service imports...
 import 'services/marker_service.dart';
@@ -64,6 +65,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => SignupViewModel()),
         ChangeNotifierProvider(create: (_) => SplashViewModel()),
         ChangeNotifierProvider(create: (_) => CollaboratorViewModel()),
+        ChangeNotifierProvider(create: (_) => MarkerCreationScreenViewModel()),
       ],
       child: MyApp(),
     ),

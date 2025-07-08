@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:fluttertrip/views/markercreationscreen_view.dart';
 import 'package:fluttertrip/views/widgets/zoom_drawer_container.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../services/user_service.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
+import '../viewmodels/markercreationscreen_viewmodel.dart';
 import '../viewmodels/nickname_dialog_viewmodel.dart';
 import '../views/markerdetail_view.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
@@ -308,7 +310,7 @@ class _MapSampleViewState extends State<MapSampleView> {
               onSave: (updatedMarker, keyword) async {
                 // 키워드에 따른 이미지 경로를 가져옴
                 final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
-                context.read<MapSampleViewModel>().saveMarker(updatedMarker, keyword, markerImagePath);
+                context.read<MarkerCreationScreenViewModel>().saveMarker(updatedMarker, keyword, markerImagePath);
               },
               onDelete: onDelete,
               keyword: keyword,
@@ -948,138 +950,6 @@ class _MapSampleViewState extends State<MapSampleView> {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class MarkerCreationScreen extends StatefulWidget {
-  final LatLng initialLatLng;
-
-  MarkerCreationScreen({required this.initialLatLng}); //생성자에서 LatLng 받기
-
-  @override
-  _MarkerCreationScreenState createState() => _MarkerCreationScreenState();
-}
-
-class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
-  TextEditingController _titleController = TextEditingController();
-  TextEditingController _snippetController = TextEditingController();
-  String? _selectedKeyword; // 드롭다운 메뉴를 통해 키워드 선택
-  File? _image;
-  String _address = 'Fetching address...';
-
-
-  @override
-  Widget build(BuildContext context) {
-    final viewModel = Provider.of<MapSampleViewModel>(context, listen: false);
-    final List<String> keywords = viewModel.keywordIcons.keys.toList();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('마커생성'),
-        titleTextStyle: TextStyle(
-            color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: <Widget>[
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.title, color: Colors.black),
-                      SizedBox(width: 2),
-                      Text(
-                        '이름',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  )),
-            ),
-            TextField(
-              controller: _snippetController,
-              decoration: InputDecoration(
-                labelText: '설명',
-              ),
-            ),
-            SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.location_on, color: Colors.red),
-                SizedBox(width: 8),
-                Text(
-                  '$_address',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.label, color: Colors.blue),
-                  SizedBox(height: 8),
-                  Expanded(
-                    child: DropdownButton<String>(
-                      value: _selectedKeyword,
-                      hint: Text('키워드 선택'),
-                      items: keywords.map((String keyword) {
-                        return DropdownMenuItem<String>(
-                          value: keyword,
-                          child: Text(keyword),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedKeyword = newValue;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16.0),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-              ),
-              onPressed: () {
-                final viewModel = Provider.of<MapSampleViewModel>(context, listen: false);
-                viewModel.pickImage();
-              },
-              child: Text('이미지를 고르시오'),
-            ),
-            SizedBox(height: 16.0),
-            _image != null
-                ? Image.file(
-              _image!,
-              height: 200,
-            )
-                : Text('이미지가 선택된게 없습니다.'),
-            SizedBox(height: 16.0),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-              ),
-              onPressed: () {
-                Navigator.pop(context, {
-                  'title': _titleController.text,
-                  'snippet': _snippetController.text,
-                  'keyword': _selectedKeyword, // 키워드 포함
-                  'image': _image,
-                });
-              },
-              child: Text('SAVE'),
-            ),
-          ],
-        ),
       ),
     );
   }

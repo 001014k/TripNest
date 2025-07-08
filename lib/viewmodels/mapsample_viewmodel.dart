@@ -9,7 +9,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import '../config.dart';
 import '../services/marker_service.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:location/location.dart' as location;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -64,7 +63,6 @@ class MapSampleViewModel extends ChangeNotifier {
   String getKeywordByMarkerId(String markerId) {
     return _markerKeywords[MarkerId(markerId)] ?? '';
   }
-  Map<String, IconData> get keywordIcons => _keywordIcons;
   LatLng? _currentLocation;
   LatLng? get currentLocation => _currentLocation;
   LatLng get seoulCityHall => _seoulCityHall;
@@ -104,6 +102,9 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   ]
   ''';
+
+  Map<String, IconData> get keywordIcons => _keywordIcons;
+
   final Map<String, IconData> _keywordIcons = {
     '카페': Icons.local_cafe,
     '호텔': Icons.hotel,
@@ -111,8 +112,6 @@ class MapSampleViewModel extends ChangeNotifier {
     '음식점': Icons.restaurant,
     '전시회': Icons.art_track,
   };
-
-
 
   void setMapController(GoogleMapController controller) {
     _controller = controller;
@@ -168,36 +167,6 @@ class MapSampleViewModel extends ChangeNotifier {
       _controller!.animateCamera(
         CameraUpdate.newLatLngZoom(_seoulCityHall, 15.0),
       );
-    }
-  }
-
-  Future<String> getAddressFromCoordinates(double latitude,
-      double longitude) async {
-    try {
-      List<geocoding.Placemark> placemarks =
-      await geocoding.placemarkFromCoordinates(
-        latitude,
-        longitude,
-      );
-      if (placemarks.isNotEmpty) {
-        final placemark = placemarks.first;
-        return '${placemark.country ?? ''} ${placemark.administrativeArea ??
-            ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
-      }
-      return 'Unknown Address';
-    } catch (e) {
-      print('Error getting address: $e');
-      return 'Error fetching address'; // Error message
-    }
-  }
-
-  Future<void> pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.getImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      _image = File(pickedFile.path);
-      notifyListeners();// 상태 변경 알림
     }
   }
 
@@ -555,34 +524,6 @@ class MapSampleViewModel extends ChangeNotifier {
 // set: 기존 문서를 덮어 쓰거나 문서가 없을 경우 새로 생성
 // update: 문서가 이미 존재하는 경우에만 특정 필드를 수정하며 문서가 존재하지 않으면 에러를 발생
 
-// 새 마커 생성
-  void saveMarker(Marker marker, String keyword, String markerImagePath) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user != null) {
-      final address = await getAddressFromCoordinates(
-        marker.position.latitude,
-        marker.position.longitude,
-      );
-
-      final response = await Supabase.instance.client
-          .from('user_markers')
-          .insert({
-        'id': marker.markerId.value,
-        'user_id': user.id,
-        'title': marker.infoWindow.title,
-        'snippet': marker.infoWindow.snippet,
-        'lat': marker.position.latitude,
-        'lng': marker.position.longitude,
-        'address': address,
-        'keyword': keyword,
-        'marker_image_path': markerImagePath,
-      });
-
-      if (response.error != null) {
-        print('Error saving marker: ${response.error!.message}');
-      }
-    }
-  }
 
   void getLocation() async {
     final hasPermission = await _location.hasPermission();
