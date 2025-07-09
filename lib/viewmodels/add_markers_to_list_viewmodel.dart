@@ -79,9 +79,8 @@ class AddMarkersToListViewModel extends ChangeNotifier {
 
     try {
       final orderData = await supabase
-          .from('bookmarks')
+          .from('list_bookmarks')
           .select('id')
-          .eq('user_id', user.id)
           .eq('list_id', listId);
 
       final orderCount = (orderData as List).length;
@@ -122,7 +121,7 @@ class AddMarkersToListViewModel extends ChangeNotifier {
       final data = await supabase
           .from('list_bookmarks')
           .select('id')
-          .eq('user_id', user.id)
+          //.eq('user_id', user.id)
           .eq('list_id', listId)
           .order('order');
 
