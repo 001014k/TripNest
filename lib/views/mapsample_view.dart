@@ -15,7 +15,6 @@ import '../viewmodels/mapsample_viewmodel.dart';
 import 'nickname_dialog_view.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
-import '../viewmodels/markercreationscreen_viewmodel.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -638,7 +637,10 @@ class _MapSampleViewState extends State<MapSampleView> {
                   });
                   viewModel.controller = controller;
                   await viewModel.loadMarkers();
-                  await viewModel.applyMarkersToCluster(controller); // 클러스터 매니저 초기화
+                  // 지도 렌더링 완료 후 클러스터 적용
+                  WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    await viewModel.applyMarkersToCluster(controller);
+                  });
                   controller.setMapStyle(viewModel.mapStyle);
 
                   //현재 위치가 설정된 경우 카메라 이동
