@@ -13,6 +13,7 @@ class CombinedLoginView extends StatefulWidget {
 
 class _CombinedLoginViewState extends State<CombinedLoginView> {
   late final StreamSubscription<supa.AuthState> _authSubscription;
+  bool _navigated = false; // 👈 클래스 상단에 선언 (StatefulWidget 내)
 
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
@@ -23,8 +24,6 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
 
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
-
-    bool _navigated = false;
 
     _authSubscription = supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final event = data.event;
@@ -243,8 +242,6 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
     );
   }
 
-  bool _navigated = false; // 👈 클래스 상단에 선언 (StatefulWidget 내)
-
   Future<void> _handleSocialLogin(
       BuildContext context,
       Future<void> Function() loginMethod,
@@ -254,19 +251,6 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
 
     try {
       await loginMethod();
-
-      final userId = supa.Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('로그인에 실패했습니다.')),
-        );
-        return;
-      }
-
-      if (!_navigated && mounted) {
-        _navigated = true; // ✅ 중복 방지 플래그 설정
-        Navigator.pushReplacementNamed(context, '/home');
-      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$failMessage: $e')),
