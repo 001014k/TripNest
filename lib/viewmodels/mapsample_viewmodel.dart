@@ -182,6 +182,7 @@ class MapSampleViewModel extends ChangeNotifier {
     required LatLng position,
     required String keyword,
     required void Function(MarkerId) onTapCallback,
+    String? listId,
   }) async {
     final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
     final markerIcon = await createCustomMarkerImage(markerImagePath, 128, 128);
@@ -218,6 +219,25 @@ class MapSampleViewModel extends ChangeNotifier {
         print('Insert 성공: $response');
       } catch (error) {
         print('Supabase insert 실패: $error');
+      }
+
+      if (listId != null) {
+        try {
+          // list_bookmarks에도 별도 저장
+          await Supabase.instance.client.from('list_bookmarks').insert({
+            'list_id': listId,
+            'title': title,
+            'keyword': keyword,
+            'lat': position.latitude,
+            'lng': position.longitude,
+            'snippet': snippet,
+            'created_at': DateTime.now().toIso8601String(),
+            // 'order': 0, // 필요 시 추가 가능
+          });
+          print('list_bookmarks Insert 성공');
+        } catch (error) {
+          print('list_bookmarks Insert 실패: $error');
+        }
       }
     }
 

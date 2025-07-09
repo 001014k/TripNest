@@ -274,11 +274,13 @@ class _MapSampleViewState extends State<MapSampleView> {
 
     if (result != null && _pendingLatLng != null) {
       final keyword = result['keyword'] ?? 'default'; // 키워드가 없을 경우 기본값 설정
+      final listId = result['listId']; // ✅ 리스트 ID도 추출
       context.read<MapSampleViewModel>().addMarker(
         title: result['title'],
         snippet: result['snippet'],
         position: _pendingLatLng!,
         keyword: keyword,
+        listId: listId, // ✅ 이걸 넘겨야 저장 가능
         onTapCallback: (markerId) {
           context.read<MapSampleViewModel>().onMarkerTapped(markerId);
         },
