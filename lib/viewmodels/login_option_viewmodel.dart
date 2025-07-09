@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supa;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 
@@ -44,7 +44,7 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final res = await supa.Supabase.instance.client.auth.signInWithPassword(
+      final res = await Supabase.instance.client.auth.signInWithPassword(
         email: _email,
         password: _password,
       );
@@ -75,45 +75,28 @@ class LoginViewModel extends ChangeNotifier {
   // 구글 로그인
   Future<void> signInWithGoogle() async {
     try {
-      // 현재 세션 로그아웃
-      await supa.Supabase.instance.client.auth.signOut();
-
-      final response = await supa.Supabase.instance.client.auth.getOAuthSignInUrl(
-        provider: supa.OAuthProvider.google,
+      await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.google, // ✅ 여기 수정
         redirectTo: 'io.supabase.flutter://login-callback',
+        authScreenLaunchMode: LaunchMode.externalApplication, // 브라우저로 안전하게 열기
       );
-
-      final uri = Uri.parse(response.url);
-      debugPrint('Google OAuth URL: $uri');
-
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        debugPrint('외부 브라우저 열기 실패');
-        throw 'Could not launch $uri';
-      }
     } catch (e) {
       debugPrint('구글 로그인 실패: $e');
       rethrow;
     }
   }
 
+
   // 카카오톡 로그인
   Future<void> signInWithKakao() async {
     try {
-      // 현재 세션 로그아웃
-      await supa.Supabase.instance.client.auth.signOut();
-
-      final response = await supa.Supabase.instance.client.auth.getOAuthSignInUrl(
-        provider: supa.OAuthProvider.kakao,
+      await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.kakao, // ✅ 여기 수정!
         redirectTo: 'io.supabase.flutter://login-callback',
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
-      final uri = Uri.parse(response.url);
-
-      print('Kakao OAuth URL: $uri');
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
-      print('카카오 로그인 실패: $e');
+      debugPrint('카카오 로그인 실패: $e');
       rethrow;
     }
   }

@@ -40,6 +40,19 @@ class _MapSampleViewState extends State<MapSampleView> {
     );
   }
 
+  late MapSampleViewModel viewModel;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    viewModel = context.read<MapSampleViewModel>(); // 여기서 미리 가져와 저장
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
 
   final ZoomDrawerController zoomDrawerController = ZoomDrawerController();
   late GoogleMapController _controller;
@@ -121,11 +134,6 @@ class _MapSampleViewState extends State<MapSampleView> {
     });
   }
 
-  @override
-  void dispose() {
-    context.read<MapSampleViewModel>().dispose(); // 리소스 해제
-    super.dispose();
-  }
 
 
 // 마커 세부사항 페이지로 들어가 새로고침 하는 로직
@@ -815,6 +823,7 @@ class _MapSampleViewState extends State<MapSampleView> {
             child: Column(
               children: [
                 FloatingActionButton(
+                  heroTag: 'btn_location',
                   onPressed: () {
                     // SnackBar를 화면 하단에 표시
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -834,6 +843,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 ),
                 SizedBox(height: 16),
                 FloatingActionButton(
+                  heroTag: 'btn_list',
                   onPressed: () => showUserLists(context),
                   backgroundColor: Colors.white,
                   child: Icon(Icons.list),

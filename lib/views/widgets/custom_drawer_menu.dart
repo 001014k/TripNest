@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../viewmodels/mapsample_viewmodel.dart';
 import '../../views/bookmarklisttab_view.dart';
 import '../../views/friend_management_view.dart';
 import '../../views/mapsample_view.dart';
@@ -152,8 +154,14 @@ class CustomDrawerMenu extends StatelessWidget {
                       ),
                     );
                     if (confirm == true) {
+                      // 1. 로그아웃
                       await Supabase.instance.client.auth.signOut();
-                      // 화면 이동 시 뒤로가기 못 하도록 전부 제거
+
+                      // 2. MapSampleViewModel 초기화 호출
+                      final mapSampleVM = Provider.of<MapSampleViewModel>(context, listen: false);
+                      mapSampleVM.clearMarkers(); // 또는 초기화 함수명에 맞게 호출
+
+                      // 3. 로그인 화면으로 네비게이션 (이전 스택 전부 제거)
                       Navigator.of(context).pushNamedAndRemoveUntil(
                         '/login_option',
                             (route) => false,

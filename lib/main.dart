@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
+import 'package:fluttertrip/env.dart'; // Env 클래스 import
 
 // ViewModel imports...
 import 'viewmodels/mapsample_viewmodel.dart';
@@ -22,7 +23,6 @@ import 'viewmodels/markercreationscreen_viewmodel.dart';
 
 // Service imports...
 import 'services/marker_service.dart';
-import 'services/supabase_manager.dart';
 
 // View imports...
 import 'views/bookmark_view.dart';
@@ -41,9 +41,14 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+
   try {
-    await SupabaseManager.initialize();
-    await Supabase.instance.client.auth.getSessionFromUrl(Uri.base);
+    await Supabase.initialize(
+      url: Env.supabaseUrl,
+      anonKey: Env.supabaseAnonKey,
+    );
+
     await MarkerService().syncOfflineMarkers();
   } catch (e) {
     print('Error during initialization: $e');
@@ -81,50 +86,37 @@ class _MyAppState extends State<MyApp> {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri?>? _sub;
   StreamSubscription<AuthState>? _authSub;
+  bool _alreadyNavigated = false;
 
   @override
   void initState() {
     super.initState();
 
-    // 딥링크 수신 처리
-    _sub = _appLinks.uriLinkStream.listen((Uri? uri) async {
+    // ✅ 딥링크 수신 시 Supabase가 처리하도록
+    _sub = _appLinks.uriLinkStream.listen((Uri? uri) {
       if (uri != null) {
-        try {
-          debugPrint("✅ 딥링크 URI 수신됨: $uri");
-          final response = await Supabase.instance.client.auth.getSessionFromUrl(uri);
-          if (response.session != null) {
-            navigatorKey.currentState?.pushNamedAndRemoveUntil('/home', (route) => false);
-          } else {
-            debugPrint('❌ 세션 파싱 실패 (session == null)');
-          }
-        } catch (e) {
-          debugPrint('❌ 딥링크 처리 중 예외 발생: $e');
-        }
+        debugPrint("✅ 딥링크 URI 수신됨: $uri");
+        Supabase.instance.client.auth.getSessionFromUrl(uri); // 👉 내부적으로 처리됨
       }
     });
 
-    // ✅ 인증 상태 변화 리스너 추가
+    // ✅ 인증 상태 변화 리스너 (자동 세션 반영)
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      if (_alreadyNavigated) return;
       final event = data.event;
       final session = data.session;
 
       if (event == AuthChangeEvent.signedIn && session != null) {
+        _alreadyNavigated = true;
         final userId = session.user.id;
         debugPrint("✅ 로그인 완료: $userId");
 
-        // ViewModel 데이터 초기화
         final context = navigatorKey.currentContext;
         if (context != null) {
           await context.read<ListViewModel>().loadLists();
           await context.read<ProfileViewModel>().fetchUserStats(userId);
-
-          // 필요시 홈 화면으로 이동
           navigatorKey.currentState?.pushNamedAndRemoveUntil('/home', (route) => false);
         }
-      }
-
-      if (event == AuthChangeEvent.signedOut) {
-        debugPrint("🚪 로그아웃됨");
       }
     });
   }
