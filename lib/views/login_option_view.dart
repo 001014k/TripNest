@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import '../viewmodels/login_option_viewmodel.dart';
-import '../services/user_service.dart';
 
 class CombinedLoginView extends StatefulWidget {
   const CombinedLoginView({super.key});
@@ -25,18 +24,17 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
 
-    _authSubscription =
-        supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
-          final event = data.event;
-          final session = data.session;
+    bool _navigated = false;
 
-          if (event == supa.AuthChangeEvent.signedIn && session != null) {
-            final userId = session.user?.id;
+    _authSubscription = supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      final event = data.event;
+      final session = data.session;
 
-            if (!mounted || userId == null) return;
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        });
+      if (!_navigated && event == supa.AuthChangeEvent.signedIn && session != null) {
+        _navigated = true;
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    });
   }
 
   @override
@@ -245,19 +243,34 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
     );
   }
 
-  Future<void> _handleSocialLogin(BuildContext context, Future<void> Function() loginMethod, String failMessage) async {
+  bool _navigated = false; // 👈 클래스 상단에 선언 (StatefulWidget 내)
+
+  Future<void> _handleSocialLogin(
+      BuildContext context,
+      Future<void> Function() loginMethod,
+      String failMessage,
+      ) async {
+    if (_navigated) return; // 👈 이미 이동했으면 아무것도 하지 않음
+
     try {
       await loginMethod();
 
       final userId = supa.Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('로그인에 실패했습니다.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('로그인에 실패했습니다.')),
+        );
         return;
       }
 
-      Navigator.pushReplacementNamed(context, '/home');
+      if (!_navigated && mounted) {
+        _navigated = true; // ✅ 중복 방지 플래그 설정
+        Navigator.pushReplacementNamed(context, '/home');
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$failMessage: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$failMessage: $e')),
+      );
     }
   }
 }
