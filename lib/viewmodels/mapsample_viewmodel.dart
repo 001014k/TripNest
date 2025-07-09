@@ -8,14 +8,13 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import '../config.dart';
-import '../services/marker_service.dart';
 import 'package:location/location.dart' as location;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart'as cluster_manager;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import '../models/place.dart';
+import '../models/place_model.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
