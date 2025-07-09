@@ -630,11 +630,9 @@ class _MapSampleViewState extends State<MapSampleView> {
                   Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
                 },
                 onMapCreated: (GoogleMapController controller) async {
-                  viewModel.controller = controller;
-                  setState(() {
-                    _isMapInitialized = true;
-                    print('_isMapInitialized set to true');
-                  });
+                  if (_isMapInitialized) return;  // 이미 초기화 되었다면 함수 종료
+                  _isMapInitialized = true;
+
                   viewModel.controller = controller;
                   await viewModel.loadMarkers();
                   // 지도 렌더링 완료 후 클러스터 적용
