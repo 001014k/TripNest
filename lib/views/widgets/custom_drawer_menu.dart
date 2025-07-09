@@ -153,7 +153,11 @@ class CustomDrawerMenu extends StatelessWidget {
                     );
                     if (confirm == true) {
                       await Supabase.instance.client.auth.signOut();
-                      Navigator.of(context).pushReplacementNamed('/login_option');
+                      // 화면 이동 시 뒤로가기 못 하도록 전부 제거
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        '/login_option',
+                            (route) => false,
+                      );
                     }
                   },
                   icon: const Icon(Icons.logout_rounded),
