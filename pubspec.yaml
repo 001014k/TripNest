@@ -47,7 +47,7 @@ dependencies:
   path: ^1.8.0
   image: ^4.5.4
   image_picker: ^0.8.7+3
-  supabase_flutter: ^2.0.0
+  supabase_flutter: ^2.9.1
   flutter_svg: ^1.0.0
   google_sign_in: ^6.2.1
   shared_preferences: ^2.0.6
