@@ -86,7 +86,6 @@ class LoginViewModel extends ChangeNotifier {
     }
   }
 
-
   // 카카오톡 로그인
   Future<void> signInWithKakao() async {
     try {
