@@ -44,11 +44,51 @@
 
 ## 사용법
 
-- 앱 실행 후 회원가입 또는 소셜 로그인(Google, Kakao)  
-- 지도에서 마커 추가, 수정, 삭제 가능  
-- 키워드 필터링 및 클러스터링으로 효율적 마커 관리  
-- 북마크 및 협업 리스트 생성 및 관리  
-- 공유 링크를 통해 다른 사용자와 마커 공유 및 임포트 가능
+<h2>1. 로그인 및 시작</h2>
+<details><summary>이메일 또는 소셜 로그인(Google, Kakao)으로 시작할 수 있습니다.</summary>
+<p align="center">
+<img src="https://github.com/user-attachments/assets/22bab7bb-ab9a-4839-9d4f-a4179c4282c7" width="20%"></img>
+</p>
+</details>
+
+<h2>2. 지도에서 마커 추가</h2>
+<details><summary>지도를 눌러 위치에 마커를 등록하고 제목, 키워드 등을 입력합니다.</summary>
+<p align="center">
+<img src="https://github.com/user-attachments/assets/55ca2f98-57e3-4ade-b8e8-9f47296707f8" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/60a5543b-b2cc-4049-b912-f96952c3c972" width="20%"></img>
+</p>
+</details>
+
+
+<h2>3. 키워드 필터 및 클러스터링</h2>
+<details><summary>여러 마커를 키워드로 필터링하고 줌 레벨에 따라 자동으로 클러스터링됩니다.</summary>
+<p align="center">
+<img src="https://github.com/user-attachments/assets/93d37fd0-7cba-456d-873e-94f206052dfc" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/b182f7f0-c61a-4448-8862-ea342de19b7d" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/f265fefc-8890-4027-813f-4b68db7c7dda" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/992a5659-a98a-4d43-bccb-77265df2dc65" width="20%"></img>
+
+</p>
+</details>
+
+<h2>4. 북마크 및 협업 리스트</h2>
+<details><summary>자신만의 리스트를 만들거나 친구와 함께 협업 리스트를 관리할 수 있습니다.</summary>
+<p align="center">
+<img src="https://github.com/user-attachments/assets/56207ce1-7b8b-44df-a7fe-b56e46f83d9e" width="20%"></img>
+<img src="" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/1a211656-9f79-4614-b304-87dcea9f7d96" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/a3b9713f-fe37-458b-87f6-fcae88585084" width="20%"></img>
+</p>
+</details>
+
+<h2>5. 외부 길찾기 앱 연동</h2>
+<details><summary>Google Maps, Kakao Map 등으로 선택한 마커까지 길찾기를 할 수 있습니다.</summary>
+<p align="center">
+<img src="https://github.com/user-attachments/assets/c45a052c-f47c-4f6b-b4f2-8394291f1de6" width="20%"></img>
+
+</p>
+</details>
+
 
 ---
 
