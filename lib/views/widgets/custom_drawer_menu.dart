@@ -105,7 +105,7 @@ class CustomDrawerMenu extends StatelessWidget {
                 },
               ),
               MenuItem(
-                title: '북마크/리스트',
+                title: '리스트/공유 링크',
                 icon: Icons.list,
                 iconColor: Colors.white,
                 textColor: Colors.white,
