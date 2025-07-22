@@ -1,38 +1,30 @@
 class SharedLinkModel {
-  final String id;
+  final String? id;           // nullable로 변경
   final String userId;
   final String url;
-  final String? title;
-  final String? source;
   final DateTime createdAt;
 
   SharedLinkModel({
-    required this.id,
+    this.id,                 // nullable이므로 required 제거
     required this.userId,
     required this.url,
-    this.title,
-    this.source,
     required this.createdAt,
   });
 
   factory SharedLinkModel.fromMap(Map<String, dynamic> map) {
     return SharedLinkModel(
-      id: map['id'],
-      userId: map['user_id'],
-      url: map['url'],
-      title: map['title'],
-      source: map['source'],
-      createdAt: DateTime.parse(map['created_at']),
+      id: map['id'] as String?,  // null 가능
+      userId: map['user_id'] as String,
+      url: map['url'] as String,
+      createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      // 'id': id,  // 제거: insert 시 자동 생성되므로 제외
       'user_id': userId,
       'url': url,
-      'title': title,
-      'source': source,
       'created_at': createdAt.toIso8601String(),
     };
   }

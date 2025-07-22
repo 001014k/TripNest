@@ -1,51 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/shared_link_model.dart';
-
+import '../services/shared_link_service.dart';
 
 class SharedLinkViewModel extends ChangeNotifier {
-  final _client = Supabase.instance.client;
+  final SharedLinkService _service = SharedLinkService();
+
+  List<SharedLinkModel> sharedLinks = [];
   String? errorMessage;
+  String? _lastSavedUrl; // ✅ 마지막 저장한 URL 기억
 
   Future<void> saveLink(String url) async {
-    errorMessage = null; // 에러 메시지 초기화
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('로그인이 필요합니다');
+    errorMessage = null;
 
-    final model = SharedLinkModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      userId: user.id,
-      url: url,
-      createdAt: DateTime.now(),
-    );
+    // ✅ 중복 URL 방지
+    if (_lastSavedUrl == url) {
+      debugPrint('중복된 링크입니다. 저장하지 않습니다.');
+      return;
+    }
 
     try {
-      await _client.from('shared_links').insert(model.toMap());
-      notifyListeners(); // 필요 시
+      final alreadyExists = await _service.doesLinkExist(url);
+      if (alreadyExists) {
+        debugPrint('이미 저장된 링크입니다.');
+        return;
+      }
+
+      await _service.saveSharedLink(url);
+      _lastSavedUrl = url; // ✅ 저장한 URL 기록
+      await loadSharedLinks(); // 저장 후 최신 목록 다시 불러오기
     } catch (e) {
       errorMessage = '링크 저장 실패: $e';
-      notifyListeners();
     }
+
+    notifyListeners();
   }
 
-
-  Future<List<SharedLinkModel>> loadSharedLinks() async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('로그인이 필요합니다');
-
-    final response = await _client
-        .from('shared_links')
-        .select()
-        .eq('user_id', user.id)
-        .order('created_at', ascending: false);
-
-    return (response as List)
-        .map((item) => SharedLinkModel.fromMap(item))
-        .toList();
+  Future<void> loadSharedLinks() async {
+    errorMessage = null;
+    try {
+      sharedLinks = await _service.loadSharedLinks();
+    } catch (e) {
+      errorMessage = '공유 링크 불러오기 실패: $e';
+      sharedLinks = [];
+    }
+    notifyListeners();
   }
 
   Future<void> deleteLink(String id) async {
-    await _client.from('shared_links').delete().eq('id', id);
+    errorMessage = null;
+    try {
+      await _service.deleteSharedLink(id);
+      await loadSharedLinks(); // 삭제 후 목록 갱신
+    } catch (e) {
+      errorMessage = '링크 삭제 실패: $e';
+    }
     notifyListeners();
   }
 }
