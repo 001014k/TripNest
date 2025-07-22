@@ -139,18 +139,27 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    for (int i = 0; i < orderedMarkers.length; i++) {
-      final markerId = orderedMarkers[i].markerId.value;
-      try {
-        await supabase
-            .from('list_bookmarks')
-            .update({'order': i})
-            .eq('id', markerId)
-            .eq('user_id', user.id)
-            .eq('list_id', listId);
-      } catch (e) {
-        print('Order update error for $markerId: $e');
-      }
+    // Flutter 쪽에서 JSON 형식으로 변환
+    final List<Map<String, dynamic>> markerOrders = orderedMarkers.asMap().entries.map((entry) {
+      final index = entry.key;
+      final markerId = entry.value.markerId.value;
+      return {
+        'id': markerId,
+        'sort_order': index,
+      };
+    }).toList();
+
+    try {
+      // Supabase RPC 호출
+      await supabase.rpc(
+        'update_marker_orders',
+        params: {
+          'p_list_id': listId,
+          'p_orders': markerOrders,  // 함수 파라미터 이름에 맞게 'p_orders'로
+        },
+      );
+    } catch (e) {
+      print('❌ Marker order update error: $e');
     }
   }
 }
