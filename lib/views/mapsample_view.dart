@@ -15,6 +15,7 @@ import '../viewmodels/mapsample_viewmodel.dart';
 import 'nickname_dialog_view.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
+import '../services/app_group_handler_service.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -382,7 +383,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
                         Navigator.pop(context);
-                        showMarkersForSelectedList(context, userLists[index]['id']);
+                        showMarkersForSelectedList(userLists[index]['id']);
                       },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -448,9 +449,13 @@ class _MapSampleViewState extends State<MapSampleView> {
 
 
 
-  void showMarkersForSelectedList(BuildContext context, String listId) async {
+  void showMarkersForSelectedList(String listId) async {
+    if (!mounted) return;
     final viewModel = context.read<MapSampleViewModel>();
     await viewModel.loadMarkersForList(listId);
+
+    if (!mounted) return;
+
     final markers = viewModel.filteredMarkers.toList();
 
     if (markers.isEmpty) {
@@ -460,12 +465,14 @@ class _MapSampleViewState extends State<MapSampleView> {
       return;
     }
 
+    final backgroundColor = Theme.of(context).colorScheme.background;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: backgroundColor,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {

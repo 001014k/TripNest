@@ -392,18 +392,25 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> reorderMarkers(int oldIndex, int newIndex, String listId,
-      AddMarkersToListViewModel addMarkersVM) async {
+  Future<void> reorderMarkers(
+      int oldIndex,
+      int newIndex,
+      String listId,
+      AddMarkersToListViewModel addMarkersVM,
+      ) async {
     if (oldIndex < newIndex) newIndex -= 1;
+
+    // 리스트에서 위치 변경
     final marker = _orderedMarkers.removeAt(oldIndex);
     _orderedMarkers.insert(newIndex, marker);
-    _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
 
-    // context.read 대신, 인스턴스를 직접 전달받아 사용
-    await addMarkersVM.updateMarkerOrders(listId, _orderedMarkers);
-    await loadMarkersForList(listId);
+    // 위치 기준으로 UI 업데이트
+    _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
     _updatePolygonPoints();
     notifyListeners();
+
+    // DB에 순서 업데이트
+    await addMarkersVM.updateMarkerOrders(listId, _orderedMarkers);
   }
 
   void _updatePolygonPoints() {
@@ -418,8 +425,8 @@ class MapSampleViewModel extends ChangeNotifier {
         .from('list_bookmarks')
         .select('id, title, snippet, lat, lng, keyword')
         .eq('list_id', listId)
-        .order('order')
-        .limit(100) // optional
+        .order('sort_order') // 정렬 보장
+        .limit(100)
         .withConverter<List<Map<String, dynamic>>>(
             (data) => data as List<Map<String, dynamic>>);
 
@@ -429,9 +436,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
       final BitmapDescriptor markerIcon = markerImagePath != null
           ? await createCustomMarkerImage(markerImagePath, 128, 128)
-          : BitmapDescriptor.defaultMarkerWithHue(
-              (doc['hue'] as num?)?.toDouble() ?? BitmapDescriptor.hueOrange,
-            );
+          : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
 
       return Marker(
         markerId: MarkerId(doc['id']),
