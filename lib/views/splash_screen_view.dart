@@ -3,8 +3,6 @@ import 'package:fluttertrip/views/login_option_view.dart';
 import 'package:fluttertrip/views/mapsample_view.dart';
 import 'package:fluttertrip/services/user_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uni_links/uni_links.dart';
-import '../shared_receiver_controller.dart';
 
 class SplashScreenView extends StatefulWidget {
   @override
@@ -17,44 +15,31 @@ class _SplashScreenViewState extends State<SplashScreenView> {
   @override
   void initState() {
     super.initState();
-    _handleStartupLogic();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleStartupLogic();
+    });
   }
 
   Future<void> _handleStartupLogic() async {
+    await Future.delayed(const Duration(seconds: 2));
     final client = Supabase.instance.client;
     final session = client.auth.currentSession;
     final user = session?.user;
-    final uri = await getInitialUri();
 
-    // 1. 공유 URI가 있으면 -> 공유 뷰로 이동
-    if (uri != null && uri.scheme == "fluttertrip" && uri.host == "share") {
-      final sharedText = uri.queryParameters['text'];
-      if (sharedText != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SharedReceiverController(sharedText: sharedText),
-          ),
-        );
-        return;
-      }
-    }
+    if (!mounted) return;
 
-    // 2. 자동 로그인 상태면
     if (user != null) {
       final hasNickname = await UserService().hasNickname(user.id);
+      if (!mounted) return;
       if (hasNickname) {
-        // ✅ 닉네임 존재 → 홈
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        // ✅ 닉네임 없음 → 맵 화면에서 다이얼로그 뜨도록
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => MapSampleView()),
         );
       }
     } else {
-      // 3. 로그인 안되어 있으면 로그인 화면
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => CombinedLoginView()),
