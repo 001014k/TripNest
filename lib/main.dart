@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertrip/services/app_group_handler_service.dart';
 import 'package:fluttertrip/viewmodels/collaborator_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,7 +9,6 @@ import 'package:fluttertrip/env.dart'; // Env 클래스 import
 
 // ViewModel imports...
 import 'viewmodels/mapsample_viewmodel.dart';
-import 'viewmodels/bookmark_viewmodel.dart';
 import 'viewmodels/dashboard_viewmodel.dart';
 import 'viewmodels/forgot_password_viewmodel.dart';
 import 'viewmodels/friend_management_viewmodel.dart';
@@ -20,12 +20,12 @@ import 'viewmodels/signup_viewmodel.dart';
 import 'viewmodels/splash_viewmodel.dart';
 import 'viewmodels/add_markers_to_list_viewmodel.dart';
 import 'viewmodels/markercreationscreen_viewmodel.dart';
+import 'viewmodels/shared_link_viewmodel.dart';
 
 // Service imports...
 import 'services/marker_service.dart';
 
 // View imports...
-import 'views/bookmark_view.dart';
 import 'views/forgot_password_view.dart';
 import 'views/friend_management_view.dart';
 import 'views/mapsample_view.dart';
@@ -59,12 +59,12 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AddMarkersToListViewModel()),
         ChangeNotifierProvider(create: (_) => MapSampleViewModel()),
-        ChangeNotifierProvider(create: (_) => BookmarkViewmodel()),
+        ChangeNotifierProvider(create: (_) => SharedLinkViewModel()),
         ChangeNotifierProvider(create: (_) => DashboardViewModel()),
         ChangeNotifierProvider(create: (_) => ForgotPasswordViewModel()),
         ChangeNotifierProvider(create: (_) => FriendManagementViewModel()),
         ChangeNotifierProvider(create: (_) => ImageviewViewmodel()),
-        ChangeNotifierProvider(create: (_) => ListViewModel()),
+        ChangeNotifierProvider(create: (_) => ListViewModel()..loadLists()),
         ChangeNotifierProvider(create: (_) => LoginViewModel()),
         ChangeNotifierProvider(create: (_) => ProfileViewModel()),
         ChangeNotifierProvider(create: (_) => SignupViewModel()),
@@ -82,25 +82,35 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri?>? _sub;
   StreamSubscription<AuthState>? _authSub;
   bool _alreadyNavigated = false;
+  StreamSubscription? _uriSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // 👈 앱 생명주기 감지
 
-    // ✅ 딥링크 수신 시 Supabase가 처리하도록
-    _sub = _appLinks.uriLinkStream.listen((Uri? uri) {
-      if (uri != null) {
-        debugPrint("✅ 딥링크 URI 수신됨: $uri");
-        Supabase.instance.client.auth.getSessionFromUrl(uri); // 👉 내부적으로 처리됨
+    // ✅ 앱 최초 시작 시 공유 주소 처리
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        SharedAppGroupHandler.checkAndHandleSharedAddress(context);
       }
     });
 
-    // ✅ 인증 상태 변화 리스너 (자동 세션 반영)
+    // ✅ 딥링크 수신
+    _sub = _appLinks.uriLinkStream.listen((Uri? uri) {
+      if (uri != null) {
+        debugPrint("✅ 딥링크 URI 수신됨: $uri");
+        Supabase.instance.client.auth.getSessionFromUrl(uri);
+      }
+    });
+
+    // ✅ 인증 상태 감지
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       if (_alreadyNavigated) return;
       final event = data.event;
@@ -121,18 +131,29 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  // ✅ 앱 생명주기 변경 감지: 포그라운드 전환 시 공유 처리
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        SharedAppGroupHandler.checkAndHandleSharedAddress(context);
+      }
+    }
+  }
 
   @override
   void dispose() {
     _sub?.cancel();
     _authSub?.cancel();
+    _uriSub?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: navigatorKey, // ✅ Navigator 키 등록
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       initialRoute: '/splash',
       routes: {
@@ -144,9 +165,9 @@ class _MyAppState extends State<MyApp> {
         '/dashboard': (context) => DashboardView(),
         '/friend_management': (context) => FriendManagementView(),
         '/page_view': (context) => BookmarklisttabView(),
-        '/bookmark': (context) => BookmarkView(),
         '/user_list': (context) => UserListView(),
       },
     );
   }
 }
+
