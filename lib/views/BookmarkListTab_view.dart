@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../views/bookmark_view.dart';
+import '../views/shared_link_view.dart';
 import '../views/list_view.dart';
 
 class BookmarklisttabView extends StatefulWidget {
@@ -24,7 +24,7 @@ class _MainPageState extends State<BookmarklisttabView> {
   // 페이지 위젯 리스트
   final List<Widget> _pages = [
     ListPage(), // 리스트 페이지
-    BookmarkView(), // 북마크 페이지
+    SharedLinkView(), // 링크 저장된 페이지
   ];
 
   @override
@@ -58,7 +58,7 @@ class _MainPageState extends State<BookmarklisttabView> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.bookmark),
-            label: '북마크 페이지',
+            label: '링크 페이지',
           ),
         ],
       ),
