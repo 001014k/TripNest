@@ -87,13 +87,17 @@ class _MenuItemState extends State<MenuItem> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Text(
-                  widget.title,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: showBox
-                        ? (widget.textColor ?? primaryColor)
-                        : (widget.textColor ?? onSurfaceColor),
-                    fontWeight: showBox ? FontWeight.w600 : FontWeight.normal,
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: textTheme.titleMedium?.copyWith(
+                      color: showBox
+                          ? (widget.textColor ?? primaryColor)
+                          : (widget.textColor ?? onSurfaceColor),
+                      fontWeight: showBox ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis, // 길면 말줄임표 처리
                   ),
                 ),
                 if (widget.isSelected) ...[
