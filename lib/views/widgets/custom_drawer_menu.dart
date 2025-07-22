@@ -7,6 +7,7 @@ import '../../views/bookmarklisttab_view.dart';
 import '../../views/friend_management_view.dart';
 import '../../views/mapsample_view.dart';
 import '../../views/profile_view.dart';
+import '../calender/calendar_main_view.dart';
 import '../widgets/menu_item.dart'; // 당신의 MenuItem 위젯
 
 class CustomDrawerMenu extends StatelessWidget {
@@ -130,6 +131,21 @@ class CustomDrawerMenu extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => FriendManagementView()),
+                  );
+                },
+              ),
+              MenuItem(
+                title: '캘린더',
+                icon: Icons.calendar_month_outlined,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                isSelected: selectedIndex == 4,
+                onTap: () {
+                  zoomDrawerController?.toggle?.call();
+                  onItemSelected(3);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => CalendarMainView()),
                   );
                 },
               ),
