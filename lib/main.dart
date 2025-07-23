@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:fluttertrip/services/app_group_handler_service.dart';
 import 'package:fluttertrip/viewmodels/collaborator_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -41,6 +42,9 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // intl 로케일 데이터 초기화 추가
+  await initializeDateFormatting('ko_KR');
 
 
   try {

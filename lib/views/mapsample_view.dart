@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertrip/views/markercreationscreen_view.dart';
 import 'package:fluttertrip/views/widgets/zoom_drawer_container.dart';
@@ -15,7 +14,6 @@ import '../viewmodels/mapsample_viewmodel.dart';
 import 'nickname_dialog_view.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
-import '../services/app_group_handler_service.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -134,7 +132,6 @@ class _MapSampleViewState extends State<MapSampleView> {
       };
     });
   }
-
 
 
 // 마커 세부사항 페이지로 들어가 새로고침 하는 로직
