@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../models/place_model.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
+import 'package:geolocator/geolocator.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
   Set<Marker> _clusteredMarkers = {};
@@ -703,6 +704,43 @@ class MapSampleViewModel extends ChangeNotifier {
       print('Error fetching user lists: $e');
       return [];
     }
+  }
+
+  Future<void> checkLocationPermissionAndFetch() async {
+    print("📍 checkLocationPermissionAndFetch 호출됨");
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        print('❌ 위치 권한이 거부되었습니다.');
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      print('❌ 위치 권한이 영구적으로 거부되었습니다.');
+      return;
+    }
+
+    // ✅ 위치 권한이 허용된 경우
+    Position position = await Geolocator.getCurrentPosition();
+    _currentLocation = LatLng(position.latitude, position.longitude);
+    print('✅ 현재 위치: $_currentLocation');
+
+    // ✅ 지도 이동: controller가 초기화된 뒤라면 바로 이동
+    if (_controller != null) {
+      moveToCurrentLocation();
+    } else {
+      // ❗ controller가 아직 null이면 이후에 한 번 더 이동 시도
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (_controller != null && _currentLocation != null) {
+          moveToCurrentLocation();
+        }
+      });
+    }
+
+    notifyListeners();
   }
 
   void moveToCurrentLocation() async {

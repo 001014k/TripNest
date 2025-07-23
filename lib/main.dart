@@ -94,15 +94,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this); // 👈 앱 생명주기 감지
 
-    // ✅ 앱 최초 시작 시 공유 주소 처리
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final context = navigatorKey.currentContext;
       if (context != null) {
+        // 공유 주소 처리
         SharedAppGroupHandler.checkAndHandleSharedAddress(context);
+
+        // 위치 권한 요청 및 현재 위치로 이동
+        final viewModel = context.read<MapSampleViewModel>();
+        await viewModel.checkLocationPermissionAndFetch();
       }
     });
 
-    // ✅ 딥링크 수신
+     // ✅ 딥링크 수신
     _sub = _appLinks.uriLinkStream.listen((Uri? uri) {
       if (uri != null) {
         debugPrint("✅ 딥링크 URI 수신됨: $uri");
