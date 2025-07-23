@@ -10,7 +10,7 @@ class DailyScheduleView extends StatelessWidget {
   const DailyScheduleView({super.key, required this.date});
 
   String _formatTimeRange(DateTime start, DateTime end) {
-    final formatter = DateFormat.Hm();
+    final formatter = DateFormat('a h:mm', 'ko_KR');
     return '${formatter.format(start)} ~ ${formatter.format(end)}';
   }
 
@@ -33,7 +33,12 @@ class DailyScheduleView extends StatelessWidget {
             final schedules = viewModel.schedules;
 
             if (schedules.isEmpty) {
-              return const Center(child: Text('일정이 없습니다.'));
+              return const Center(
+                child: Text(
+                  '등록된 일정이 없습니다.',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              );
             }
 
             return ListView.builder(
@@ -45,7 +50,7 @@ class DailyScheduleView extends StatelessWidget {
                 return Slidable(
                   key: ValueKey(event.id),
                   endActionPane: ActionPane(
-                    motion: const ScrollMotion(),
+                    motion: const DrawerMotion(),
                     children: [
                       SlidableAction(
                         onPressed: (_) {
@@ -55,7 +60,7 @@ class DailyScheduleView extends StatelessWidget {
                             arguments: event.toJson(),
                           );
                         },
-                        backgroundColor: Colors.blue,
+                        backgroundColor: Colors.indigo,
                         foregroundColor: Colors.white,
                         icon: Icons.edit,
                         label: '수정',
@@ -75,18 +80,45 @@ class DailyScheduleView extends StatelessWidget {
                     ],
                   ),
                   child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 3,
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     child: ListTile(
-                      leading: Icon(Icons.schedule, color: event.color),
-                      title: Text(event.title),
-                      subtitle: Text(_formatTimeRange(event.startTime, event.endTime)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      contentPadding: const EdgeInsets.all(16),
+                      leading: CircleAvatar(
+                        backgroundColor: Color(event.colorValue),
+                        child: const Icon(Icons.schedule, color: Colors.white),
+                      ),
+                      title: Text(
+                        event.title,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatTimeRange(event.startTime, event.endTime),
+                            style: const TextStyle(color: Colors.grey),
+                          ),
                           if (event.latitude != null)
-                            const Icon(Icons.map),
+                            Row(
+                              children: const [
+                                Icon(Icons.place, size: 14, color: Colors.grey),
+                                SizedBox(width: 4),
+                                Text('지도 위치 있음', style: TextStyle(color: Colors.grey)),
+                              ],
+                            ),
                           if (event.collaboratorIds?.isNotEmpty ?? false)
-                            const Icon(Icons.group, size: 20),
+                            Row(
+                              children: const [
+                                Icon(Icons.group, size: 14, color: Colors.grey),
+                                SizedBox(width: 4),
+                                Text('친구와 공유됨', style: TextStyle(color: Colors.grey)),
+                              ],
+                            ),
                         ],
                       ),
                       onTap: () {
@@ -115,7 +147,7 @@ class DailyScheduleView extends StatelessWidget {
           onPressed: () {
             Navigator.pushNamed(
               context,
-              '/map_daily_schedule',
+              '/mapsample',
               arguments: date,
             );
           },

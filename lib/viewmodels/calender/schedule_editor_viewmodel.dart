@@ -8,7 +8,6 @@ class ScheduleEditorViewModel extends ChangeNotifier {
   String id = '';
   String title = '';
 
-  // 화면에서 날짜와 시간을 관리하는 변수
   DateTime? date;
   TimeOfDay? time;
 
@@ -21,7 +20,6 @@ class ScheduleEditorViewModel extends ChangeNotifier {
   List<String>? collaboratorIds;
 
   String location = '';
-  String category = '관광지';
   String budget = '';
   String memo = '';
   bool alarm = true;
@@ -29,12 +27,18 @@ class ScheduleEditorViewModel extends ChangeNotifier {
 
   bool isEditMode = false;
 
-  void initializeWith(Map<String, dynamic>? event) {
+  // ✅ 리스트 관련 추가 필드
+  String? selectedListId;
+  List<Map<String, dynamic>> userLists = [];
+
+  // 🔸 기존 일정 초기화 + 리스트 ID 포함
+  void initializeWith(Map<String, dynamic>? event) async {
+    await loadUserLists();
+
     if (event != null) {
       id = event['id'] ?? '';
       title = event['title'] ?? '';
 
-      // start_time이 있으면 date와 time을 분리해서 저장
       if (event['start_time'] != null) {
         startTime = DateTime.parse(event['start_time']);
         date = DateTime(startTime!.year, startTime!.month, startTime!.day);
@@ -46,7 +50,6 @@ class ScheduleEditorViewModel extends ChangeNotifier {
       }
 
       endTime = event['end_time'] != null ? DateTime.parse(event['end_time']) : null;
-
       placeId = event['place_id'];
       latitude = event['latitude'] != null ? (event['latitude'] as num).toDouble() : null;
       longitude = event['longitude'] != null ? (event['longitude'] as num).toDouble() : null;
@@ -54,23 +57,42 @@ class ScheduleEditorViewModel extends ChangeNotifier {
       collaboratorIds = (event['collaborator_ids'] as List?)?.map((e) => e as String).toList();
 
       location = event['location'] ?? '';
-      category = event['category'] ?? '관광지';
       budget = event['budget'] ?? '';
       memo = event['memo'] ?? '';
       alarm = event['alarm'] ?? true;
       shareWithFriends = event['share_with_friends'] ?? true;
+      selectedListId = event['list_id'];
 
       isEditMode = true;
+    } else {
+      if (userLists.isNotEmpty) {
+        selectedListId = userLists.first['id'];
+      }
     }
     notifyListeners();
   }
 
+  // ✅ 사용자의 리스트 불러오기
+  Future<void> loadUserLists() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    final response = await _client
+        .from('lists')
+        .select()
+        .eq('user_id', user.id)
+        .order('created_at');
+
+    userLists = List<Map<String, dynamic>>.from(response);
+    notifyListeners();
+  }
+
+  // 🔸 일정 저장
   Future<ScheduleModel?> saveSchedule() async {
     if (title.isEmpty || date == null || time == null) {
       throw Exception('제목, 날짜, 시간은 필수입니다.');
     }
 
-    // date + time 합쳐서 startTime 생성
     startTime = DateTime(
       date!.year,
       date!.month,
@@ -79,7 +101,6 @@ class ScheduleEditorViewModel extends ChangeNotifier {
       time!.minute,
     );
 
-    // endTime이 null이면 기본적으로 1시간 뒤로 설정
     endTime ??= startTime!.add(const Duration(hours: 1));
 
     final user = _client.auth.currentUser;
@@ -98,12 +119,12 @@ class ScheduleEditorViewModel extends ChangeNotifier {
       'color_value': colorValue,
       'collaborator_ids': collaboratorIds,
       'location': location,
-      'category': category,
       'budget': budget,
       'memo': memo,
       'alarm': alarm,
       'share_with_friends': shareWithFriends,
       'updated_at': DateTime.now().toIso8601String(),
+      'list_id': selectedListId,
     };
 
     try {
@@ -115,10 +136,7 @@ class ScheduleEditorViewModel extends ChangeNotifier {
             .select()
             .single();
 
-        if (updated == null) {
-          throw Exception('일정 수정에 실패했습니다.');
-        }
-
+        if (updated == null) throw Exception('일정 수정에 실패했습니다.');
         return ScheduleModel.fromJson(updated);
       } else {
         scheduleData['created_at'] = DateTime.now().toIso8601String();
@@ -129,10 +147,7 @@ class ScheduleEditorViewModel extends ChangeNotifier {
             .select()
             .single();
 
-        if (inserted == null) {
-          throw Exception('일정 저장에 실패했습니다.');
-        }
-
+        if (inserted == null) throw Exception('일정 저장에 실패했습니다.');
         return ScheduleModel.fromJson(inserted);
       }
     } catch (e) {
