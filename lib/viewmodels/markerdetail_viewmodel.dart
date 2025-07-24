@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../views/mapsample_view.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -30,160 +28,35 @@ class MarkerDetailViewModel extends ChangeNotifier {
   bool isBookmarked = false;
   List<Marker> bookmarkedMarkers = [];
   List<String> imageUrls = [];
-  final ImagePicker _picker = ImagePicker();
 
-  Future<void> loadImages(BuildContext context) async {
-    isLoadingImages = true;
-    notifyListeners();
+  // 리뷰 플랫폼 리스트 반환
+  List<Map<String, String>> get reviewLinks {
+    final title = _marker.infoWindow.title ?? '';
+    final addr = _address ?? '';
+    final encoded = Uri.encodeComponent('$title $addr $keyword');
 
-    try {
-      final user = supabase.auth.currentUser;
-      if (user == null) return;
-
-      final response = await supabase
-          .from('marker_images')
-          .select()
-          .eq('user_id', user.id)
-          .eq('marker_id', _marker.markerId.value);
-
-      imageUrls = (response as List)
-          .map((item) => item['url'] as String)
-          .toList();
-    } catch (e) {
-      print('Error loading images: $e');
-    } finally {
-      isLoadingImages = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> pickImage(BuildContext context) async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile == null) return;
-
-    final file = File(pickedFile.path);
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    try {
-      final bytes = await file.readAsBytes();
-      img.Image? image = img.decodeImage(bytes);
-
-      if (image != null) {
-        image = img.copyRotate(image, angle: 90);
-        final width = 800;
-        final height = (width * image.height) ~/ image.width;
-        image = img.copyResize(image, width: width, height: height);
-      }
-
-      final rotatedFile = File('${file.path}_rotated.jpg')
-        ..writeAsBytesSync(img.encodeJpg(image!));
-
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storagePath = '${user.id}/$fileName';
-
-      final storageResponse = await supabase.storage
-          .from('marker-images')
-          .upload(storagePath, rotatedFile);
-
-      final publicUrl = supabase.storage
-          .from('marker-images')
-          .getPublicUrl(storagePath);
-
-      await supabase.from('marker_images').insert({
-        'user_id': user.id,
-        'marker_id': _marker.markerId.value,
-        'url': publicUrl,
-      });
-
-      imageUrls.add(publicUrl);
-      notifyListeners();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('사진이 추가되었습니다.')),
-      );
-    } catch (e) {
-      print('Error uploading image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('사진 업로드 중 오류가 발생했습니다.')),
-      );
-    }
-  }
-
-  Future<void> saveBookmark() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    await supabase.from('bookmarks').upsert({
-      'user_id': user.id,
-      'marker_id': _marker.markerId.value,
-      'lat': _marker.position.latitude,
-      'lng': _marker.position.longitude,
-      'title': _marker.infoWindow.title,
-      'keyword': _keyword,
-    });
-  }
-
-  Future<void> deleteBookmark() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    await supabase
-        .from('bookmarks')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('marker_id', _marker.markerId.value);
-  }
-
-  Future<void> checkIfBookmarked() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    final response = await supabase
-        .from('bookmarks')
-        .select()
-        .eq('user_id', user.id)
-        .eq('marker_id', _marker.markerId.value);
-
-    isBookmarked = (response as List).isNotEmpty;
-    notifyListeners();
-  }
-
-  Future<List<Marker>> loadBookmarks() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return [];
-
-    final response = await supabase
-        .from('bookmarks')
-        .select()
-        .eq('user_id', user.id);
-
-    return (response as List).map((doc) {
-      return Marker(
-        markerId: MarkerId(doc['marker_id']),
-        position: LatLng(doc['lat'], doc['lng']),
-        infoWindow: InfoWindow(
-          title: doc['title'],
-          snippet: doc['snippet'] ?? '기본 스니펫',
-        ),
-      );
-    }).toList();
-  }
-
-  void toggleBookmark(BuildContext context) async {
-    if (isBookmarked) {
-      await deleteBookmark();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('북마크가 해제되었습니다.')),
-      );
-    } else {
-      await saveBookmark();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('북마크에 추가되었습니다.')),
-      );
-    }
-    isBookmarked = !isBookmarked;
-    notifyListeners();
+    return [
+      {
+        'platform': '네이버',
+        'icon': 'assets/logos/naver.png',
+        'url': 'https://search.naver.com/search.naver?query=$encoded',
+      },
+      {
+        'platform': '다음',
+        'icon': 'assets/logos/daum.png',
+        'url': 'https://search.daum.net/search?q=$encoded',
+      },
+      {
+        'platform': '구글',
+        'icon': 'assets/logos/google.png',
+        'url': 'https://www.google.com/search?q=$encoded',
+      },
+      {
+        'platform': '인스타그램',
+        'icon': 'assets/logos/instagram.png', // 로고 추가 필요
+        'url': 'https://www.instagram.com/explore/tags/$encoded/',
+      },
+    ];
   }
 
   Future<void> getAddressFromCoordinates(
