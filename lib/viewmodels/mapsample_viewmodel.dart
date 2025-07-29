@@ -251,6 +251,7 @@ class MapSampleViewModel extends ChangeNotifier {
     required String keyword,
     required void Function(MarkerId) onTapCallback,
     String? listId,
+    required String address,
   }) async {
     final markerImagePath =
         keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
@@ -284,6 +285,7 @@ class MapSampleViewModel extends ChangeNotifier {
           'lng': position.longitude,
           'keyword': keyword,
           'marker_image_path': markerImagePath,
+              'address': address,
         }).select();
 
         print('Insert 성공: $response');
@@ -832,7 +834,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
     // 2. Places API 호출 (places:searchText)
     final placesUrl = Uri.parse(
-        'https://places.googleapis.com/v1/places:searchText?&key=${Config.placesApiKey}');
+        'https://places.googleapis.com/v1/places:searchText?&key=${Config.googleMapsApiKey}');
     final requestBody = json.encode({
       "textQuery": query,
       "languageCode": "ko",
@@ -883,7 +885,7 @@ class MapSampleViewModel extends ChangeNotifier {
               try {
                 final detailsUrl = Uri.parse(
                     'https://maps.googleapis.com/maps/api/place/details/json'
-                    '?place_id=$placeId&language=ko&fields=name,formatted_address&key=${Config.placesApiKey}');
+                    '?place_id=$placeId&language=ko&fields=name,formatted_address&key=${Config.googleMapsApiKey}');
                 final detailsResponse = await http.get(detailsUrl);
 
                 if (detailsResponse.statusCode == 200) {

@@ -105,7 +105,7 @@ class _MapSampleViewState extends State<MapSampleView> {
             marker: marker,
             keyword: keyword.isNotEmpty ? keyword : '',
             listId: selectedListId ?? 'default_list_id',
-            onSave: (m, value) async {
+            onSave: (marker, keyword, address) async {
               // 저장 처리
             },
             onDelete: (m) {
@@ -280,11 +280,13 @@ class _MapSampleViewState extends State<MapSampleView> {
     if (result != null && _pendingLatLng != null) {
       final keyword = result['keyword'] ?? 'default'; // 키워드가 없을 경우 기본값 설정
       final listId = result['listId']; // ✅ 리스트 ID도 추출
+      final address = result['address'] ?? '';
       context.read<MapSampleViewModel>().addMarker(
         title: result['title'],
         snippet: result['snippet'],
         position: _pendingLatLng!,
         keyword: keyword,
+        address: address,
         listId: listId, // ✅ 이걸 넘겨야 저장 가능
         onTapCallback: (markerId) {
           context.read<MapSampleViewModel>().onMarkerTapped(markerId);
@@ -321,7 +323,7 @@ class _MapSampleViewState extends State<MapSampleView> {
               marker: marker,
               keyword: keyword,
               listId: listId, // ✅ 전달
-              onSave: (updatedMarker, keyword) async {
+              onSave: (updatedMarker, keyword, address) async {
                 // 키워드에 따른 이미지 경로를 가져옴
                 final markerImagePath = keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
                 context.read<MarkerCreationScreenViewModel>().saveMarker(
@@ -329,6 +331,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                   keyword: keyword,
                   markerImagePath: markerImagePath,
                   listId: listId, // ✅ 전달
+                  address: address,
                 );
               },
               onDelete: onDelete,
@@ -987,7 +990,7 @@ class _MapSampleViewState extends State<MapSampleView> {
 
 class MarkerInfoBottomSheet extends StatelessWidget {
   final Marker marker;
-  final Future<void> Function(Marker, String) onSave;
+  final Future<void> Function(Marker marker, String keyword, String address) onSave;
   final Function(Marker) onDelete;
   final Function(Marker) onBookmark;
   final String keyword;
