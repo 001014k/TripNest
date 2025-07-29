@@ -185,6 +185,7 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                         'keyword': _selectedKeyword,
                         'image': _image,
                         'listId': _selectedListId,
+                        'address': _address,
                       });
                     },
                     style: ElevatedButton.styleFrom(

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/user_service.dart';
+import '../config.dart';
 
 class MarkerCreationScreenViewModel extends ChangeNotifier {
 
@@ -38,28 +40,21 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
     }
   }
 
-
   // 새 마커 생성
   Future<void> saveMarker({
     required Marker marker,
     required String keyword,
     required String markerImagePath,
+    required String address,
     String? listId,
   }) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
-      final address = await getAddressFromCoordinates(
-        marker.position.latitude,
-        marker.position.longitude,
-      );
-
       try {
-        await Supabase.instance.client
-            .from('user_markers')
-            .insert({
+        await Supabase.instance.client.from('user_markers').insert({
           'id': marker.markerId.value,
           'user_id': user.id,
-          'list_id': listId, // ✅ 리스트 ID 저장
+          'list_id': listId,
           'title': marker.infoWindow.title,
           'snippet': marker.infoWindow.snippet,
           'lat': marker.position.latitude,
@@ -74,22 +69,32 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
   }
 
 
-  Future<String> getAddressFromCoordinates(
-      double latitude, double longitude) async {
+
+  Future<String> getAddressFromCoordinates(double latitude, double longitude) async {
+    final apiKey = Config.googleMapsApiKey;
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/geocode/json?latlng=$latitude,$longitude&key=$apiKey&language=ko',
+    );
+
     try {
-      List<geocoding.Placemark> placemarks =
-          await geocoding.placemarkFromCoordinates(
-        latitude,
-        longitude,
-      );
-      if (placemarks.isNotEmpty) {
-        final placemark = placemarks.first;
-        return '${placemark.country ?? ''} ${placemark.administrativeArea ?? ''} ${placemark.locality ?? ''} ${placemark.street ?? ''}';
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['status'] == 'OK') {
+          final results = json['results'];
+          if (results != null && results.isNotEmpty) {
+            return results[0]['formatted_address'];
+          }
+        } else {
+          print('Google Geocoding API Error: ${json['status']}');
+        }
+      } else {
+        print('HTTP Error: ${response.statusCode}');
       }
-      return 'Unknown Address';
     } catch (e) {
-      print('Error getting address: $e');
-      return 'Error fetching address'; // Error message
+      print('Exception during reverse geocoding: $e');
     }
+
+    return '주소 정보를 불러올 수 없습니다';
   }
 }
