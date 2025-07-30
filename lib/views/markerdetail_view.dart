@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../viewmodels/markerdetail_viewmodel.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -23,18 +24,13 @@ class MarkerDetailView extends StatefulWidget {
 }
 
 class _MarkerDetailPageState extends State<MarkerDetailView> {
-  late final MarkerDetailViewModel _viewmodel;
 
   @override
   void initState() {
     super.initState();
-    _viewmodel = MarkerDetailViewModel(
-      marker: widget.marker,
-      keyword: widget.keyword,
-    );
   }
 
-  void _showBottomSheet(BuildContext context) {
+  void _showBottomSheet(BuildContext context, MarkerDetailViewModel viewmodel) {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
@@ -48,13 +44,16 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 16),
-              _mapButton('구글맵', 'assets/GoogleMap.png', _viewmodel.openGoogleMaps),
+              _mapButton(
+                  '구글맵', 'assets/GoogleMap.png', viewmodel.openGoogleMaps),
               Divider(),
-              _mapButton('카카오맵', 'assets/kakaomap.png', _viewmodel.openKakaoMap),
+              _mapButton(
+                  '카카오맵', 'assets/kakaomap.png', viewmodel.openKakaoMap),
               Divider(),
-              _mapButton('네이버맵', 'assets/NaverMap.png', _viewmodel.openNaverMap),
+              _mapButton(
+                  '네이버맵', 'assets/NaverMap.png', viewmodel.openNaverMap),
               Divider(),
-              _mapButton('티맵', 'assets/Tmap.png', _viewmodel.openTmap),
+              _mapButton('티맵', 'assets/Tmap.png', viewmodel.openTmap),
             ],
           ),
         );
@@ -62,7 +61,8 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
     );
   }
 
-  Widget _mapButton(String title, String iconPath, Function(BuildContext) onTap) {
+  Widget _mapButton(String title, String iconPath,
+      Function(BuildContext) onTap) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(backgroundColor: Colors.black54),
       onPressed: () => onTap(context),
@@ -71,20 +71,22 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
         children: [
           Image.asset(iconPath, width: 24, height: 24),
           SizedBox(width: 8),
-          Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+          Text(title, style: TextStyle(
+              fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
         ],
       ),
     );
   }
 
   // 🎯 리뷰 카드 위젯
-  Widget _buildReviewCards() {
-    final reviewLinks = _viewmodel.reviewLinks;
+  Widget _buildReviewCards(MarkerDetailViewModel viewmodel) {
+    final reviewLinks = viewmodel.reviewLinks;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("🔍 리뷰 미리보기", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text("🔍 리뷰 미리보기",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         SizedBox(height: 8),
         SizedBox(
           height: 100,
@@ -111,7 +113,8 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
                       children: [
                         Image.asset(review['icon']!, height: 28),
                         SizedBox(height: 8),
-                        Text('${review['platform']} 리뷰', style: TextStyle(fontSize: 14)),
+                        Text('${review['platform']} 리뷰', style: TextStyle(
+                            fontSize: 14)),
                       ],
                     ),
                   ),
@@ -127,92 +130,116 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('마커 정보', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == '수정') _viewmodel.saveMarker(context);
-              else if (value == '삭제') _viewmodel.deleteMarker(context);
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(value: '수정', child: Text('수정')),
-              PopupMenuItem(value: '삭제', child: Text('삭제')),
-            ],
-          )
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.title, color: Colors.black),
-                SizedBox(width: 8),
-                Text(
-                  _viewmodel.marker.infoWindow.title ?? '제목 없음',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    return ChangeNotifierProvider(
+      create: (_) {
+        final vm = MarkerDetailViewModel(widget.marker);
+        vm.fetchUserMarkerDetail(widget.marker.markerId.value);
+        return vm;
+      },
+      child: Consumer<MarkerDetailViewModel>(
+        builder: (context, viewmodel, _) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(
+                  '마커 정보', style: TextStyle(fontWeight: FontWeight.bold)),
+              actions: [
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == '수정')
+                      viewmodel.saveMarker(context);
+                    else if (value == '삭제') viewmodel.deleteMarker(context);
+                  },
+                  itemBuilder: (context) =>
+                  [
+                    PopupMenuItem(value: '수정', child: Text('수정')),
+                    PopupMenuItem(value: '삭제', child: Text('삭제')),
+                  ],
                 )
               ],
             ),
-            SizedBox(height: 4),
-            Container(height: 2, color: Colors.black, width: double.infinity),
-            SizedBox(height: 20),
-            Row(
-              children: [
-                Icon(Icons.label, color: Colors.blue),
-                SizedBox(width: 8),
-                Text(_viewmodel.keyword ?? '키워드 없음',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            SizedBox(height: 20),
-            _viewmodel.address != null
-                ? Row(
-              children: [
-                Icon(Icons.location_on, color: Colors.red),
-                SizedBox(width: 8),
-                Text(_viewmodel.address ?? '주소 없음',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            )
-                : CircularProgressIndicator(),
-            SizedBox(height: 20),
-            _buildReviewCards(), // 🎯 리뷰 카드 삽입 위치
-            SizedBox(height: 20),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () => _showBottomSheet(context),
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+            body: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.title, color: Colors.black),
+                      SizedBox(width: 8),
+                      Text(
+                        viewmodel.marker.infoWindow.title ?? '제목 없음',
+                        style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
+                      )
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Container(height: 2,
+                      color: Colors.black,
+                      width: double.infinity),
+                  SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Icon(Icons.label, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text(viewmodel.keyword ?? '키워드 없음',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  viewmodel.address != null
+                      ? Row(
+                    children: [
+                      Icon(Icons.location_on, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text(viewmodel.address ?? '주소 없음',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  )
+                      : CircularProgressIndicator(),
+                  SizedBox(height: 20),
+                  _buildReviewCards(viewmodel), // 🎯 리뷰 카드 삽입 위치
+                  SizedBox(height: 20),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment
+                                .spaceEvenly,
                             children: [
-                              Icon(Icons.directions, color: Colors.black),
-                              SizedBox(width: 8),
-                              Text('길찾기', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                              ElevatedButton(
+                                onPressed: () => _showBottomSheet(context, viewmodel),
+                                style: ElevatedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.zero),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.directions,
+                                        color: Colors.black),
+                                    SizedBox(width: 8),
+                                    Text('길찾기', style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black)),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
-                        ),
-                      ],
+                          SizedBox(height: 20),
+                        ],
+                      ),
                     ),
-                    SizedBox(height: 20),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

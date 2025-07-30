@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../views/mapsample_view.dart';
@@ -12,15 +11,14 @@ class MarkerDetailViewModel extends ChangeNotifier {
   final SupabaseClient supabase = Supabase.instance.client;
 
   final Marker _marker;
-  final String _keyword;
+  String? _keyword;
   String? _address;
 
-  MarkerDetailViewModel({required Marker marker, required String keyword})
-      : _marker = marker,
-        _keyword = keyword;
+  // 생성자 추가
+  MarkerDetailViewModel(this._marker);
 
   Marker get marker => _marker;
-  String get keyword => _keyword;
+  String? get keyword => _keyword;
   String? get address => _address;
 
   late TextEditingController _titleController;
@@ -59,20 +57,40 @@ class MarkerDetailViewModel extends ChangeNotifier {
     ];
   }
 
-  Future<void> getAddressFromCoordinates(
-      double latitude, double longitude) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(latitude, longitude);
-      if (placemarks.isNotEmpty) {
-        final p = placemarks.first;
-        _address = '${p.administrativeArea ?? ''} ${p.locality ?? ''} ${p.street ?? ''}';
-      } else {
-        _address = '주소를 찾을 수 없습니다';
-      }
-    } catch (e) {
-      _address = '주소를 가져오는 중 오류 발생';
+  Future<void> fetchUserMarkerDetail(String markerId) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      print('User not logged in');
+      return;
     }
-    notifyListeners();
+
+    try {
+      final data = await supabase
+          .from('user_markers')
+          .select('address, keyword')
+          .eq('id', markerId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      print('fetchUserMarkerDetail data: $data');  // 여기에 로그 추가
+
+      if (data != null) {
+        _address = data['address'] as String?;
+        _keyword = data['keyword'] as String? ?? '키워드 없음';
+      } else {
+        print('No data found for markerId: $markerId, userId: ${user.id}');
+        _address = '주소를 찾을 수 없습니다';
+        _keyword = '키워드 없음';
+      }
+
+      notifyListeners();
+    } catch (e, stacktrace) {
+      print('fetchUserMarkerDetail error: $e');
+      print(stacktrace);  // 에러 스택트레이스도 출력
+      _address = '주소 오류';
+      _keyword = '키워드 오류';
+      notifyListeners();
+    }
   }
 
   Future<void> deleteMarker(BuildContext context) async {
