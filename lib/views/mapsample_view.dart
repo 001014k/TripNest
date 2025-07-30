@@ -75,7 +75,7 @@ class _MapSampleViewState extends State<MapSampleView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final viewModel = context.read<MapSampleViewModel>();
-      viewModel.loadMarkers(); // 첫 로딩 시점에서 호출
+      await viewModel.loadMarkers(); // 첫 로딩 시점에서 호출
 
       // ✅ 닉네임 확인 및 다이얼로그 표시
       final user = Supabase.instance.client.auth.currentUser;
@@ -650,10 +650,7 @@ class _MapSampleViewState extends State<MapSampleView> {
 
                   viewModel.controller = controller;
                   await viewModel.loadMarkers();
-                  // 지도 렌더링 완료 후 클러스터 적용
-                  WidgetsBinding.instance.addPostFrameCallback((_) async {
-                    await viewModel.applyMarkersToCluster(controller);
-                  });
+                  await viewModel.applyMarkersToCluster(controller);
                   controller.setMapStyle(viewModel.mapStyle);
 
                   //현재 위치가 설정된 경우 카메라 이동
@@ -701,6 +698,11 @@ class _MapSampleViewState extends State<MapSampleView> {
                 onCameraMove: (position) {
                   viewModel.onCameraMove(position);
                   viewModel.clusterManager?.onCameraMove(position);
+                },
+
+                // 카메라 이동이 완료되면 클러스터 업데이트
+                onCameraIdle: () {
+                  viewModel.clusterManager?.updateMap();
                 },
               );
             },
@@ -995,7 +997,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
   final Function(Marker) onBookmark;
   final String keyword;
   final Function(BuildContext, Marker) navigateToMarkerDetailPage;
-  final String listId; // ✅ 추가
+  final String listId;
 
   MarkerInfoBottomSheet({
     required this.marker,
@@ -1004,7 +1006,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
     required this.onBookmark,
     required this.keyword,
     required this.navigateToMarkerDetailPage,
-    required this.listId, // ✅ 추가
+    required this.listId,
   });
 
   @override

@@ -87,13 +87,15 @@ class MapSampleViewModel extends ChangeNotifier {
   LatLng get seoulCityHall => _seoulCityHall;
 
   String get mapStyle => _mapStyle;
-  double currentZoom = 15.0; // 초기 줌 레벨
+  double currentZoom = 14.0; // 초기 줌 레벨
   Set<String> activeKeywords = {}; //활성화 된 키워드 저장
   final location.Location _location = location.Location();
   late Set<Marker> _markers = {};
   GoogleMapController? _controller;
 
-  set controller(GoogleMapController controller) {
+  GoogleMapController? get controller => _controller;
+
+  set controller(GoogleMapController? controller) {
     _controller = controller;
   }
 
@@ -390,6 +392,12 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _updateMarkers(markers) {
+    debugPrint('Updating clustered markers count: ${markers.length}');
+    _clusteredMarkers = markers.toSet();
+    notifyListeners();
+  }
+
   void clearPolylines() {
     _polygonPoints.clear();
     notifyListeners();
@@ -533,6 +541,9 @@ class MapSampleViewModel extends ChangeNotifier {
 
   Future<void> applyMarkersToCluster(GoogleMapController? controller) async {
     if (_isDisposed || controller == null) return;
+    if (_controller == null) return;
+
+    debugPrint('applyMarkersToCluster called with ${_filteredPlaces.length} places');
 
     try {
       if (_clusterManager == null) {
@@ -568,11 +579,6 @@ class MapSampleViewModel extends ChangeNotifier {
 
   void onCameraMove(CameraPosition position) {
     currentZoom = position.zoom;
-    notifyListeners();
-  }
-
-  void _updateMarkers(markers) {
-    _clusteredMarkers = markers.toSet();
     notifyListeners();
   }
 
