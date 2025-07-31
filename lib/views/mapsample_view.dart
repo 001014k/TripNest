@@ -14,6 +14,7 @@ import '../viewmodels/mapsample_viewmodel.dart';
 import 'nickname_dialog_view.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
+import '../viewmodels/markerdetail_viewmodel.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -990,16 +991,16 @@ class _MapSampleViewState extends State<MapSampleView> {
 }
 
 
-class MarkerInfoBottomSheet extends StatelessWidget {
+class MarkerInfoBottomSheet extends StatefulWidget {
   final Marker marker;
-  final Future<void> Function(Marker marker, String keyword, String address) onSave;
+  final Future<void> Function(Marker, String, String) onSave;
   final Function(Marker) onDelete;
   final Function(Marker) onBookmark;
   final String keyword;
   final Function(BuildContext, Marker) navigateToMarkerDetailPage;
   final String listId;
 
-  MarkerInfoBottomSheet({
+  const MarkerInfoBottomSheet({
     required this.marker,
     required this.onSave,
     required this.onDelete,
@@ -1010,8 +1011,57 @@ class MarkerInfoBottomSheet extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  State<MarkerInfoBottomSheet> createState() => _MarkerInfoBottomSheetState();
+}
 
+class _MarkerInfoBottomSheetState extends State<MarkerInfoBottomSheet> {
+  String _title = '제목 로딩 중...';
+  String _address = '';
+  String _keyword = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMarkerDetail();
+  }
+
+  Future<void> _fetchMarkerDetail() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final data = await Supabase.instance.client
+          .from('user_markers')
+          .select('title, address, keyword')
+          .eq('id', widget.marker.markerId.value)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (data != null) {
+        setState(() {
+          _title = data['title'] ?? '제목 없음';
+          _address = data['address'] ?? '주소 없음';
+          _keyword = data['keyword'] ?? '키워드 없음';
+        });
+      } else {
+        setState(() {
+          _title = '제목 없음';
+          _address = '주소 없음';
+          _keyword = '키워드 없음';
+        });
+      }
+    } catch (e) {
+      print('마커 정보 불러오기 오류: $e');
+      setState(() {
+        _title = '오류 발생';
+        _address = '';
+        _keyword = '';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(16.0),
       child: Column(
@@ -1020,7 +1070,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
           GestureDetector(
             onTap: () {
               Navigator.pop(context);
-              navigateToMarkerDetailPage(context, marker);
+              widget.navigateToMarkerDetailPage(context, widget.marker);
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1030,7 +1080,7 @@ class MarkerInfoBottomSheet extends StatelessWidget {
                     Icon(Icons.title, color: Colors.black),
                     SizedBox(width: 8),
                     Text(
-                      marker.infoWindow.title ?? '제목 없음',
+                      _title,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 20.0,
@@ -1050,17 +1100,41 @@ class MarkerInfoBottomSheet extends StatelessWidget {
               ],
             ),
           ),
-          Text(marker.infoWindow.snippet ?? ''),
+
+          // ✅ 주소
+          if (_address.isNotEmpty)
+            Row(
+              children: [
+                Icon(Icons.location_on, color: Colors.green),
+                SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    _address,
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          SizedBox(height: 10),
+
+          // ✅ 키워드
           Row(
             children: [
               Icon(Icons.label, color: Colors.blue),
-              SizedBox(height: 10),
+              SizedBox(width: 8),
               Text(
-                keyword.isNotEmpty ? keyword : '기본 키워드',
-                style: TextStyle(color: Colors.black,fontSize: 16, fontWeight: FontWeight.bold),
+                _keyword.isNotEmpty ? _keyword : '기본 키워드',
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold),
               ),
             ],
-          )
+          ),
         ],
       ),
     );
