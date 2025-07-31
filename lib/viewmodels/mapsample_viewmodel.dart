@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import '../config.dart';
 import 'package:location/location.dart' as location;
 import 'package:geocoding/geocoding.dart' as geocoding;
@@ -255,19 +256,19 @@ class MapSampleViewModel extends ChangeNotifier {
     String? listId,
     required String address,
   }) async {
+    final uuid = const Uuid().v4(); // ✅ UUID 생성
+    final markerId = MarkerId(uuid);
+
     final markerImagePath =
         keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
     final markerIcon = await createCustomMarkerImage(markerImagePath, 128, 128);
-    final markerId = MarkerId(position.toString());
 
     final marker = Marker(
       markerId: markerId,
       position: position,
-      infoWindow: InfoWindow(title: title, snippet: snippet),
+      infoWindow: const InfoWindow(title: '', snippet: ''), // ✅ 말풍선 숨기기
       icon: markerIcon,
-      onTap: () {
-        onTapCallback(markerId);
-      },
+      onTap: () => onTapCallback(markerId),
     );
 
     _markers.add(marker);
@@ -279,7 +280,8 @@ class MapSampleViewModel extends ChangeNotifier {
     if (user != null) {
       try {
         final response =
-            await Supabase.instance.client.from('user_markers').insert({
+        await Supabase.instance.client.from('user_markers').insert({
+          'id': uuid, // ✅ 여기서 Supabase에 저장할 마커 ID
           'user_id': user.id,
           'title': title,
           'snippet': snippet,
@@ -287,7 +289,7 @@ class MapSampleViewModel extends ChangeNotifier {
           'lng': position.longitude,
           'keyword': keyword,
           'marker_image_path': markerImagePath,
-              'address': address,
+          'address': address,
         }).select();
 
         print('Insert 성공: $response');
@@ -297,7 +299,6 @@ class MapSampleViewModel extends ChangeNotifier {
 
       if (listId != null) {
         try {
-          // list_bookmarks에도 별도 저장
           await Supabase.instance.client.from('list_bookmarks').insert({
             'list_id': listId,
             'title': title,
@@ -306,7 +307,6 @@ class MapSampleViewModel extends ChangeNotifier {
             'lng': position.longitude,
             'snippet': snippet,
             'created_at': DateTime.now().toIso8601String(),
-            // 'order': 0, // 필요 시 추가 가능
           });
           print('list_bookmarks Insert 성공');
         } catch (error) {
@@ -317,7 +317,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
     _filteredPlaces = _filteredMarkers.map((marker) {
       return Place(
-        id: marker.markerId.value,
+        id: marker.markerId.value, // ✅ UUID가 들어감
         title: marker.infoWindow.title ?? '',
         snippet: marker.infoWindow.snippet ?? '',
         latLng: marker.position,
@@ -327,6 +327,7 @@ class MapSampleViewModel extends ChangeNotifier {
     _clusterManager?.setItems(_filteredPlaces);
     notifyListeners();
   }
+
 
   Future<void> loadMarkers() async {
     final user = Supabase.instance.client.auth.currentUser;
