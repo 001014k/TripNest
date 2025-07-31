@@ -167,7 +167,7 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
                       Icon(Icons.title, color: Colors.black),
                       SizedBox(width: 8),
                       Text(
-                        viewmodel.marker.infoWindow.title ?? '제목 없음',
+                        viewmodel.title ?? '제목 없음',
                         style: TextStyle(
                             fontSize: 24, fontWeight: FontWeight.bold),
                       )

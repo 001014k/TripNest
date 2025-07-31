@@ -11,6 +11,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
   final SupabaseClient supabase = Supabase.instance.client;
 
   final Marker _marker;
+  String? _title;
   String? _keyword;
   String? _address;
 
@@ -18,6 +19,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
   MarkerDetailViewModel(this._marker);
 
   Marker get marker => _marker;
+  String get title => _title ?? '제목 없음';
   String? get keyword => _keyword;
   String? get address => _address;
 
@@ -67,7 +69,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
     try {
       final data = await supabase
           .from('user_markers')
-          .select('address, keyword')
+          .select('title, address, keyword')
           .eq('id', markerId)
           .eq('user_id', user.id)
           .maybeSingle();
@@ -75,6 +77,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
       print('fetchUserMarkerDetail data: $data');  // 여기에 로그 추가
 
       if (data != null) {
+        _title = data['title'] as String? ?? '제목 없음';
         _address = data['address'] as String?;
         _keyword = data['keyword'] as String? ?? '키워드 없음';
       } else {
