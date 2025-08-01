@@ -37,8 +37,6 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
 
     if (index == 0) {
       navigateToAddMarkersToListPage();
-    } else if (index == 1) {
-      _showMusicPlatformBottomSheet();
     }
   }
 
@@ -67,25 +65,9 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
           backgroundColor: Colors.white,
           foregroundColor: Colors.black87,
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.grey[400],
-          selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600),
-          unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal),
-          iconSize: 28,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.add_location),
-              label: 'Add Markers',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.music_note),
-              label: 'Music',
-            ),
-          ],
+        floatingActionButton: FloatingActionButton(
+          onPressed: navigateToAddMarkersToListPage,
+          child: Icon(Icons.add_location),
         ),
         body: Consumer<MarkerInfoViewModel>(
           builder: (context, vm, child) {
@@ -105,7 +87,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
             if (vm.markers.isEmpty) {
               return const Center(
                 child: Text(
-                  'No markers found.',
+                  '마커가 없습니다. 추가해주세요.',
                   style: TextStyle(fontSize: 16, color: Colors.black54),
                 ),
               );
@@ -218,90 +200,5 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
     if (result == true) {
       vm.deleteMarker(markerId);
     }
-  }
-
-
-  void _showMusicPlatformBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      backgroundColor: Colors.white,
-      builder: (context) {
-        final musicPlatforms = [
-          {
-            'name': 'Spotify',
-            'asset': 'assets/spotify.png',
-            'action': () => viewModel.openSpotify(),
-          },
-          {
-            'name': 'Apple Music',
-            'asset': 'assets/applemusic.png',
-            'action': () => viewModel.openAppleMusic(),
-          },
-          {
-            'name': 'YouTube Music',
-            'asset': 'assets/YoutubeMusic.png',
-            'action': () => viewModel.openYouTubeMusic(),
-          },
-        ];
-
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  labelText: 'Search Music',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.search),
-                ),
-              ),
-              const SizedBox(height: 20),
-              ...musicPlatforms.map((platform) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black87,
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context); // 닫고 호출
-                      (platform['action'] as Function).call();
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Image.asset(
-                          (platform['asset'] as Function).call(),
-                          width: 28,
-                          height: 28,
-                        ),
-                        const SizedBox(width: 14),
-                        Text(
-                          (platform['name'] as Function).call(),
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ],
-          ),
-        );
-      },
-    );
   }
 }

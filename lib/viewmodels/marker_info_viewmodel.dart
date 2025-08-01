@@ -26,7 +26,8 @@ class MarkerInfoViewModel extends ChangeNotifier {
       final data = await supabase
           .from('list_bookmarks')
           .select()
-          .eq('list_id', listId);
+          .eq('list_id', listId)
+          .order('sort_order', ascending: true);
 
       markers = (data as List)
           .map((json) => MarkerModel.fromMap(json as Map<String, dynamic>))
