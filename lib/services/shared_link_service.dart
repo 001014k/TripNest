@@ -4,7 +4,7 @@ import '../models/shared_link_model.dart';
 class SharedLinkService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  Future<void> saveSharedLink(String url) async {
+  Future<void> saveSharedLink(String url, String platform) async {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception("로그인이 필요합니다");
 
@@ -25,6 +25,7 @@ class SharedLinkService {
       final data = {
         'user_id': user.id,
         'url': url,
+        'platform': platform, // ✅ 플랫폼 추가
         'created_at': DateTime.now().toIso8601String(),
       };
 
@@ -33,7 +34,8 @@ class SharedLinkService {
       if (res == null || (res is List && res.isEmpty)) {
         throw Exception('링크 저장에 실패했습니다.');
       }
-      print('링크 저장 성공: $url');
+
+      print('링크 저장 성공 ($platform): $url');
     } catch (e) {
       print('링크 저장 중 예외 발생: $e');
       rethrow;

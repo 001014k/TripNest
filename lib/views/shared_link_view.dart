@@ -118,6 +118,7 @@ class _SharedLinkViewState extends State<SharedLinkView> {
               elevation: 4,
               child: _CustomLinkPreview(
               url: link.url,
+                platform: link.platform,
               onDelete: () {
                 final id = link.id;
                 if (id != null) {
@@ -137,10 +138,12 @@ class _SharedLinkViewState extends State<SharedLinkView> {
 
 class _CustomLinkPreview extends StatefulWidget {
   final String url;
+  final String? platform;
   final VoidCallback onDelete;
 
   const _CustomLinkPreview({
     required this.url,
+    this.platform,
     required this.onDelete,
     Key? key,
   }) : super(key: key);
@@ -194,66 +197,86 @@ class _CustomLinkPreviewState extends State<_CustomLinkPreview> {
       );
     }
 
-    return InkWell(
-      onTap: () async {
-        final uri = Uri.tryParse(widget.url);
-        if (uri != null && await canLaunchUrl(uri)) {
-          await launchUrl(uri);
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            if (_previewData?.image != null && _previewData!.image!.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  _previewData!.image!,
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
-                ),
-              )
-            else
-              Container(
-                width: 100,
-                height: 100,
-                color: Colors.grey[300],
-                child: const Icon(Icons.image, size: 40, color: Colors.white),
-              ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _previewData?.title ?? widget.url,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+    return Material(
+      color: Colors.transparent,
+      child: GestureDetector(  // InkWell 대신 GestureDetector로 교체
+        onTap: () async {
+          final uri = Uri.tryParse(widget.url);
+          if (uri != null && await canLaunchUrl(uri)) {
+            await launchUrl(uri);
+          }
+        },
+        child: Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 4,
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // 크기 최소화
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _previewData?.image != null && _previewData!.image!.isNotEmpty
+                      ? Image.network(
+                    _previewData!.image!,
+                    height: 140,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  )
+                      : Container(
+                    height: 140,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.image, size: 60, color: Colors.white),
                   ),
-                  const SizedBox(height: 4),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _previewData?.title ?? widget.url,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _previewData?.description ?? '',
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 13,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                if (widget.platform != null) ...[
+                  const Divider(),
                   Text(
-                    _previewData?.description ?? '',
+                    widget.platform!,
                     style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 13,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueAccent,
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
-              ),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: widget.onDelete,
+                    tooltip: '삭제',
+                    splashRadius: 20,
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
             ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: widget.onDelete,
-            ),
-          ],
+          ),
         ),
       ),
     );

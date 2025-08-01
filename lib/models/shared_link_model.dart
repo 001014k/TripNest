@@ -2,12 +2,14 @@ class SharedLinkModel {
   final String? id;           // nullable로 변경
   final String userId;
   final String url;
+  final String platform;
   final DateTime createdAt;
 
   SharedLinkModel({
     this.id,                 // nullable이므로 required 제거
     required this.userId,
     required this.url,
+    required this.platform,
     required this.createdAt,
   });
 
@@ -16,6 +18,7 @@ class SharedLinkModel {
       id: map['id'] as String?,  // null 가능
       userId: map['user_id'] as String,
       url: map['url'] as String,
+      platform: map['platform'] ?? 'unknown',
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
@@ -25,6 +28,7 @@ class SharedLinkModel {
       // 'id': id,  // 제거: insert 시 자동 생성되므로 제외
       'user_id': userId,
       'url': url,
+      'platform': platform,
       'created_at': createdAt.toIso8601String(),
     };
   }

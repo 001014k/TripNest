@@ -4,10 +4,24 @@ import '../services/shared_link_service.dart';
 
 class SharedLinkViewModel extends ChangeNotifier {
   final SharedLinkService _service = SharedLinkService();
-
   List<SharedLinkModel> sharedLinks = [];
   String? errorMessage;
-  String? _lastSavedUrl; // ✅ 마지막 저장한 URL 기억
+  String? _lastSavedUrl;
+  String detectPlatformFromUrl(String url) {
+    final uri = Uri.parse(url);
+    final host = uri.host.toLowerCase();
+
+    if (host.contains('instagram.com')) return 'Instagram';
+    if (host.contains('youtube.com') || host.contains('youtu.be')) return 'YouTube';
+    if (host.contains('naver.com')) return 'Naver';
+    if (host.contains('tiktok.com')) return 'TikTok';
+    if (host.contains('facebook.com')) return 'Facebook';
+    if (host.contains('twitter.com') || host.contains('x.com')) return 'Twitter';
+    if (host.contains('daum.net')) return 'Daum';
+    if (host.contains('kakao.com')) return 'Kakao';
+    if (host.contains('google.com/maps')) return 'Google Maps';
+    return '기타';
+  }
 
   Future<void> saveLink(String url) async {
     errorMessage = null;
@@ -25,7 +39,10 @@ class SharedLinkViewModel extends ChangeNotifier {
         return;
       }
 
-      await _service.saveSharedLink(url);
+      final platform = detectPlatformFromUrl(url);
+
+      await _service.saveSharedLink(url, platform);
+
       _lastSavedUrl = url; // ✅ 저장한 URL 기록
       await loadSharedLinks(); // 저장 후 최신 목록 다시 불러오기
     } catch (e) {
