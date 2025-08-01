@@ -59,6 +59,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
     ];
   }
 
+  // 서파베이스에 저장된 데이터 불러옴
   Future<void> fetchUserMarkerDetail(String markerId) async {
     final user = supabase.auth.currentUser;
     if (user == null) {

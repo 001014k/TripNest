@@ -346,7 +346,9 @@ class _MapSampleViewState extends State<MapSampleView> {
   }
 
   void showUserLists(BuildContext context) async {
+    final bgColor = Theme.of(context).colorScheme.background;
     List<Map<String, dynamic>> userLists = await context.read<MapSampleViewModel>().getUserLists();
+    if (!mounted) return;
 
     if (userLists.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -360,7 +362,7 @@ class _MapSampleViewState extends State<MapSampleView> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: bgColor,
       builder: (BuildContext context) {
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -480,7 +482,7 @@ class _MapSampleViewState extends State<MapSampleView> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                //mainAxisSize: MainAxisSize.min,
                 children: [
                   // 안내 메시지
                   Container(
@@ -507,11 +509,12 @@ class _MapSampleViewState extends State<MapSampleView> {
                       ],
                     ),
                   ),
-
                   // 드래그로 순서 변경 가능한 리스트
                   Expanded(
-                    child: ReorderableListView.builder(
-                      itemCount: markers.length,
+                    child: Consumer<MapSampleViewModel>(
+                      builder: (context, viewModel, _) {
+                        return ReorderableListView.builder(
+                      itemCount: viewModel.orderedMarkers.length,
                       onReorder: (int oldIndex, int newIndex) async {
                         await viewModel.reorderMarkers(
                           oldIndex,
@@ -519,10 +522,11 @@ class _MapSampleViewState extends State<MapSampleView> {
                           listId, // 현재 리스트의 ID
                           context.read<AddMarkersToListViewModel>(), // 필요한 ViewModel 인스턴스
                         );
-                        setState(() {});
                       },
                         itemBuilder: (context, index) {
                           final marker = viewModel.orderedMarkers[index];
+                          print('UI 렌더링 인덱스: $index, 마커 ID: ${marker.markerId.value}');
+
                           final title = marker.infoWindow.title ?? '제목 없음';
                           final snippet = marker.infoWindow.snippet ?? '';
                           final keyword = snippet.isNotEmpty ? snippet : '키워드 없음';
@@ -587,6 +591,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                             ),
                           );
                         },
+                        );
+                      },
                     ),
                   ),
 

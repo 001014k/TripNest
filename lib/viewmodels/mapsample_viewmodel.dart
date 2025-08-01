@@ -412,17 +412,20 @@ class MapSampleViewModel extends ChangeNotifier {
       ) async {
     if (oldIndex < newIndex) newIndex -= 1;
 
-    // 리스트에서 위치 변경
     final marker = _orderedMarkers.removeAt(oldIndex);
     _orderedMarkers.insert(newIndex, marker);
 
-    // 위치 기준으로 UI 업데이트
     _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
     _updatePolygonPoints();
     notifyListeners();
 
-    // DB에 순서 업데이트
-    await addMarkersVM.updateMarkerOrders(listId, _orderedMarkers);
+    try {
+      await addMarkersVM.updateMarkerOrders(listId, _orderedMarkers);
+      print('✅ updateMarkerOrders 호출 성공');
+    } catch (e) {
+      print('❌ updateMarkerOrders 호출 에러: $e');
+    }
+    await loadMarkersForList(listId); // 여기서 notifyListeners 포함
   }
 
   void _updatePolygonPoints() {
@@ -435,12 +438,16 @@ class MapSampleViewModel extends ChangeNotifier {
 
     final response = await Supabase.instance.client
         .from('list_bookmarks')
-        .select('id, title, snippet, lat, lng, keyword')
+        .select('id, title, snippet, lat, lng, keyword, sort_order') // sort_order도 같이 받아서 출력해보기
         .eq('list_id', listId)
-        .order('sort_order') // 정렬 보장
+        .order('sort_order', ascending: true) // 정렬 보장
         .limit(100)
-        .withConverter<List<Map<String, dynamic>>>(
-            (data) => data as List<Map<String, dynamic>>);
+        .withConverter<List<Map<String, dynamic>>>((data) => data as List<Map<String, dynamic>>);
+
+    print('DB에서 불러온 마커 ID 및 순서:');
+    for (final item in response) {
+      print('ID: ${item['id']}, sort_order: ${item['sort_order']}');
+    }
 
     final markers = await Future.wait(response.map((doc) async {
       final String keyword = doc['keyword']?.toString() ?? 'default';
@@ -462,11 +469,13 @@ class MapSampleViewModel extends ChangeNotifier {
       );
     }).toList());
 
+    print('ViewModel _orderedMarkers ID 순서: ${markers.map((m) => m.markerId.value).toList()}');
     _orderedMarkers = markers;
     _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
     setFilteredMarkers(markers);
     notifyListeners();
   }
+
 
   Future<Marker> Function(cluster_manager.Cluster<Place>) get _markerBuilder =>
       (cluster) async {
