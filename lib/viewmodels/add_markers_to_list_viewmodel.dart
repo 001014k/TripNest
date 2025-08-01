@@ -93,7 +93,7 @@ class AddMarkersToListViewModel extends ChangeNotifier {
         'title': marker.infoWindow.title,
         'snippet': marker.infoWindow.snippet,
         'keyword': _markerKeywords[marker.markerId] ?? '',
-        'order': orderCount,
+        'sort_order': orderCount,
       });
 
       _markersInLists.putIfAbsent(listId, () => <String>{});
@@ -123,7 +123,7 @@ class AddMarkersToListViewModel extends ChangeNotifier {
           .select('id')
           //.eq('user_id', user.id)
           .eq('list_id', listId)
-          .order('order');
+          .order('sort_order');
 
       final markerIds = (data as List<dynamic>).map((e) => e['id'] as String).toSet();
       _markersInLists[listId] = markerIds;
