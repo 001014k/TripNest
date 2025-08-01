@@ -583,9 +583,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                                 trailing: const Icon(Icons.chevron_right),
                                 onTap: () {
                                   Navigator.pop(context);
-                                  _controller?.animateCamera(
-                                    CameraUpdate.newLatLng(marker.position),
-                                  );
+                                  viewModel.onMarkerTapped(marker.markerId);
                                 },
                               ),
                             ),
