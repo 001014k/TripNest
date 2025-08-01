@@ -468,6 +468,14 @@ class _MapSampleViewState extends State<MapSampleView> {
       return;
     }
 
+    Map<String, Map<String, String>> markerDetailsMap = {};
+    await Future.wait(
+      markers.map((marker) async {
+        final details = await viewModel.fetchMarkerDetail(marker.markerId.value);
+        markerDetailsMap[marker.markerId.value] = details;
+      }),
+    );
+
     final backgroundColor = Theme.of(context).colorScheme.background;
 
     showModalBottomSheet(
@@ -527,10 +535,15 @@ class _MapSampleViewState extends State<MapSampleView> {
                           final marker = viewModel.orderedMarkers[index];
                           print('UI 렌더링 인덱스: $index, 마커 ID: ${marker.markerId.value}');
 
-                          final title = marker.infoWindow.title ?? '제목 없음';
-                          final snippet = marker.infoWindow.snippet ?? '';
-                          final keyword = snippet.isNotEmpty ? snippet : '키워드 없음';
-                          final orderNumber = index + 1; // 1번부터 시작
+                          // ★ 상세정보 Map에서 title, keyword 꺼내기 ★
+                          final details = markerDetailsMap[marker.markerId.value] ?? {
+                            'title': '제목 없음',
+                            'keyword': '키워드 없음',
+                          };
+
+                          final title = details['title']!;
+                          final keyword = details['keyword']!;
+                          final orderNumber = index + 1;
 
                           return Container(
                             key: ValueKey(marker.markerId.value),
@@ -1030,39 +1043,16 @@ class _MarkerInfoBottomSheetState extends State<MarkerInfoBottomSheet> {
   }
 
   Future<void> _fetchMarkerDetail() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    final viewModel = context.read<MapSampleViewModel>();
+    final result = await viewModel.fetchMarkerDetail(widget.marker.markerId.value);
 
-    try {
-      final data = await Supabase.instance.client
-          .from('user_markers')
-          .select('title, address, keyword')
-          .eq('id', widget.marker.markerId.value)
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-      if (data != null) {
-        setState(() {
-          _title = data['title'] ?? '제목 없음';
-          _address = data['address'] ?? '주소 없음';
-          _keyword = data['keyword'] ?? '키워드 없음';
-        });
-      } else {
-        setState(() {
-          _title = '제목 없음';
-          _address = '주소 없음';
-          _keyword = '키워드 없음';
-        });
-      }
-    } catch (e) {
-      print('마커 정보 불러오기 오류: $e');
-      setState(() {
-        _title = '오류 발생';
-        _address = '';
-        _keyword = '';
-      });
-    }
+    setState(() {
+      _title = result['title'] ?? '제목 없음';
+      _address = result['address'] ?? '주소 없음';
+      _keyword = result['keyword'] ?? '키워드 없음';
+    });
   }
+
 
   @override
   Widget build(BuildContext context) {

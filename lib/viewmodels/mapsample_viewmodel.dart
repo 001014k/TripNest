@@ -782,6 +782,38 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, String>> fetchMarkerDetail(String markerId) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return {
+      'title': '제목 없음',
+      'address': '주소 없음',
+      'keyword': '키워드 없음',
+    };
+
+    try {
+      final data = await Supabase.instance.client
+          .from('user_markers')
+          .select('title, address, keyword')
+          .eq('id', markerId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      return {
+        'title': data?['title'] ?? '제목 없음',
+        'address': data?['address'] ?? '주소 없음',
+        'keyword': data?['keyword'] ?? '키워드 없음',
+      };
+    } catch (e) {
+      print('마커 정보 로딩 오류: $e');
+      return {
+        'title': '오류 발생',
+        'address': '',
+        'keyword': '',
+      };
+    }
+  }
+
+
   void deleteMarker(Marker marker) {
     _markers.removeWhere((m) => m.markerId == marker.markerId);
     notifyListeners();
