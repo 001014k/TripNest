@@ -151,13 +151,14 @@ class AddMarkersToListViewModel extends ChangeNotifier {
 
     try {
       // Supabase RPC 호출
-      await supabase.rpc(
+      final result = await supabase.rpc(
         'update_marker_orders',
         params: {
           'p_list_id': listId,
           'p_orders': markerOrders,  // 함수 파라미터 이름에 맞게 'p_orders'로
         },
       );
+      print('✅ RPC 호출 성공 결과: $result');
     } catch (e) {
       print('❌ Marker order update error: $e');
     }
