@@ -99,47 +99,78 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
               itemBuilder: (context, index) {
                 final marker = vm.markers[index];
 
-                return FutureBuilder<String>(
-                  future: vm.getAddress(marker.lat, marker.lng),
+                return FutureBuilder<Map<String, String>>(
+                  future: vm.fetchMarkerDetail(marker.id),
                   builder: (context, snapshot) {
-                    final address = snapshot.data ?? 'Loading address...';
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final details = snapshot.data!;
+                    final title = details['title'] ?? '제목 없음';
+                    final address = details['address'] ?? '주소 없음';
+                    final keyword = details['keyword'] ?? '키워드 없음';
 
                     return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      margin: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      elevation: 3,
+                      elevation: 6,
+                      color: Colors.white.withOpacity(0.95), // Glass 느낌
+                      shadowColor: Colors.grey.withOpacity(0.4),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.location_on_outlined, color: Colors.blueGrey, size: 28),
+                                const CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Colors.blueAccent,
+                                  child: Icon(Icons.place, color: Colors.white),
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    marker.title,
+                                    title,
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
                                       fontSize: 18,
+                                      fontWeight: FontWeight.bold,
                                       color: Colors.black87,
                                     ),
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 26),
+                                  icon: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent, size: 28),
                                   onPressed: () => _confirmDelete(context, vm, marker.id),
-                                  tooltip: 'Delete Marker',
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              address,
-                              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                const Icon(Icons.location_city, size: 18, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    address,
+                                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                const Icon(Icons.label_outline, size: 18, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Text(
+                                  keyword,
+                                  style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Colors.grey),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -196,7 +227,6 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
         );
       },
     );
-
     if (result == true) {
       vm.deleteMarker(markerId);
     }
