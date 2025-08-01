@@ -72,14 +72,12 @@
 </details>
 
 <h2>4. 링크페이지 및 협업 리스트</h2>
-<details><summary>자신만의 리스트를 만들거나 친구와 함께 협업 리스트를 관리할 수 있습니다.</summary>
+<details><summary>자신만의 리스트를 만들거나 친구와 함께 협업 리스트를 관리할 수 있으며 또한 인스타,유튜브로 공유링크를 통해 앱에 저장할 수 있습니다</summary>
 <p align="center">
 <img src="https://github.com/user-attachments/assets/56207ce1-7b8b-44df-a7fe-b56e46f83d9e" width="20%"></img>
-<img src="" width="20%"></img>
-<img src="https://github.com/user-attachments/assets/1a211656-9f79-4614-b304-87dcea9f7d96" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/5da73b06-4040-4066-9b9e-48fe98b13758" width="20%"></img>
 <img src="https://github.com/user-attachments/assets/a3b9713f-fe37-458b-87f6-fcae88585084" width="20%"></img>
-<img src="https://github.com/user-attachments/assets/123cb4b0-2251-4da8-b201-877607c17f0b" width="20%"> 
-</img>
+<img src="https://github.com/user-attachments/assets/123cb4b0-2251-4da8-b201-877607c17f0b" width="20%"> </img>
 
 </p>
 </details>
