@@ -23,6 +23,7 @@ import 'viewmodels/markercreationscreen_viewmodel.dart';
 import 'viewmodels/shared_link_viewmodel.dart';
 import 'package:fluttertrip/viewmodels/calender/calender_main_viewmodel.dart';
 import 'package:fluttertrip/viewmodels/collaborator_viewmodel.dart';
+import 'viewmodels/home_viewmodel.dart';
 
 // Service imports...
 import 'services/marker_service.dart';
@@ -37,6 +38,7 @@ import 'views/splash_screen_view.dart';
 import 'views/user_list_view.dart';
 import 'views/dashboard_view.dart';
 import 'views/login_option_view.dart';
+import 'views/home_view.dart';
 
 /// ✅ 전역 Navigator Key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -77,6 +79,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => CollaboratorViewModel()),
         ChangeNotifierProvider(create: (_) => MarkerCreationScreenViewModel()),
         ChangeNotifierProvider(create: (_) => CalendarViewModel()),
+        ChangeNotifierProvider(create: (_) => HomeDashboardViewModel()),
       ],
       child: MyApp(),
     ),
@@ -171,11 +174,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/login_option': (context) => CombinedLoginView(),
         '/signup': (context) => SignupPage(),
         '/forgot_password': (context) => ForgotPasswordView(),
-        '/home': (context) => MapSampleView(),
+        '/map': (context) => MapSampleView(),
         '/dashboard': (context) => DashboardView(),
         '/friend_management': (context) => FriendManagementView(),
         '/page_view': (context) => BookmarklisttabView(),
         '/user_list': (context) => UserListView(),
+        '/home': (context) => HomeDashboardView(),
       },
     );
   }
