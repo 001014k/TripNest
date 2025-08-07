@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertrip/views/shared_link_view.dart';
 import 'package:fluttertrip/views/widgets/preview_card.dart';
+import 'package:fluttertrip/views/widgets/zoom_drawer_container.dart';
+import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:provider/provider.dart';
 import '../models/shared_link_model.dart';
 import '../viewmodels/home_viewmodel.dart';
@@ -105,6 +107,8 @@ class HomeDashboardView extends StatefulWidget {
 
 class _HomeDashboardViewState extends State<HomeDashboardView> {
   late HomeDashboardViewModel _viewModel;
+  final zoomDrawerController = ZoomDrawerController();
+  int selectedIndex = 0; // 북마크/리스트 탭을 의미하는 인덱스
 
   @override
   void initState() {
@@ -120,6 +124,19 @@ class _HomeDashboardViewState extends State<HomeDashboardView> {
 
   @override
   Widget build(BuildContext context) {
+    return ZoomDrawerContainer(
+      selectedIndex: selectedIndex,
+      onItemSelected: (index) {
+        setState(() {
+          selectedIndex = index;
+        });
+      },
+      mainScreenBuilder: (context) => _buildMainScreen(context),
+    );
+  }
+
+  @override
+  Widget _buildMainScreen(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -127,6 +144,14 @@ class _HomeDashboardViewState extends State<HomeDashboardView> {
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
+          ),
+        ),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: Icon(Icons.menu),
+            onPressed: () {
+              ZoomDrawer.of(context)?.toggle();
+            },
           ),
         ),
         backgroundColor: Colors.white,
@@ -262,7 +287,7 @@ class _QuickActionsCard extends StatelessWidget {
   }
 
   void _navigateToMap(BuildContext context) => Navigator.pushNamed(context, '/map');
-  void _navigateToList(BuildContext context) => Navigator.pushNamed(context, '/list');
+  void _navigateToList(BuildContext context) => Navigator.pushNamed(context, '/user_list');
 }
 
 // ================================
@@ -413,7 +438,7 @@ class _FriendsFeatureCard extends StatelessWidget {
   }
 
   void _navigateToFriends(BuildContext context) {
-    Navigator.pushNamed(context, '/friends');
+    Navigator.pushNamed(context, '/friend_management');
   }
 
   Widget _buildIconContainer() {
