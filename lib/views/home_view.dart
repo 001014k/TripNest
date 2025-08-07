@@ -1,27 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertrip/views/shared_link_view.dart';
 import 'package:fluttertrip/views/widgets/preview_card.dart';
-import 'package:fluttertrip/views/widgets/zoom_drawer_container.dart';
-import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:provider/provider.dart';
 import '../models/shared_link_model.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../models/marker_model.dart';
 
 // ================================
-// 디자인 시스템 및 상수 정의
+// 개선된 디자인 시스템 - 여행 테마
 // ================================
 class AppDesign {
-  // 컬러 팔레트 - 모노크롬 테마
-  static const Color primaryBg = Color(0xFFF8F9FA);
+  // 생동감 있는 컬러 팔레트
+  static const Color primaryBg = Color(0xFFF8FAFC);
+  static const Color secondaryBg = Color(0xFFF1F5F9);
   static const Color cardBg = Colors.white;
-  static const Color darkBg = Color(0xFF121212);
-  static const Color primaryText = Color(0xFF000000);
-  static const Color secondaryText = Color(0xFF666666);
-  static const Color subtleText = Color(0xFF999999);
-  static const Color borderColor = Color(0xFFE5E5E5);
-  static const Color accentGray = Color(0xFF2D3748);
-  static const Color lightGray = Color(0xFFF7F8F9);
+
+  // 브랜드 컬러 - 여행의 설렘을 표현
+  static const Color travelBlue = Color(0xFF3B82F6);
+  static const Color travelGreen = Color(0xFF10B981);
+  static const Color travelOrange = Color(0xFFF59E0B);
+  static const Color travelPurple = Color(0xFF8B5CF6);
+  static const Color sunsetGradientStart = Color(0xFFFF6B6B);
+  static const Color sunsetGradientEnd = Color(0xFFFFE066);
+
+  // 텍스트 컬러
+  static const Color primaryText = Color(0xFF1E293B);
+  static const Color secondaryText = Color(0xFF64748B);
+  static const Color subtleText = Color(0xFF94A3B8);
+  static const Color whiteText = Color(0xFFFFFFFF);
+
+  // 기본 컬러
+  static const Color borderColor = Color(0xFFE2E8F0);
+  static const Color lightGray = Color(0xFFF8FAFC);
 
   // 간격 시스템
   static const double spacing4 = 4;
@@ -31,26 +41,43 @@ class AppDesign {
   static const double spacing20 = 20;
   static const double spacing24 = 24;
   static const double spacing32 = 32;
+  static const double spacing40 = 40;
 
-  // 보더 반지름
+  // 보더 반지름 - 더 현대적인 느낌
   static const double radiusSmall = 12;
   static const double radiusMedium = 16;
-  static const double radiusLarge = 20;
-  static const double radiusXL = 24;
+  static const double radiusLarge = 24;
+  static const double radiusXL = 32;
 
-  // 타이포그래피 시스템
-  static const TextStyle headingLarge = TextStyle(
-    fontSize: 28,
+  // 개선된 타이포그래피
+  static const TextStyle headingXL = TextStyle(
+    fontSize: 32,
     fontWeight: FontWeight.w900,
     color: primaryText,
+    letterSpacing: -1.0,
+    height: 1.2,
+  );
+
+  static const TextStyle headingLarge = TextStyle(
+    fontSize: 28,
+    fontWeight: FontWeight.w800,
+    color: primaryText,
     letterSpacing: -0.8,
+    height: 1.3,
   );
 
   static const TextStyle headingMedium = TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w800,
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
     color: primaryText,
     letterSpacing: -0.3,
+  );
+
+  static const TextStyle headingSmall = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: primaryText,
+    letterSpacing: -0.2,
   );
 
   static const TextStyle bodyLarge = TextStyle(
@@ -62,37 +89,81 @@ class AppDesign {
 
   static const TextStyle bodyMedium = TextStyle(
     fontSize: 14,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w500,
     color: primaryText,
+    height: 1.5,
   );
 
   static const TextStyle caption = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w500,
     color: subtleText,
+    height: 1.4,
   );
 
-  // 그림자 효과
-  static final List<BoxShadow> cardShadow = [
+  // 프리미엄 그림자 효과
+  static final List<BoxShadow> softShadow = [
     BoxShadow(
       color: Colors.black.withOpacity(0.08),
       blurRadius: 24,
-      offset: const Offset(0, 2),
+      offset: const Offset(0, 4),
+      spreadRadius: -4,
     ),
     BoxShadow(
       color: Colors.black.withOpacity(0.04),
-      blurRadius: 8,
-      offset: const Offset(0, 1),
+      blurRadius: 6,
+      offset: const Offset(0, 2),
     ),
   ];
 
-  static final List<BoxShadow> primaryShadow = [
+  static final List<BoxShadow> elevatedShadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.15),
-      blurRadius: 20,
+      color: Colors.black.withOpacity(0.12),
+      blurRadius: 32,
+      offset: const Offset(0, 8),
+      spreadRadius: -8,
+    ),
+    BoxShadow(
+      color: Colors.black.withOpacity(0.08),
+      blurRadius: 16,
       offset: const Offset(0, 4),
     ),
   ];
+
+  static final List<BoxShadow> glowShadow = [
+    BoxShadow(
+      color: travelBlue.withOpacity(0.15),
+      blurRadius: 24,
+      offset: const Offset(0, 8),
+      spreadRadius: -8,
+    ),
+  ];
+
+  // 그라디언트 정의
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [travelBlue, travelPurple],
+  );
+
+  static const LinearGradient sunsetGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [sunsetGradientStart, sunsetGradientEnd],
+  );
+
+  static const LinearGradient greenGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [travelGreen, Color(0xFF059669)],
+  );
+
+  static const LinearGradient backgroundGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [primaryBg, secondaryBg],
+    stops: [0.0, 1.0],
+  );
 }
 
 // ================================
@@ -105,16 +176,29 @@ class HomeDashboardView extends StatefulWidget {
   State<HomeDashboardView> createState() => _HomeDashboardViewState();
 }
 
-class _HomeDashboardViewState extends State<HomeDashboardView> {
+class _HomeDashboardViewState extends State<HomeDashboardView>
+    with TickerProviderStateMixin {
   late HomeDashboardViewModel _viewModel;
-  final zoomDrawerController = ZoomDrawerController();
-  int selectedIndex = 0; // 북마크/리스트 탭을 의미하는 인덱스
+  late AnimationController _fadeAnimationController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _viewModel = context.read<HomeDashboardViewModel>();
+    _initializeAnimations();
     _initializeData();
+  }
+
+  void _initializeAnimations() {
+    _fadeAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeAnimationController, curve: Curves.easeOut),
+    );
+    _fadeAnimationController.forward();
   }
 
   void _initializeData() {
@@ -123,107 +207,86 @@ class _HomeDashboardViewState extends State<HomeDashboardView> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return ZoomDrawerContainer(
-      selectedIndex: selectedIndex,
-      onItemSelected: (index) {
-        setState(() {
-          selectedIndex = index;
-        });
-      },
-      mainScreenBuilder: (context) => _buildMainScreen(context),
-    );
+  void dispose() {
+    _fadeAnimationController.dispose();
+    super.dispose();
   }
 
   @override
-  Widget _buildMainScreen(BuildContext context) {
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'TripNest',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: Icon(Icons.menu),
-            onPressed: () {
-              ZoomDrawer.of(context)?.toggle();
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppDesign.backgroundGradient),
+        child: SafeArea(
+          child: Consumer<HomeDashboardViewModel>(
+            builder: (context, viewModel, child) {
+              return FadeTransition(
+                opacity: _fadeAnimation,
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    // 개선된 헤더 섹션
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
+                        child: _DashboardHeader(),
+                      ),
+                    ),
+
+                    // 프리미엄 웰컴 카드
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: _WelcomeCard(),
+                      ),
+                    ),
+
+                    // 메인 기능 그리드
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: _MainFeaturesGrid(),
+                      ),
+                    ),
+
+                    // 최근 마커 섹션
+                    if (viewModel.recentMarkers.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: RecentMarkersSection(
+                          markers: viewModel.recentMarkers,
+                          onViewAll: () => _navigateToList(),
+                        ),
+                      ),
+
+                    // 공유 링크 섹션
+                    if (viewModel.sharedLinks.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: SharedLinksSection(
+                          sharedLinks: viewModel.sharedLinks,
+                          onViewAll: () => _navigateToSharedLinks(),
+                        ),
+                      ),
+
+                    // 하단 여백
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: AppDesign.spacing40),
+                    ),
+                  ],
+                ),
+              );
             },
           ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
-      backgroundColor: AppDesign.primaryBg,
-      body: SafeArea(
-        child: Consumer<HomeDashboardViewModel>(
-          builder: (context, viewModel, child) {
-            return CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                // 헤더 섹션
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
-                    child: _DashboardHeader(),
-                  ),
-                ),
-
-                // 메인 기능 카드들
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: AppDesign.spacing24),
-                        _QuickActionsCard(),
-                        const SizedBox(height: AppDesign.spacing24),
-                        _FriendsFeatureCard(),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // 최근 마커 섹션
-                if (viewModel.recentMarkers.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: RecentMarkersSection(
-                      markers: viewModel.recentMarkers,
-                      onViewAll: () => _navigateToList(),
-                    ),
-                  ),
-
-                // 공유 링크 섹션
-                if (viewModel.sharedLinks.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: SharedLinksSection(
-                      sharedLinks: viewModel.sharedLinks,
-                      onViewAll: () => _navigateToSharedLinks(),
-                    ),
-                  ),
-
-                // 하단 여백
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: AppDesign.spacing32),
-                ),
-              ],
-            );
-          },
         ),
       ),
     );
   }
 
-  // 네비게이션 메서드들
   void _navigateToList() => Navigator.pushNamed(context, '/list');
   void _navigateToSharedLinks() => Navigator.pushNamed(context, '/shared_links');
 }
 
 // ================================
-// 대시보드 헤더 컴포넌트
+// 프리미엄 대시보드 헤더
 // ================================
 class _DashboardHeader extends StatelessWidget {
   @override
@@ -231,88 +294,193 @@ class _DashboardHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '어디로 떠날까요?',
-          style: AppDesign.headingLarge,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppDesign.travelBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppDesign.travelBlue.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    '오늘의 여행',
+                    style: AppDesign.caption.copyWith(
+                      color: AppDesign.travelBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppDesign.spacing12),
+                const Text('어디로 떠날까요?', style: AppDesign.headingXL),
+                const SizedBox(height: AppDesign.spacing8),
+                Text(
+                  '새로운 모험이 당신을 기다리고 있어요 ✈️',
+                  style: AppDesign.bodyLarge.copyWith(
+                    color: AppDesign.secondaryText,
+                  ),
+                ),
+              ],
+            ),
+            _buildProfileAvatar(),
+          ],
         ),
-        const SizedBox(height: AppDesign.spacing8),
-        const Text(
-          '새로운 여행지를 탐색하고 친구들과 계획을 세워보세요',
-          style: AppDesign.bodyLarge,
+      ],
+    );
+  }
+
+  Widget _buildProfileAvatar() {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        gradient: AppDesign.primaryGradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppDesign.glowShadow,
+      ),
+      child: const Icon(
+        Icons.person_outline,
+        color: Colors.white,
+        size: 24,
+      ),
+    );
+  }
+}
+
+// ================================
+// 웰컴 카드 컴포넌트
+// ================================
+class _WelcomeCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: AppDesign.spacing32),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: AppDesign.sunsetGradient,
+        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+        boxShadow: [
+          BoxShadow(
+            color: AppDesign.sunsetGradientStart.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '새로운 여행을\n시작해보세요',
+                  style: AppDesign.headingMedium.copyWith(
+                    color: Colors.white,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: AppDesign.spacing8),
+                Text(
+                  '전 세계 숨겨진 보석들을 발견하고\n잊을 수 없는 추억을 만들어보세요',
+                  style: AppDesign.bodyMedium.copyWith(
+                    color: Colors.white.withOpacity(0.9),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.explore_outlined,
+              color: Colors.white,
+              size: 36,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ================================
+// 메인 기능 그리드
+// ================================
+class _MainFeaturesGrid extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _FeatureGridItem(
+                icon: Icons.map_outlined,
+                title: '지도 탐색',
+                subtitle: '새로운 장소\n발견하기',
+                gradient: AppDesign.primaryGradient,
+                onTap: () => Navigator.pushNamed(context, '/map'),
+              ),
+            ),
+            const SizedBox(width: AppDesign.spacing16),
+            Expanded(
+              child: _FeatureGridItem(
+                icon: Icons.bookmark_outline,
+                title: '저장 목록',
+                subtitle: '나만의\n여행 노트',
+                gradient: AppDesign.greenGradient,
+                onTap: () => Navigator.pushNamed(context, '/list'),
+              ),
+            ),
+          ],
         ),
+        const SizedBox(height: AppDesign.spacing16),
+        _PremiumFriendsCard(),
       ],
     );
   }
 }
 
 // ================================
-// 퀵 액션 카드 컴포넌트
+// 기능 그리드 아이템
 // ================================
-class _QuickActionsCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusXL),
-        boxShadow: AppDesign.cardShadow,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppDesign.spacing24),
-        child: Row(
-          children: [
-            Expanded(
-              child: _QuickActionButton(
-                icon: Icons.map_outlined,
-                label: '지도 탐색',
-                description: '새로운 장소 발견',
-                color: AppDesign.primaryText,
-                onTap: () => _navigateToMap(context),
-              ),
-            ),
-            const SizedBox(width: AppDesign.spacing20),
-            Expanded(
-              child: _QuickActionButton(
-                icon: Icons.bookmark_outline,
-                label: '저장 목록',
-                description: '나만의 여행 노트',
-                color: AppDesign.accentGray,
-                onTap: () => _navigateToList(context),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _navigateToMap(BuildContext context) => Navigator.pushNamed(context, '/map');
-  void _navigateToList(BuildContext context) => Navigator.pushNamed(context, '/user_list');
-}
-
-// ================================
-// 퀵 액션 버튼 컴포넌트
-// ================================
-class _QuickActionButton extends StatefulWidget {
+class _FeatureGridItem extends StatefulWidget {
   final IconData icon;
-  final String label;
-  final String description;
-  final Color color;
+  final String title;
+  final String subtitle;
+  final Gradient gradient;
   final VoidCallback onTap;
 
-  const _QuickActionButton({
+  const _FeatureGridItem({
     required this.icon,
-    required this.label,
-    required this.description,
-    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.gradient,
     required this.onTap,
   });
 
   @override
-  State<_QuickActionButton> createState() => _QuickActionButtonState();
+  State<_FeatureGridItem> createState() => _FeatureGridItemState();
 }
 
-class _QuickActionButtonState extends State<_QuickActionButton>
+class _FeatureGridItemState extends State<_FeatureGridItem>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -325,16 +493,12 @@ class _QuickActionButtonState extends State<_QuickActionButton>
 
   void _initializeAnimation() {
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
   }
 
   @override
@@ -353,7 +517,49 @@ class _QuickActionButtonState extends State<_QuickActionButton>
         animation: _scaleAnimation,
         builder: (context, child) => Transform.scale(
           scale: _scaleAnimation.value,
-          child: _buildButtonContent(),
+          child: Container(
+            height: 140,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: widget.gradient,
+              borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+              boxShadow: AppDesign.elevatedShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    widget.icon,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  widget.title,
+                  style: AppDesign.bodyMedium.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: AppDesign.spacing4),
+                Text(
+                  widget.subtitle,
+                  style: AppDesign.caption.copyWith(
+                    color: Colors.white.withOpacity(0.8),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -363,96 +569,103 @@ class _QuickActionButtonState extends State<_QuickActionButton>
     _animationController.reverse();
     widget.onTap();
   }
-
-  Widget _buildButtonContent() {
-    return Column(
-      children: [
-        _buildIconContainer(),
-        const SizedBox(height: AppDesign.spacing12),
-        Text(
-          widget.label,
-          style: AppDesign.bodyMedium,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppDesign.spacing4),
-        Text(
-          widget.description,
-          style: AppDesign.caption,
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildIconContainer() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppDesign.lightGray,
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        border: Border.all(
-          color: widget.color.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      padding: const EdgeInsets.all(AppDesign.spacing16),
-      child: Icon(
-        widget.icon,
-        color: widget.color,
-        size: 28,
-      ),
-    );
-  }
 }
 
 // ================================
-// 친구 기능 카드 컴포넌트
+// 프리미엄 친구 기능 카드
 // ================================
-class _FriendsFeatureCard extends StatelessWidget {
+class _PremiumFriendsCard extends StatefulWidget {
+  @override
+  State<_PremiumFriendsCard> createState() => _PremiumFriendsCardState();
+}
+
+class _PremiumFriendsCardState extends State<_PremiumFriendsCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerController;
+  late Animation<double> _shimmerAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeShimmerAnimation();
+  }
+
+  void _initializeShimmerAnimation() {
+    _shimmerController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+    _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
+    );
+    _shimmerController.repeat();
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppDesign.primaryText,
-        borderRadius: BorderRadius.circular(AppDesign.radiusXL),
-        boxShadow: AppDesign.primaryShadow,
+        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+        boxShadow: AppDesign.elevatedShadow,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppDesign.radiusXL),
-          onTap: () => _navigateToFriends(context),
-          child: Padding(
-            padding: const EdgeInsets.all(AppDesign.spacing20),
-            child: Row(
-              children: [
-                _buildIconContainer(),
-                const SizedBox(width: AppDesign.spacing16),
-                Expanded(child: _buildTextContent()),
-                _buildArrowIcon(),
-              ],
-            ),
+          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+          onTap: () => Navigator.pushNamed(context, '/friends'),
+          child: Row(
+            children: [
+              _buildAnimatedIcon(),
+              const SizedBox(width: AppDesign.spacing20),
+              Expanded(child: _buildTextContent()),
+              _buildArrowIcon(),
+            ],
           ),
         ),
       ),
     );
   }
 
-  void _navigateToFriends(BuildContext context) {
-    Navigator.pushNamed(context, '/friend_management');
-  }
-
-  Widget _buildIconContainer() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-      ),
-      padding: const EdgeInsets.all(AppDesign.spacing12),
-      child: const Icon(
-        Icons.people_outline,
-        color: Colors.white,
-        size: 24,
-      ),
+  Widget _buildAnimatedIcon() {
+    return AnimatedBuilder(
+      animation: _shimmerAnimation,
+      builder: (context, child) {
+        return Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.1),
+                Colors.white.withOpacity(0.2),
+                Colors.white.withOpacity(0.1),
+              ],
+              stops: [
+                _shimmerAnimation.value - 0.3,
+                _shimmerAnimation.value,
+                _shimmerAnimation.value + 0.3,
+              ].map((stop) => stop.clamp(0.0, 1.0)).toList(),
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(
+            Icons.people_outline,
+            color: Colors.white,
+            size: 28,
+          ),
+        );
+      },
     );
   }
 
@@ -462,11 +675,11 @@ class _FriendsFeatureCard extends StatelessWidget {
       children: [
         Text(
           '친구들과 함께',
-          style: AppDesign.headingMedium.copyWith(color: Colors.white),
+          style: AppDesign.headingSmall.copyWith(color: Colors.white),
         ),
         const SizedBox(height: AppDesign.spacing4),
         Text(
-          '일정을 공유하고 함께 계획해보세요',
+          '여행 계획을 공유하고 추억을 함께 만들어보세요',
           style: AppDesign.bodyMedium.copyWith(
             color: Colors.white.withOpacity(0.8),
             fontWeight: FontWeight.w400,
@@ -477,16 +690,23 @@ class _FriendsFeatureCard extends StatelessWidget {
   }
 
   Widget _buildArrowIcon() {
-    return const Icon(
-      Icons.arrow_forward_ios,
-      color: Colors.white,
-      size: 16,
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(
+        Icons.arrow_forward_ios,
+        color: Colors.white,
+        size: 16,
+      ),
     );
   }
 }
 
 // ================================
-// 섹션 헤더 컴포넌트
+// 개선된 섹션 헤더
 // ================================
 class SectionHeader extends StatelessWidget {
   final IconData icon;
@@ -505,41 +725,46 @@ class SectionHeader extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildTitleSection(),
-        _buildViewAllButton(),
-      ],
-    );
-  }
-
-  Widget _buildTitleSection() {
-    return Row(
-      children: [
-        Icon(icon, color: AppDesign.primaryText, size: 20),
-        const SizedBox(width: AppDesign.spacing8),
-        Text(title, style: AppDesign.headingMedium),
-      ],
-    );
-  }
-
-  Widget _buildViewAllButton() {
-    return TextButton(
-      onPressed: onViewAll,
-      style: TextButton.styleFrom(
-        foregroundColor: AppDesign.primaryText,
-        textStyle: AppDesign.bodyMedium,
-        backgroundColor: AppDesign.lightGray,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: AppDesign.primaryGradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: Colors.white, size: 16),
+            ),
+            const SizedBox(width: AppDesign.spacing12),
+            Text(title, style: AppDesign.headingMedium),
+          ],
         ),
-      ),
-      child: const Text('전체 보기'),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppDesign.primaryText,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: AppDesign.softShadow,
+          ),
+          child: InkWell(
+            onTap: onViewAll,
+            borderRadius: BorderRadius.circular(20),
+            child: Text(
+              '전체 보기',
+              style: AppDesign.bodyMedium.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
 // ================================
-// 최근 마커 섹션 컴포넌트
+// 프리미엄 최근 마커 섹션
 // ================================
 class RecentMarkersSection extends StatefulWidget {
   final List<MarkerModel> markers;
@@ -603,64 +828,60 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: SectionHeader(
-            icon: Icons.location_on_outlined,
+            icon: Icons.location_on,
             title: '최근 저장한 장소',
             onViewAll: widget.onViewAll,
           ),
         ),
-        const SizedBox(height: AppDesign.spacing16),
+        const SizedBox(height: AppDesign.spacing20),
         _buildMarkersList(),
-        const SizedBox(height: AppDesign.spacing32),
+        const SizedBox(height: AppDesign.spacing40),
       ],
     );
   }
 
   Widget _buildMarkersList() {
     return SizedBox(
-      height: 200,
+      height: 240,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         scrollDirection: Axis.horizontal,
         itemCount: widget.markers.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing12),
-        itemBuilder: (context, index) => _buildMarkerCard(widget.markers[index]),
+        separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing16),
+        itemBuilder: (context, index) => _buildPremiumMarkerCard(widget.markers[index]),
       ),
     );
   }
 
-  Widget _buildMarkerCard(MarkerModel marker) {
+  Widget _buildPremiumMarkerCard(MarkerModel marker) {
     final previewData = _previewDataCache[marker.address];
 
     return Container(
-      width: 280,
+      width: 300,
       decoration: BoxDecoration(
         color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+        boxShadow: AppDesign.softShadow,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
           onTap: () => _navigateToMarkerDetail(marker),
           child: Padding(
-            padding: const EdgeInsets.all(AppDesign.spacing16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildMarkerImage(),
-                const SizedBox(height: AppDesign.spacing12),
+                _buildPremiumMarkerImage(),
+                const SizedBox(height: AppDesign.spacing16),
                 _buildMarkerTitle(marker, previewData),
-                const SizedBox(height: AppDesign.spacing4),
+                const SizedBox(height: AppDesign.spacing8),
                 _buildMarkerDescription(marker, previewData),
+                const Spacer(),
+                _buildMarkerFooter(),
               ],
             ),
           ),
@@ -669,19 +890,18 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     );
   }
 
-  Widget _buildMarkerImage() {
+  Widget _buildPremiumMarkerImage() {
     return Container(
-      height: 100,
+      height: 120,
       decoration: BoxDecoration(
-        color: AppDesign.lightGray,
-        borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-        border: Border.all(color: AppDesign.borderColor, width: 1),
+        gradient: AppDesign.primaryGradient,
+        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
       ),
       child: const Center(
         child: Icon(
-          Icons.place_outlined,
-          color: AppDesign.primaryText,
-          size: 32,
+          Icons.place,
+          color: Colors.white,
+          size: 40,
         ),
       ),
     );
@@ -690,7 +910,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
   Widget _buildMarkerTitle(MarkerModel marker, LinkPreviewData? previewData) {
     return Text(
       previewData?.title ?? marker.title,
-      style: AppDesign.bodyMedium,
+      style: AppDesign.headingSmall,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -699,9 +919,36 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
   Widget _buildMarkerDescription(MarkerModel marker, LinkPreviewData? previewData) {
     return Text(
       previewData?.description ?? marker.address,
-      style: AppDesign.caption,
+      style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildMarkerFooter() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppDesign.travelBlue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '저장됨',
+            style: AppDesign.caption.copyWith(
+              color: AppDesign.travelBlue,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const Spacer(),
+        Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: AppDesign.subtleText,
+        ),
+      ],
     );
   }
 
@@ -715,7 +962,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
 }
 
 // ================================
-// 공유 링크 섹션 컴포넌트
+// 프리미엄 공유 링크 섹션
 // ================================
 class SharedLinksSection extends StatefulWidget {
   final List<SharedLinkModel> sharedLinks;
@@ -731,14 +978,29 @@ class SharedLinksSection extends StatefulWidget {
   State<SharedLinksSection> createState() => _SharedLinksSectionState();
 }
 
-class _SharedLinksSectionState extends State<SharedLinksSection> {
+class _SharedLinksSectionState extends State<SharedLinksSection>
+    with TickerProviderStateMixin {
   final Map<String, LinkPreviewData> _previewDataCache = {};
   bool _isLoading = true;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
+    _initializePulseAnimation();
     _loadAllPreviewData();
+  }
+
+  void _initializePulseAnimation() {
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _pulseAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    _pulseController.repeat(reverse: true);
   }
 
   Future<void> _loadAllPreviewData() async {
@@ -750,6 +1012,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
       setState(() {
         _isLoading = false;
       });
+      _pulseController.stop();
     }
   }
 
@@ -767,6 +1030,12 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
   }
 
   @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (widget.sharedLinks.isEmpty) return const SizedBox.shrink();
 
@@ -774,63 +1043,207 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(),
-        const SizedBox(height: AppDesign.spacing16),
-        _isLoading ? _buildLoadingState() : _buildLinksList(),
-        const SizedBox(height: AppDesign.spacing32),
+        const SizedBox(height: AppDesign.spacing20),
+        _isLoading ? _buildPremiumLoadingState() : _buildLinksList(),
+        const SizedBox(height: AppDesign.spacing40),
       ],
     );
   }
 
   Widget _buildSectionHeader() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: SectionHeader(
         title: '공유된 링크',
-        icon: Icons.share_outlined,
+        icon: Icons.share,
         onViewAll: widget.onViewAll ?? _navigateToSharedLinks,
       ),
     );
   }
 
-  Widget _buildLoadingState() {
+  Widget _buildPremiumLoadingState() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: AppDesign.cardBg,
-          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        ),
-        child: const Center(
-          child: CircularProgressIndicator(color: AppDesign.primaryText),
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: AnimatedBuilder(
+        animation: _pulseAnimation,
+        builder: (context, child) {
+          return Opacity(
+            opacity: _pulseAnimation.value,
+            child: Container(
+              height: 240,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppDesign.cardBg,
+                    AppDesign.lightGray,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+                boxShadow: AppDesign.softShadow,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: AppDesign.primaryGradient,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.cloud_download,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: AppDesign.spacing16),
+                  Text(
+                    '링크 정보를 불러오는 중...',
+                    style: AppDesign.bodyMedium.copyWith(
+                      color: AppDesign.secondaryText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildLinksList() {
     return SizedBox(
-      height: 200,
+      height: 240,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         scrollDirection: Axis.horizontal,
         itemCount: widget.sharedLinks.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing12),
-        itemBuilder: (context, index) => _buildLinkCard(widget.sharedLinks[index]),
+        separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing16),
+        itemBuilder: (context, index) => _buildPremiumLinkCard(widget.sharedLinks[index]),
       ),
     );
   }
 
-  Widget _buildLinkCard(SharedLinkModel link) {
+  Widget _buildPremiumLinkCard(SharedLinkModel link) {
     final previewData = _previewDataCache[link.url];
     final subtitle = _getClippedSubtitle(previewData, link);
 
-    return PreviewCard(
-      title: previewData?.title ?? link.platform,
-      subtitle: subtitle,
-      imageUrl: previewData?.image,
-      width: 280,
-      onTap: () => _navigateToLinkDetail(link),
+    return Container(
+      width: 300,
+      decoration: BoxDecoration(
+        color: AppDesign.cardBg,
+        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+        boxShadow: AppDesign.softShadow,
+        border: Border.all(
+          color: AppDesign.borderColor,
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+          onTap: () => _navigateToLinkDetail(link),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildLinkImage(previewData),
+                const SizedBox(height: AppDesign.spacing16),
+                _buildLinkTitle(previewData, link),
+                const SizedBox(height: AppDesign.spacing8),
+                _buildLinkDescription(subtitle),
+                const Spacer(),
+                _buildLinkFooter(link),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkImage(LinkPreviewData? previewData) {
+    return Container(
+      height: 120,
+      decoration: BoxDecoration(
+        gradient: previewData?.image != null
+            ? null
+            : AppDesign.sunsetGradient,
+        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+        image: previewData?.image != null
+            ? DecorationImage(
+          image: NetworkImage(previewData!.image!),
+          fit: BoxFit.cover,
+        )
+            : null,
+      ),
+      child: previewData?.image == null
+          ? const Center(
+        child: Icon(
+          Icons.link,
+          color: Colors.white,
+          size: 40,
+        ),
+      )
+          : null,
+    );
+  }
+
+  Widget _buildLinkTitle(LinkPreviewData? previewData, SharedLinkModel link) {
+    return Text(
+      previewData?.title ?? link.platform,
+      style: AppDesign.headingSmall,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildLinkDescription(String subtitle) {
+    return Text(
+      subtitle,
+      style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildLinkFooter(SharedLinkModel link) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppDesign.travelOrange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            link.platform,
+            style: AppDesign.caption.copyWith(
+              color: AppDesign.travelOrange,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: AppDesign.lightGray,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            Icons.open_in_new,
+            size: 14,
+            color: AppDesign.subtleText,
+          ),
+        ),
+      ],
     );
   }
 
@@ -855,19 +1268,23 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
 }
 
 // ================================
-// 재사용 가능한 기능 카드 컴포넌트
+// 고급 기능 카드 컴포넌트
 // ================================
 class FeatureCard extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
+  final Gradient? gradient;
   final BorderRadiusGeometry borderRadius;
+  final VoidCallback? onTap;
 
   const FeatureCard({
     required this.child,
     this.padding = const EdgeInsets.all(20),
     this.color,
-    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
+    this.gradient,
+    this.borderRadius = const BorderRadius.all(Radius.circular(20)),
+    this.onTap,
     super.key,
   });
 
@@ -875,48 +1292,87 @@ class FeatureCard extends StatefulWidget {
   State<FeatureCard> createState() => _FeatureCardState();
 }
 
-class _FeatureCardState extends State<FeatureCard> {
+class _FeatureCardState extends State<FeatureCard>
+    with SingleTickerProviderStateMixin {
   bool _isPressed = false;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _shadowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAnimations();
+  }
+
+  void _initializeAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _shadowAnimation = Tween<double>(begin: 1.0, end: 0.5).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: _handleTapDown,
-      onTapUp: _handleTapUp,
-      onTapCancel: _handleTapCancel,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOut,
-        padding: widget.padding,
-        decoration: BoxDecoration(
-          color: widget.color ?? Colors.white,
-          borderRadius: widget.borderRadius,
-          boxShadow: _isPressed ? null : _getCardShadow(),
-        ),
-        child: widget.child,
+      onTapDown: widget.onTap != null ? _handleTapDown : null,
+      onTapUp: widget.onTap != null ? _handleTapUp : null,
+      onTapCancel: widget.onTap != null ? _handleTapCancel : null,
+      child: AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Container(
+              padding: widget.padding,
+              decoration: BoxDecoration(
+                color: widget.gradient == null ? (widget.color ?? AppDesign.cardBg) : null,
+                gradient: widget.gradient,
+                borderRadius: widget.borderRadius,
+                boxShadow: AppDesign.softShadow.map((shadow) {
+                  return shadow.copyWith(
+                    blurRadius: shadow.blurRadius * _shadowAnimation.value,
+                    color: shadow.color.withOpacity(
+                      shadow.color.opacity * _shadowAnimation.value,
+                    ),
+                  );
+                }).toList(),
+              ),
+              child: widget.child,
+            ),
+          );
+        },
       ),
     );
   }
 
   void _handleTapDown(TapDownDetails details) {
     setState(() => _isPressed = true);
+    _animationController.forward();
   }
 
   void _handleTapUp(TapUpDetails details) {
     setState(() => _isPressed = false);
+    _animationController.reverse();
+    widget.onTap?.call();
   }
 
   void _handleTapCancel() {
     setState(() => _isPressed = false);
-  }
-
-  List<BoxShadow> _getCardShadow() {
-    return [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.04),
-        blurRadius: 12,
-        offset: const Offset(0, 4),
-      ),
-    ];
+    _animationController.reverse();
   }
 }
