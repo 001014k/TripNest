@@ -191,6 +191,15 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void initializeMap(MarkerId? markerId) {
+    if (markerId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onMarkerTapped(markerId); // 해당 마커로 카메라 이동
+      });
+    }
+  }
+
+
   Future<void> toggleKeyword(String keyword) async {
     if (activeKeywords.contains(keyword)) {
       activeKeywords.remove(keyword);

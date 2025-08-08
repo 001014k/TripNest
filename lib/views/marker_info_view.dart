@@ -121,7 +121,13 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () => Navigator.of(context).pop(),
+                onTap: () {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/list',
+                        (route) => false,
+                  );
+                },
                 child: const Icon(
                   Icons.arrow_back_ios_new,
                   color: AppDesign.primaryText,

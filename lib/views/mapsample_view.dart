@@ -16,7 +16,8 @@ import 'package:flutter/gestures.dart';
 
 
 class MapSampleView extends StatefulWidget {
-  const MapSampleView({Key? key}) : super(key: key); // MapSampleView 생성자
+  final MarkerId? initialMarkerId;
+  const MapSampleView({Key? key, this.initialMarkerId}) : super(key: key); // MapSampleView 생성자
 
   @override
   _MapSampleViewState createState() => _MapSampleViewState();
@@ -115,6 +116,11 @@ class _MapSampleViewState extends State<MapSampleView> {
           ),
         );
       };
+      // ✅ 전달받은 마커 ID가 있으면 해당 마커로 이동
+      final initialMarkerId = (widget as MapSampleView).initialMarkerId;
+      if (initialMarkerId != null) {
+        await viewModel.onMarkerTapped(initialMarkerId);
+      }
     });
   }
 
