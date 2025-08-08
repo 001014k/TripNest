@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
-import 'package:fluttertrip/views/widgets/zoom_drawer_container.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/profile_viewmodel.dart';
 
@@ -14,24 +12,9 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final zoomDrawerController = ZoomDrawerController();
-  int selectedIndex = 1;
 
   @override
   Widget build(BuildContext context) {
-    return ZoomDrawerContainer(
-      selectedIndex: selectedIndex,
-      onItemSelected: (index) {
-        setState(() {
-          selectedIndex = index;
-        });
-      },
-      mainScreenBuilder: (context) => _buildMainScreen(context),
-    );
-  }
-
-  @override
-  Widget _buildMainScreen(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => ProfileViewModel()..fetchUserStats(widget.userId),
       child: Consumer<ProfileViewModel>(
@@ -40,14 +23,19 @@ class _ProfilePageState extends State<ProfilePage> {
             appBar: AppBar(
               title: Text('프로필',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              backgroundColor: Colors.black,
-              iconTheme: IconThemeData(color: Colors.white),
               leading: IconButton(
-                icon: Icon(Icons.menu),
+                icon: const Icon(Icons.arrow_back),  // ← 뒤로가기 아이콘
                 onPressed: () {
-                  ZoomDrawer.of(context)?.toggle();
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/home', (route) => false, // ← 스택 제거하여 완전히 홈으로 이동
+                  );
                 },
               ),
+              centerTitle: true,
+              backgroundColor: Colors.white,
+              elevation: 0.5,
+              iconTheme: const IconThemeData(color: Colors.black),
             ),
             backgroundColor: Colors.white,
             body: Padding(

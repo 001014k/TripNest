@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:fluttertrip/views/markercreationscreen_view.dart';
-import 'package:fluttertrip/views/widgets/zoom_drawer_container.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -14,7 +13,6 @@ import '../viewmodels/mapsample_viewmodel.dart';
 import 'nickname_dialog_view.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
-import '../viewmodels/markerdetail_viewmodel.dart';
 
 
 class MapSampleView extends StatefulWidget {
@@ -25,20 +23,6 @@ class MapSampleView extends StatefulWidget {
 }
 
 class _MapSampleViewState extends State<MapSampleView> {
-  int selectedIndex = 0; // 선택된 메뉴 인덱스 상태
-
-  @override
-  Widget build(BuildContext context) {
-    return ZoomDrawerContainer(
-      selectedIndex: selectedIndex,
-      onItemSelected: (index) {
-        setState(() {
-          selectedIndex = index;
-        });
-      },
-      mainScreenBuilder: (context) => _buildMainScreen(context),
-    );
-  }
 
   late MapSampleViewModel viewModel;
 
@@ -648,7 +632,7 @@ class _MapSampleViewState extends State<MapSampleView> {
   }
 
   @override
-  Widget _buildMainScreen(BuildContext context) {
+  Widget build(BuildContext context) {
     final List<String> keywords = context.read<MapSampleViewModel>().keywordIcons.keys.toList();
     final searchResults = context.watch<MapSampleViewModel>().searchResults;
     final selectedListId = context.read<MapSampleViewModel>().selectedListId;
@@ -747,11 +731,15 @@ class _MapSampleViewState extends State<MapSampleView> {
                     ),
                     child: Row(
                       children: [
-                        GestureDetector(
-                          onTap: () {
-                            ZoomDrawer.of(context)?.toggle();
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () {
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/home',
+                                  (route) => false,
+                            );
                           },
-                          child: Icon(Icons.menu, color: Colors.white),
                         ),
                         SizedBox(width: 12),
                         Expanded(

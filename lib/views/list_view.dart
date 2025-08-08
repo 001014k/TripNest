@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertrip/views/widgets/zoom_drawer_container.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/list_viewmodel.dart';
 import 'marker_info_view.dart';
-import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import '../viewmodels/collaborator_viewmodel.dart';
 
 class ListPage extends StatefulWidget {
@@ -14,23 +12,9 @@ class ListPage extends StatefulWidget {
 }
 
 class _ListPageState extends State<ListPage> {
-  final zoomDrawerController = ZoomDrawerController();
-  int selectedIndex = 2; // 북마크/리스트 탭을 의미하는 인덱스
 
   @override
   Widget build(BuildContext context) {
-    return ZoomDrawerContainer(
-      selectedIndex: selectedIndex,
-      onItemSelected: (index) {
-        setState(() {
-          selectedIndex = index;
-        });
-      },
-      mainScreenBuilder: (context) => _buildMainScreen(context),
-    );
-  }
-  @override
-  Widget _buildMainScreen(BuildContext context) {
     // ChangeNotifierProvider 제거!!
     return Scaffold(
       appBar: AppBar(
@@ -41,13 +25,15 @@ class _ListPageState extends State<ListPage> {
             color: Colors.black,
           ),
         ),
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: Icon(Icons.menu),
-            onPressed: () {
-              ZoomDrawer.of(context)?.toggle();
-            },
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),  // ← 뒤로가기 아이콘
+          onPressed: () {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/home',
+                  (route) => false, // ← 스택 제거하여 완전히 홈으로 이동
+            );
+          },
         ),
         centerTitle: true,
         backgroundColor: Colors.white,

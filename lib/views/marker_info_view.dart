@@ -13,7 +13,6 @@ class MarkerInfoPage extends StatefulWidget {
 }
 
 class _MarkerInfoPageState extends State<MarkerInfoPage> {
-  int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   late MarkerInfoViewModel viewModel;
 
@@ -28,16 +27,6 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
     _searchController.dispose();
     viewModel.dispose();
     super.dispose();
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    if (index == 0) {
-      navigateToAddMarkersToListPage();
-    }
   }
 
   Future<void> navigateToAddMarkersToListPage() async {
