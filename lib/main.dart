@@ -39,6 +39,8 @@ import 'views/user_list_view.dart';
 import 'views/dashboard_view.dart';
 import 'views/login_option_view.dart';
 import 'views/home_view.dart';
+import 'views/list_view.dart';
+import 'views/shared_link_view.dart';
 
 /// ✅ 전역 Navigator Key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -180,6 +182,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/page_view': (context) => BookmarklisttabView(),
         '/user_list': (context) => UserListView(),
         '/home': (context) => HomeDashboardView(),
+        '/list': (context) => ListPage(),
+        '/shared_link': (context) => SharedLinkView(),
       },
     );
   }
