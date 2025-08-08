@@ -1,4 +1,3 @@
-import 'package:fluttertrip/views/widgets/zoom_drawer_container.dart';
 import '../viewmodels/friend_management_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
@@ -16,22 +15,6 @@ class _FriendManagementViewState extends State<FriendManagementView> {
   late Future<List<Map<String, dynamic>>> _receivedRequestsFuture;
   late Future<List<Map<String, dynamic>>> _friendsListFuture;
 
-  final zoomDrawerController = ZoomDrawerController();
-  int selectedIndex = 3;
-
-  @override
-  Widget build(BuildContext context) {
-    return ZoomDrawerContainer(
-      selectedIndex: selectedIndex,
-      onItemSelected: (index) {
-        setState(() {
-          selectedIndex = index;
-        });
-      },
-      mainScreenBuilder: (context) => _buildMainScreen(context),
-    );
-  }
-
 
   @override
   void initState() {
@@ -47,23 +30,22 @@ class _FriendManagementViewState extends State<FriendManagementView> {
   }
 
   @override
-  Widget _buildMainScreen(BuildContext context) {
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           '친구 관리',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
         ),
-        backgroundColor: Colors.white,
-        elevation: 1,
-        centerTitle: true,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: Icon(Icons.menu),
-            onPressed: () {
-              ZoomDrawer.of(context)?.toggle();
-            },
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),  // ← 뒤로가기 아이콘
+          onPressed: () {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/home',
+                  (route) => false, // ← 스택 제거하여 완전히 홈으로 이동
+            );
+          },
         ),
       ),
       backgroundColor: Colors.white,
