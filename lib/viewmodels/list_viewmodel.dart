@@ -25,19 +25,23 @@ class ListViewModel extends ChangeNotifier {
       isLoading = true;
       notifyListeners();
 
+      // lists와 list_bookmarks, list_members 배열을 같이 가져옴
       final response = await supabase
           .from('lists')
-          .select()
+          .select('id, name, created_at, list_bookmarks(id), list_members(id)')
           .eq('user_id', user.id)
           .order('created_at', ascending: false);
 
       lists = (response as List).map((item) {
+        final bookmarks = item['list_bookmarks'] as List<dynamic>? ?? [];
+        final members = item['list_members'] as List<dynamic>? ?? [];
+
         return ListModel(
-          id: item['id'],
-          name: item['name'],
-          createdAt: DateTime.parse(item['created_at']),
-          markerCount: 0, // 추후 추가
-          collaboratorCount: 0, // 추후 추가
+          id: item['id'] as String,
+          name: item['name'] as String,
+          createdAt: DateTime.parse(item['created_at'] as String),
+          markerCount: bookmarks.length,
+          collaboratorCount: members.length,
         );
       }).toList();
     } catch (e) {
