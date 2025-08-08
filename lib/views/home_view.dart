@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertrip/views/shared_link_view.dart';
-import 'package:fluttertrip/views/widgets/preview_card.dart';
 import 'package:provider/provider.dart';
 import '../models/shared_link_model.dart';
 import '../viewmodels/home_viewmodel.dart';
@@ -844,7 +843,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
 
   Widget _buildMarkersList() {
     return SizedBox(
-      height: 240,
+      height: 270,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 24),
         scrollDirection: Axis.horizontal,
@@ -920,7 +919,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     return Text(
       previewData?.description ?? marker.address,
       style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText),
-      maxLines: 2,
+      maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
   }
@@ -978,8 +977,7 @@ class SharedLinksSection extends StatefulWidget {
   State<SharedLinksSection> createState() => _SharedLinksSectionState();
 }
 
-class _SharedLinksSectionState extends State<SharedLinksSection>
-    with TickerProviderStateMixin {
+class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProviderStateMixin {
   final Map<String, LinkPreviewData> _previewDataCache = {};
   bool _isLoading = true;
   late AnimationController _pulseController;
@@ -1117,7 +1115,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection>
 
   Widget _buildLinksList() {
     return SizedBox(
-      height: 240,
+      height: 290,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 24),
         scrollDirection: Axis.horizontal,
@@ -1255,7 +1253,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection>
   }
 
   void _navigateToSharedLinks() {
-    Navigator.pushNamed(context, '/shared_links');
+    Navigator.pushNamed(context, '/shared_link');
   }
 
   void _navigateToLinkDetail(SharedLinkModel link) {
