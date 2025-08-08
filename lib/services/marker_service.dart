@@ -67,4 +67,26 @@ class MarkerService {
       await _dbHelper.updateMarkerSyncStatus(marker['id']);
     }
   }
+
+  Future<List<Map<String, dynamic>>> getRecentMarkers({int limit = 3}) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return [];
+
+    final userId = user.id;
+
+    try {
+      final response = await supabase
+          .from('user_markers')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      // response는 List<Map<String, dynamic>> 타입임
+      return (response as List).cast<Map<String, dynamic>>();
+    } catch (error) {
+      print('Supabase 마커 조회 오류: $error');
+      return [];
+    }
+  }
 }
