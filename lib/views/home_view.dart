@@ -422,7 +422,38 @@ class _WelcomeCard extends StatelessWidget {
 // ================================
 // 메인 기능 그리드
 // ================================
-class _MainFeaturesGrid extends StatelessWidget {
+class _MainFeaturesGrid extends StatefulWidget {
+  @override
+  State<_MainFeaturesGrid> createState() => _MainFeaturesGridState();
+}
+
+class _MainFeaturesGridState extends State<_MainFeaturesGrid> with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerController;
+  late Animation<double> _shimmerAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeShimmerAnimation();
+  }
+
+  void _initializeShimmerAnimation() {
+    _shimmerController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+    _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
+    );
+    _shimmerController.repeat();
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -431,7 +462,7 @@ class _MainFeaturesGrid extends StatelessWidget {
           children: [
             Expanded(
               child: _FeatureGridItem(
-                icon: Icons.map_outlined,
+                icon: _buildAnimatedIcon(Icons.map_outlined),
                 title: '지도 탐색',
                 subtitle: '새로운 장소\n발견하기',
                 gradient: AppDesign.primaryGradient,
@@ -441,7 +472,7 @@ class _MainFeaturesGrid extends StatelessWidget {
             const SizedBox(width: AppDesign.spacing16),
             Expanded(
               child: _FeatureGridItem(
-                icon: Icons.bookmark_outline,
+                icon: _buildAnimatedIcon(Icons.bookmark_outline),
                 title: '저장 목록',
                 subtitle: '나만의\n여행 노트',
                 gradient: AppDesign.greenGradient,
@@ -455,13 +486,47 @@ class _MainFeaturesGrid extends StatelessWidget {
       ],
     );
   }
+
+  Widget _buildAnimatedIcon(IconData iconData) {
+    return AnimatedBuilder(
+      animation: _shimmerAnimation,
+      builder: (context, child) {
+        return Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.1),
+                Colors.white.withOpacity(0.2),
+                Colors.white.withOpacity(0.1),
+              ],
+              stops: [
+                _shimmerAnimation.value - 0.3,
+                _shimmerAnimation.value,
+                _shimmerAnimation.value + 0.3,
+              ].map((stop) => stop.clamp(0.0, 1.0)).toList(),
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(
+            iconData,
+            color: Colors.white,
+            size: 24,
+          ),
+        );
+      },
+    );
+  }
 }
 
 // ================================
 // 기능 그리드 아이템
 // ================================
 class _FeatureGridItem extends StatefulWidget {
-  final IconData icon;
+  final Widget icon;
   final String title;
   final String subtitle;
   final Gradient gradient;
@@ -534,11 +599,7 @@ class _FeatureGridItemState extends State<_FeatureGridItem>
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    widget.icon,
-                    color: Colors.white,
-                    size: 24,
-                  ),
+                  child: widget.icon,
                 ),
                 const Spacer(),
                 Text(
