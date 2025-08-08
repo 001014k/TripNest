@@ -281,7 +281,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
   }
 
   void _navigateToList() => Navigator.pushNamed(context, '/list');
-  void _navigateToSharedLinks() => Navigator.pushNamed(context, '/shared_links');
+  void _navigateToSharedLinks() => Navigator.pushNamed(context, '/shared_link');
 }
 
 // ================================
@@ -892,7 +892,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
           child: SectionHeader(
             icon: Icons.location_on,
             title: '최근 저장한 장소',
-            onViewAll: widget.onViewAll,
+            onViewAll: _handleViewAll,  // 내부 함수 연결
           ),
         ),
         const SizedBox(height: AppDesign.spacing20),
@@ -900,6 +900,15 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
         const SizedBox(height: AppDesign.spacing40),
       ],
     );
+  }
+
+// 섹션 내부에 onViewAll 전용 핸들러 추가
+  void _handleViewAll() {
+    if (widget.onViewAll != null) {
+      widget.onViewAll!(); // 외부 콜백 있으면 실행
+    } else {
+      Navigator.pushNamed(context, '/list'); // 기본 동작 (전체 보기 페이지 이동)
+    }
   }
 
   Widget _buildMarkersList() {
@@ -1115,9 +1124,18 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
       child: SectionHeader(
         title: '공유된 링크',
         icon: Icons.share,
-        onViewAll: widget.onViewAll ?? _navigateToSharedLinks,
+        onViewAll: _handleViewAll,
       ),
     );
+  }
+
+// 내부 핸들러 함수 추가
+  void _handleViewAll() {
+    if (widget.onViewAll != null) {
+      widget.onViewAll!();  // 외부에서 콜백이 전달됐으면 실행
+    } else {
+      _navigateToSharedLinks();  // 기본 동작 실행
+    }
   }
 
   Widget _buildPremiumLoadingState() {
