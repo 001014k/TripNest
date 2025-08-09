@@ -447,7 +447,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
     final response = await Supabase.instance.client
         .from('list_bookmarks')
-        .select('id, title, snippet, lat, lng, keyword, sort_order') // sort_order도 같이 받아서 출력해보기
+        .select('id, marker_id, title, snippet, lat, lng, keyword, sort_order') // sort_order도 같이 받아서 출력해보기
         .eq('list_id', listId)
         .order('sort_order', ascending: true) // 정렬 보장
         .limit(100)
@@ -467,7 +467,7 @@ class MapSampleViewModel extends ChangeNotifier {
           : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
 
       return Marker(
-        markerId: MarkerId(doc['id']),
+        markerId: MarkerId(doc['marker_id']),
         position: LatLng(doc['lat'], doc['lng']),
         infoWindow: InfoWindow(
           title: doc['title'] ?? '제목 없음',
@@ -804,7 +804,6 @@ class MapSampleViewModel extends ChangeNotifier {
           .from('user_markers')
           .select('title, address, keyword')
           .eq('id', markerId)
-          .eq('user_id', user.id)
           .maybeSingle();
 
       return {
@@ -937,12 +936,15 @@ class MapSampleViewModel extends ChangeNotifier {
 
             // 2단계: displayName이 숫자거나 무의미하면 Place Details API 호출해서 장소명 가져오기
             if (title == null ||
-                title.trim().isEmpty ||
+                title
+                    .trim()
+                    .isEmpty ||
                 RegExp(r'^\d+$').hasMatch(displayNameRaw)) {
               try {
                 final detailsUrl = Uri.parse(
                     'https://maps.googleapis.com/maps/api/place/details/json'
-                    '?place_id=$placeId&language=ko&fields=name,formatted_address&key=${Config.googleMapsApiKey}');
+                        '?place_id=$placeId&language=ko&fields=name,formatted_address&key=${Config
+                        .googleMapsApiKey}');
                 final detailsResponse = await http.get(detailsUrl);
 
                 if (detailsResponse.statusCode == 200) {
@@ -963,7 +965,8 @@ class MapSampleViewModel extends ChangeNotifier {
                   }
                 } else {
                   print(
-                      "Place Details API failed: ${detailsResponse.statusCode}");
+                      "Place Details API failed: ${detailsResponse
+                          .statusCode}");
                 }
               } catch (e) {
                 print("Place Details API exception: $e");
@@ -971,10 +974,12 @@ class MapSampleViewModel extends ChangeNotifier {
             }
 
             // 3단계: 그래도 title 없으면 geocoding fallback
-            if (title == null || title.trim().isEmpty) {
+            if (title == null || title
+                .trim()
+                .isEmpty) {
               try {
                 List<geocoding.Placemark> placemarks =
-                    await geocoding.placemarkFromCoordinates(lat, lng);
+                await geocoding.placemarkFromCoordinates(lat, lng);
                 if (placemarks.isNotEmpty) {
                   final place = placemarks.first;
                   title = place.name ??
@@ -992,18 +997,21 @@ class MapSampleViewModel extends ChangeNotifier {
             final finalTitle = title ?? query;
             final finalAddress = formattedAddress;
 
-            print('Marker added: title=$finalTitle, address=$finalAddress');
+            if (finalTitle.trim().toLowerCase() == query.trim().toLowerCase()) {
+              print(
+                  'Filtered Marker added: title=$finalTitle, address=$finalAddress');
 
-            placesMarkers.add(
-              Marker(
-                markerId: MarkerId(placeId),
-                position: latLng,
-                infoWindow: InfoWindow(
-                  title: finalTitle,
-                  snippet: finalAddress,
+              placesMarkers.add(
+                Marker(
+                  markerId: MarkerId(placeId),
+                  position: latLng,
+                  infoWindow: InfoWindow(
+                    title: finalTitle,
+                    snippet: finalAddress,
+                  ),
                 ),
-              ),
-            );
+              );
+            }
           }
 
           _searchResults = placesMarkers;

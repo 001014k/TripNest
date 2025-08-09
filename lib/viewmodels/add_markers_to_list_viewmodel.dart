@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 class AddMarkersToListViewModel extends ChangeNotifier {
   final Set<Marker> _markers = {};
@@ -44,26 +45,40 @@ class AddMarkersToListViewModel extends ChangeNotifier {
           .eq('user_id', user.id);
 
       final loadedMarkers = (data as List<dynamic>).map((json) {
-        final keyword = json['keyword'] ?? 'default';
+        final keyword = (json['keyword'] as String?)?.trim().isNotEmpty == true
+            ? json['keyword'] as String
+            : '키워드 없음';
+
         final lat = (json['lat'] as num?)?.toDouble();
         final lng = (json['lng'] as num?)?.toDouble();
 
         if (lat == null || lng == null) return null;
 
+        final title = (json['title'] as String?)?.trim().isNotEmpty == true
+            ? json['title'] as String
+            : '제목 없음';
+
+        final snippet = (json['snippet'] as String?)?.trim().isNotEmpty == true
+            ? json['snippet'] as String
+            : '주소 없음';
+
         final marker = Marker(
           markerId: MarkerId(json['id']),
           position: LatLng(lat, lng),
           infoWindow: InfoWindow(
-            title: json['title'] ?? 'No Title',
-            snippet: json['snippet'] ?? 'No Snippet',
+            title: title,
+            snippet: snippet,
           ),
         );
+
         _markerKeywords[marker.markerId] = keyword;
         return marker;
       }).whereType<Marker>().toSet();
 
-      _markers.clear();
-      _markers.addAll(loadedMarkers);
+      _markers
+        ..clear()
+        ..addAll(loadedMarkers);
+
       _error = null;
     } catch (e) {
       _error = 'Failed to load markers: $e';
@@ -73,11 +88,33 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addMarkerToList(Marker marker, String listId, BuildContext context) async {
+
+  Future<void> addMarkerToList(
+      Marker marker, String listId, BuildContext context) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
     try {
+      // 1. 현재 리스트에 같은 marker_id가 있는지 확인
+      final existing = await supabase
+          .from('list_bookmarks')
+          .select('id')
+          .eq('list_id', listId)
+          .eq('marker_id', marker.markerId.value) // marker_id 컬럼 사용
+          .maybeSingle();
+
+      if (existing != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${marker.infoWindow.title ?? "이 장소"}는 이미 리스트에 있습니다.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      // 2. 현재 리스트 내 순서(sort_order) 계산
       final orderData = await supabase
           .from('list_bookmarks')
           .select('id')
@@ -85,9 +122,11 @@ class AddMarkersToListViewModel extends ChangeNotifier {
 
       final orderCount = (orderData as List).length;
 
+      // 3. 새 마커 추가 (UUID PK + marker_id 저장)
       await supabase.from('list_bookmarks').insert({
-        'id': marker.markerId.value,
+        'id': const Uuid().v4(), // PK
         'list_id': listId,
+        'marker_id': marker.markerId.value, // DB에서 unique(list_id, marker_id) 제약
         'lat': marker.position.latitude,
         'lng': marker.position.longitude,
         'title': marker.infoWindow.title,
@@ -96,18 +135,22 @@ class AddMarkersToListViewModel extends ChangeNotifier {
         'sort_order': orderCount,
       });
 
+      // 4. 로컬 상태 업데이트
       _markersInLists.putIfAbsent(listId, () => <String>{});
       _markersInLists[listId]!.add(marker.markerId.value);
 
+      // 5. 성공 메시지
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${marker.infoWindow.title} added to list')),
+        SnackBar(content: Text('${marker.infoWindow.title}이(가) 리스트에 추가되었습니다.')),
       );
 
       Navigator.pop(context, true);
       _error = null;
     } catch (e) {
       _error = 'Failed to add marker to list: $e';
-      notifyListeners();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('마커 추가 실패: $e')),
+      );
     }
 
     notifyListeners();
