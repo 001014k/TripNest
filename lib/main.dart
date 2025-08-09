@@ -21,7 +21,6 @@ import 'viewmodels/splash_viewmodel.dart';
 import 'viewmodels/add_markers_to_list_viewmodel.dart';
 import 'viewmodels/markercreationscreen_viewmodel.dart';
 import 'viewmodels/shared_link_viewmodel.dart';
-import 'package:fluttertrip/viewmodels/calender/calender_main_viewmodel.dart';
 import 'package:fluttertrip/viewmodels/collaborator_viewmodel.dart';
 import 'viewmodels/home_viewmodel.dart';
 
@@ -80,7 +79,6 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => SplashViewModel()),
         ChangeNotifierProvider(create: (_) => CollaboratorViewModel()),
         ChangeNotifierProvider(create: (_) => MarkerCreationScreenViewModel()),
-        ChangeNotifierProvider(create: (_) => CalendarViewModel()),
         ChangeNotifierProvider(create: (_) => HomeDashboardViewModel()),
       ],
       child: MyApp(),
