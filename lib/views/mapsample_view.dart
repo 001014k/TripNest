@@ -116,7 +116,6 @@ class _MapSampleViewState extends State<MapSampleView> {
                       marker: m,
                       keyword: '',
                       onSave: (Marker, String) {},
-                      onDelete: (Marker) {},
                       onBookmark: (Marker) {},
                     ),
                   ),
@@ -160,13 +159,6 @@ class _MapSampleViewState extends State<MapSampleView> {
           keyword: _markerKeywords[marker.markerId] ?? 'default',
           onBookmark: (Marker bookmarkedMarker) {
             // 북마크 처리 로직
-          },
-          onDelete: (Marker deletedMarker) {
-            setState(() {
-              _markers.removeWhere((m) => m.markerId == deletedMarker.markerId);
-              _allMarkers
-                  .removeWhere((m) => m.markerId == deletedMarker.markerId);
-            });
           },
         ),
       ),

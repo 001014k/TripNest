@@ -33,7 +33,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
   List<Map<String, String>> get reviewLinks {
     final title = _marker.infoWindow.title ?? '';
     final addr = _address ?? '';
-    final encoded = Uri.encodeComponent('$title $addr $keyword');
+    final encoded = Uri.encodeComponent('$title');
 
     return [
       {
@@ -106,22 +106,17 @@ class MarkerDetailViewModel extends ChangeNotifier {
           .from('user_markers')
           .delete()
           .eq('user_id', user.id)
-          .eq('marker_id', _marker.markerId.value);
+          .eq('id', _marker.markerId.value);
 
-      await supabase
-          .from('bookmarks')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('marker_id', _marker.markerId.value);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('마커가 삭제되었습니다.')),
+        const SnackBar(content: Text('마커 및 연관 데이터가 삭제되었습니다.')),
       );
 
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => MapSampleView()),
-        ModalRoute.withName('/'),
+          (route) => false, // 모든 이전 라우트를 제거
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

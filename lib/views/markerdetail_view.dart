@@ -9,14 +9,12 @@ import 'mapsample_view.dart';
 class MarkerDetailView extends StatefulWidget {
   final Marker marker;
   final Function(Marker, String) onSave;
-  final Function(Marker) onDelete;
   final String keyword;
   final Function(Marker) onBookmark;
 
   MarkerDetailView({
     required this.marker,
     required this.onSave,
-    required this.onDelete,
     required this.keyword,
     required this.onBookmark,
   });
@@ -208,19 +206,33 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              PopupMenuButton<String>(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                onSelected: (value) {
-                  if (value == '수정') widget.onSave(widget.marker, vm.title ?? '');
-                  else if (value == '삭제') widget.onDelete(widget.marker);
+              Builder(
+                builder: (popupContext) {
+                  return PopupMenuButton<String>(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    onSelected: (value) async {
+                      if (value == '삭제') {
+                        try {
+                          final viewModel = popupContext.read<MarkerDetailViewModel>();
+                          await viewModel.deleteMarker(popupContext);
+                        } catch (e) {
+                          ScaffoldMessenger.of(popupContext).showSnackBar(
+                            SnackBar(content: Text('삭제 실패: $e')),
+                          );
+                        }
+                      } else if (value == '수정') {
+                        widget.onSave(widget.marker, popupContext.read<MarkerDetailViewModel>().title ?? '');
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: '수정', child: Text('수정')),
+                      const PopupMenuItem(value: '삭제', child: Text('삭제')),
+                    ],
+                    icon: const Icon(Icons.more_vert, color: AppDesign.subtleText),
+                  );
                 },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: '수정', child: Text('수정')),
-                  const PopupMenuItem(value: '삭제', child: Text('삭제')),
-                ],
-                icon: const Icon(Icons.more_vert, color: AppDesign.subtleText),
               ),
             ],
           ),
