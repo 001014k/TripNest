@@ -23,6 +23,7 @@ import 'viewmodels/markercreationscreen_viewmodel.dart';
 import 'viewmodels/shared_link_viewmodel.dart';
 import 'package:fluttertrip/viewmodels/collaborator_viewmodel.dart';
 import 'viewmodels/home_viewmodel.dart';
+import 'viewmodels/marker_list_screen_viewmodel.dart';
 
 // Service imports...
 import 'services/marker_service.dart';
@@ -40,6 +41,7 @@ import 'views/login_option_view.dart';
 import 'views/home_view.dart';
 import 'views/list_view.dart';
 import 'views/shared_link_view.dart';
+import 'views/marker_list_screen_view.dart';
 
 /// ✅ 전역 Navigator Key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -80,6 +82,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => CollaboratorViewModel()),
         ChangeNotifierProvider(create: (_) => MarkerCreationScreenViewModel()),
         ChangeNotifierProvider(create: (_) => HomeDashboardViewModel()),
+        ChangeNotifierProvider(create: (_) => MarkerListViewModel(Supabase.instance.client)),
       ],
       child: MyApp(),
     ),
@@ -182,6 +185,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/home': (context) => HomeDashboardView(),
         '/list': (context) => ListPage(),
         '/shared_link': (context) => SharedLinkView(),
+        '/marker_list': (context) => MarkerListScreen(),
       },
     );
   }
