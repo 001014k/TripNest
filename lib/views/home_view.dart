@@ -522,7 +522,7 @@ class _PremiumFriendsCardState extends State<_PremiumFriendsCard>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          onTap: () => Navigator.pushNamed(context, '/friends'),
+          onTap: () => Navigator.pushNamed(context, '/friend_management'),
           child: Row(
             children: [
               _buildAnimatedIcon(),
