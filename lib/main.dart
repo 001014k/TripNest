@@ -43,6 +43,7 @@ import 'views/home_view.dart';
 import 'views/list_view.dart';
 import 'views/shared_link_view.dart';
 import 'views/marker_list_screen_view.dart';
+import 'views/nickname_dialog_view.dart';
 
 /// ✅ 전역 Navigator Key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -191,6 +192,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           final args = ModalRoute.of(context)!.settings.arguments as String;
           return ProfilePage(userId: args);
         },
+        '/nickname_setup': (context) => NicknameSetupPage(),
       },
     );
   }
