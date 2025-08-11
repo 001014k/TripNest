@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertrip/views/profile_view.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:fluttertrip/services/app_group_handler_service.dart';
 import 'package:provider/provider.dart';
@@ -186,6 +187,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/list': (context) => ListPage(),
         '/shared_link': (context) => SharedLinkView(),
         '/marker_list': (context) => MarkerListScreen(),
+        '/profile': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as String;
+          return ProfilePage(userId: args);
+        },
       },
     );
   }

@@ -12,7 +12,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
@@ -21,84 +20,104 @@ class _ProfilePageState extends State<ProfilePage> {
         builder: (context, viewModel, _) {
           return Scaffold(
             appBar: AppBar(
-              title: Text('프로필',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              title: Text(
+                '프로필',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back),  // ← 뒤로가기 아이콘
-                onPressed: () {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/home', (route) => false, // ← 스택 제거하여 완전히 홈으로 이동
-                  );
-                },
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
               ),
               centerTitle: true,
-              backgroundColor: Colors.white,
-              elevation: 0.5,
-              iconTheme: const IconThemeData(color: Colors.black),
+              backgroundColor: Colors.blue,
+              elevation: 0,
             ),
-            backgroundColor: Colors.white,
-            body: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: viewModel.isLoading
-                  ? Center(child: CircularProgressIndicator())
-                  : viewModel.errorMessage != null
-                  ? Center(
-                child: Text(
-                  viewModel.errorMessage!,
-                  style: TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              )
-                  : SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (viewModel.nickname != null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 32),
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                        decoration: BoxDecoration(
-                          color: Colors.blueGrey.shade100,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blueGrey.shade200.withOpacity(0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.account_circle, size: 40, color: Colors.blueGrey.shade700),
-                            const SizedBox(width: 16),
-                            Text(
-                              viewModel.nickname!,
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blueGrey.shade900,
-                              ),
-                            ),
-                          ],
-                        ),
+            body: viewModel.isLoading
+                ? Center(child: CircularProgressIndicator())
+                : viewModel.errorMessage != null
+                ? Center(
+              child: Text(
+                viewModel.errorMessage!,
+                style: TextStyle(color: Colors.red, fontSize: 16),
+              ),
+            )
+                : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 프로필 기본 정보
+                  if (viewModel.nickname != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.blueGrey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blueGrey.shade200.withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                    Text(
-                      '사용자 통계',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blueGrey[900],
+                      child: Row(
+                        children: [
+                          Icon(Icons.account_circle, size: 48, color: Colors.blueGrey.shade700),
+                          const SizedBox(width: 16),
+                          Text(
+                            viewModel.nickname!,
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueGrey.shade900,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    _buildStatCard('마커', viewModel.stats?['markers'] ?? 0, Icons.location_on),
-                    const SizedBox(height: 12),
-                    _buildStatCard('리스트', viewModel.stats?['lists'] ?? 0, Icons.list),
-                    const SizedBox(height: 12),
-                    _buildStatCard('북마크', viewModel.stats?['bookmarks'] ?? 0, Icons.bookmark),
-                  ],
-                ),
+
+                  // 활동 통계 섹션
+                  Text(
+                    '활동 통계',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildStatCard('마커', viewModel.stats?['markers'] ?? 0, Icons.location_on),
+                  const SizedBox(height: 12),
+                  _buildStatCard('리스트', viewModel.stats?['lists'] ?? 0, Icons.list),
+                  const SizedBox(height: 12),
+                  _buildStatCard('북마크', viewModel.stats?['bookmarks'] ?? 0, Icons.bookmark),
+
+                  const SizedBox(height: 32),
+
+                  // 계정 관리 섹션
+                  Text(
+                    '계정 관리',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+
+                  ListTile(
+                    leading: Icon(Icons.edit),
+                    title: Text('프로필 수정'),
+                    onTap: () {
+                      // 프로필 수정 페이지로 이동하는 로직 넣기
+                      Navigator.pushNamed(context, '/profile_edit');
+                    },
+                  ),
+                  Divider(),
+                  ListTile(
+                    leading: Icon(Icons.logout),
+                    title: Text('로그아웃'),
+                    onTap: () {
+                      // 로그아웃 로직 구현
+                      // 예: context.read<AuthViewModel>().logout();
+                      Navigator.pushNamedAndRemoveUntil(context, '/login_option', (route) => false);
+                    },
+                  ),
+                ],
               ),
             ),
           );
@@ -131,7 +150,7 @@ class _ProfilePageState extends State<ProfilePage> {
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: Colors.blueGrey.shade800,
                 ),
@@ -141,7 +160,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Text(
             '$count',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
               color: Colors.blueGrey.shade600,
             ),

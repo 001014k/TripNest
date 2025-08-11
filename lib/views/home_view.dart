@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertrip/views/shared_link_view.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/shared_link_model.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../models/marker_model.dart';
@@ -69,7 +70,9 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
-                        child: _DashboardHeader(),
+                        child: _DashboardHeader(
+                          userId: Supabase.instance.client.auth.currentUser?.id ?? '',
+                        ),
                       ),
                     ),
 
@@ -121,7 +124,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
     );
   }
 
-  void _navigateToList() => Navigator.pushNamed(context, '/list');
+  void _navigateToList() => Navigator.pushNamed(context, '/marker_list');
   void _navigateToSharedLinks() => Navigator.pushNamed(context, '/shared_link');
 }
 
@@ -129,6 +132,10 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
 // 프리미엄 대시보드 헤더
 // ================================
 class _DashboardHeader extends StatelessWidget {
+  final String userId;
+
+  const _DashboardHeader({required this.userId});
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -172,26 +179,35 @@ class _DashboardHeader extends StatelessWidget {
                 ),
               ],
             ),
-            _buildProfileAvatar(),
+            _buildProfileAvatar(context),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildProfileAvatar() {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        gradient: AppDesign.primaryGradient,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppDesign.glowShadow,
-      ),
-      child: const Icon(
-        Icons.person_outline,
-        color: Colors.white,
-        size: 24,
+  Widget _buildProfileAvatar(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          '/profile',
+          arguments: userId,
+        );
+      },
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          gradient: AppDesign.primaryGradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppDesign.glowShadow,
+        ),
+        child: const Icon(
+          Icons.person_outline,
+          color: Colors.white,
+          size: 24,
+        ),
       ),
     );
   }
@@ -748,7 +764,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     if (widget.onViewAll != null) {
       widget.onViewAll!(); // 외부 콜백 있으면 실행
     } else {
-      Navigator.pushNamed(context, '/list'); // 기본 동작 (전체 보기 페이지 이동)
+      Navigator.pushNamed(context, '/marker_list'); // 기본 동작 (전체 보기 페이지 이동)
     }
   }
 
