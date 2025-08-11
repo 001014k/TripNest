@@ -14,6 +14,7 @@ import '../design/app_design.dart';
 import 'nickname_dialog_view.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 
 class MapSampleView extends StatefulWidget {
   final MarkerId? initialMarkerId;
@@ -72,7 +73,7 @@ class _MapSampleViewState extends State<MapSampleView> {
             barrierDismissible: false,
             builder: (_) => ChangeNotifierProvider(
               create: (_) => NicknameDialogViewModel(userId: user.id),
-              child: NicknameDialogView(),
+              child: NicknameSetupPage(),
             ),
           );
         }
@@ -115,8 +116,6 @@ class _MapSampleViewState extends State<MapSampleView> {
                     builder: (_) => MarkerDetailView(
                       marker: m,
                       keyword: '',
-                      onSave: (Marker, String) {},
-                      onBookmark: (Marker) {},
                     ),
                   ),
                 );
@@ -139,27 +138,7 @@ class _MapSampleViewState extends State<MapSampleView> {
       MaterialPageRoute(
         builder: (context) => MarkerDetailView(
           marker: marker,
-          onSave: (Marker updatedMarker, String updatedKeyword) {
-            setState(() {
-              _markers.removeWhere((m) => m.markerId == updatedMarker.markerId);
-              _markers.add(updatedMarker);
-              _allMarkers
-                  .removeWhere((m) => m.markerId == updatedMarker.markerId);
-              _allMarkers.add(updatedMarker);
-
-              _markerKeywords[updatedMarker.markerId] = updatedKeyword;
-            });
-
-            final markerImagePath = keywordMarkerImages[updatedKeyword] ??
-                'assets/default_marker.png';
-            context
-                .read<MapSampleViewModel>()
-                .updateMarker(updatedMarker, updatedKeyword, markerImagePath);
-          },
           keyword: _markerKeywords[marker.markerId] ?? 'default',
-          onBookmark: (Marker bookmarkedMarker) {
-            // 북마크 처리 로직
-          },
         ),
       ),
     );
@@ -538,12 +517,20 @@ class _MapSampleViewState extends State<MapSampleView> {
     if (markers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('해당 리스트에 마커가 없습니다.'),
+          content: Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+              SizedBox(width: AppDesign.spacing8),
+              Text('해당 리스트에 마커가 없습니다'),
+            ],
+          ),
           backgroundColor: AppDesign.travelOrange,
           behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(AppDesign.spacing16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
           ),
+          elevation: 6,
         ),
       );
       return;
@@ -553,207 +540,457 @@ class _MapSampleViewState extends State<MapSampleView> {
     await Future.wait(
       markers.map((marker) async {
         final details = await viewModel.fetchMarkerDetail(marker.markerId.value);
-        print('Marker ID: ${marker.markerId.value}, Details: $details');  // 여기 추가
         markerDetailsMap[marker.markerId.value] = details;
       }),
     );
 
-
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppDesign.radiusLarge)),
-      ),
-      backgroundColor: AppDesign.cardBg,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Container(
-              decoration: BoxDecoration(
-                gradient: AppDesign.backgroundGradient,
-                borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(AppDesign.radiusLarge)),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(AppDesign.spacing20),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 5,
-                      margin: EdgeInsets.only(bottom: AppDesign.spacing16),
-                      decoration: BoxDecoration(
-                        color: AppDesign.borderColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) {
+            return StatefulBuilder(
+              builder: (context, setState) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: AppDesign.cardBg,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(AppDesign.radiusLarge),
                     ),
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.all(AppDesign.spacing12),
-                      margin: EdgeInsets.only(bottom: AppDesign.spacing16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppDesign.travelBlue.withOpacity(0.1),
-                            AppDesign.travelPurple.withOpacity(0.1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 20,
+                        offset: Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // 헤더 섹션
+                      Container(
+                        padding: EdgeInsets.all(AppDesign.spacing20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              AppDesign.primaryBg,
+                              AppDesign.secondaryBg,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(AppDesign.radiusLarge),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            // 드래그 핸들
+                            Container(
+                              width: 40,
+                              height: 4,
+                              margin: EdgeInsets.only(bottom: AppDesign.spacing16),
+                              decoration: BoxDecoration(
+                                color: AppDesign.borderColor,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            // 타이틀과 카운트
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '경로 순서',
+                                      style: AppDesign.headingMedium,
+                                    ),
+                                    SizedBox(height: AppDesign.spacing4),
+                                    Text(
+                                      '${markers.length}개의 장소',
+                                      style: AppDesign.caption.copyWith(
+                                        color: AppDesign.secondaryText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: AppDesign.spacing12,
+                                    vertical: AppDesign.spacing8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: AppDesign.primaryGradient,
+                                    borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.route_rounded,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                      SizedBox(width: AppDesign.spacing4),
+                                      Text(
+                                        '경로 보기',
+                                        style: AppDesign.caption.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: AppDesign.spacing16),
+                            // 안내 메시지 카드
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.all(AppDesign.spacing12),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppDesign.travelBlue.withOpacity(0.1),
+                                    AppDesign.travelPurple.withOpacity(0.1),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                border: Border.all(
+                                  color: AppDesign.travelBlue.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(AppDesign.spacing8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.touch_app_rounded,
+                                      color: AppDesign.travelBlue,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  SizedBox(width: AppDesign.spacing12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '드래그하여 순서 변경',
+                                          style: AppDesign.bodyMedium.copyWith(
+                                            color: AppDesign.travelBlue,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Text(
+                                          '카드를 탭하면 지도에서 위치를 확인할 수 있어요',
+                                          style: AppDesign.caption.copyWith(
+                                            color: AppDesign.travelBlue.withOpacity(0.8),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                        borderRadius:
-                            BorderRadius.circular(AppDesign.radiusSmall),
-                        border: Border.all(
-                          color: AppDesign.travelBlue.withOpacity(0.3),
-                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.swap_vert_rounded,
-                            color: AppDesign.travelBlue,
-                            size: 20,
+                      // 마커 리스트
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppDesign.primaryBg,
                           ),
-                          SizedBox(width: AppDesign.spacing8),
-                          Text(
-                            '드래그해서 순서를 변경하세요',
-                            style: AppDesign.caption.copyWith(
-                              color: AppDesign.travelBlue,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Consumer<MapSampleViewModel>(
-                        builder: (context, viewModel, _) {
-                          return ReorderableListView.builder(
-                            itemCount: viewModel.orderedMarkers.length,
-                            onReorder: (int oldIndex, int newIndex) async {
-                              await viewModel.reorderMarkers(
-                                oldIndex,
-                                newIndex,
-                                listId,
-                                context.read<AddMarkersToListViewModel>(),
+                          child: Consumer<MapSampleViewModel>(
+                            builder: (context, viewModel, _) {
+                              return ReorderableListView.builder(
+                                scrollController: scrollController,
+                                padding: EdgeInsets.fromLTRB(
+                                  AppDesign.spacing16,
+                                  AppDesign.spacing8,
+                                  AppDesign.spacing16,
+                                  AppDesign.spacing80,
+                                ),
+                                itemCount: viewModel.orderedMarkers.length,
+                                onReorder: (int oldIndex, int newIndex) async {
+                                  HapticFeedback.lightImpact(); // 햅틱 피드백 추가
+                                  await viewModel.reorderMarkers(
+                                    oldIndex,
+                                    newIndex,
+                                    listId,
+                                    context.read<AddMarkersToListViewModel>(),
+                                  );
+                                },
+                                itemBuilder: (context, index) {
+                                  final marker = viewModel.orderedMarkers[index];
+                                  final details = markerDetailsMap[marker.markerId.value] ?? {
+                                    'title': '제목 없음',
+                                    'keyword': '키워드 없음',
+                                    'address': '주소 없음',
+                                  };
+
+                                  final title = details['title']!;
+                                  final keyword = details['keyword']!;
+                                  final address = details['address'] ?? '';
+                                  final orderNumber = index + 1;
+
+                                  // 키워드별 색상 매핑
+                                  final keywordColors = {
+                                    '카페': AppDesign.travelOrange,
+                                    '호텔': AppDesign.travelBlue,
+                                    '사진': AppDesign.travelPurple,
+                                    '음식점': AppDesign.travelGreen,
+                                    '전시회': AppDesign.sunsetGradientStart,
+                                  };
+                                  final keywordColor = keywordColors[keyword] ?? AppDesign.travelBlue;
+
+                                  return Container(
+                                    key: ValueKey(marker.markerId.value),
+                                    margin: EdgeInsets.only(bottom: AppDesign.spacing12),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          Navigator.pop(context);
+                                          viewModel.onMarkerTapped(marker.markerId);
+                                        },
+                                        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: AppDesign.cardBg,
+                                            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+                                            border: Border.all(
+                                              color: AppDesign.borderColor.withOpacity(0.5),
+                                              width: 1,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: keywordColor.withOpacity(0.08),
+                                                blurRadius: 12,
+                                                offset: Offset(0, 4),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.04),
+                                                blurRadius: 4,
+                                                offset: Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Container(
+                                            padding: EdgeInsets.all(AppDesign.spacing16),
+                                            child: Row(
+                                              children: [
+                                                // 드래그 핸들과 순서 번호
+                                                Column(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.drag_indicator_rounded,
+                                                      color: AppDesign.subtleText,
+                                                      size: 20,
+                                                    ),
+                                                    Container(
+                                                      width: 36,
+                                                      height: 36,
+                                                      decoration: BoxDecoration(
+                                                        gradient: LinearGradient(
+                                                          begin: Alignment.topLeft,
+                                                          end: Alignment.bottomRight,
+                                                          colors: [
+                                                            keywordColor,
+                                                            keywordColor.withOpacity(0.7),
+                                                          ],
+                                                        ),
+                                                        shape: BoxShape.circle,
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: keywordColor.withOpacity(0.3),
+                                                            blurRadius: 8,
+                                                            offset: Offset(0, 2),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Center(
+                                                        child: Text(
+                                                          orderNumber.toString(),
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 16,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                SizedBox(width: AppDesign.spacing16),
+                                                // 콘텐츠
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: Text(
+                                                              title,
+                                                              style: AppDesign.bodyMedium.copyWith(
+                                                                fontWeight: FontWeight.w600,
+                                                                fontSize: 15,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                          SizedBox(width: AppDesign.spacing8),
+                                                          Container(
+                                                            padding: EdgeInsets.symmetric(
+                                                              horizontal: AppDesign.spacing10,
+                                                              vertical: AppDesign.spacing4,
+                                                            ),
+                                                            decoration: BoxDecoration(
+                                                              color: keywordColor.withOpacity(0.1),
+                                                              borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+                                                              border: Border.all(
+                                                                color: keywordColor.withOpacity(0.2),
+                                                                width: 1,
+                                                              ),
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                Icon(
+                                                                  _getKeywordIcon(keyword),
+                                                                  size: 12,
+                                                                  color: keywordColor,
+                                                                ),
+                                                                SizedBox(width: AppDesign.spacing4),
+                                                                Text(
+                                                                  keyword,
+                                                                  style: TextStyle(
+                                                                    color: keywordColor,
+                                                                    fontSize: 11,
+                                                                    fontWeight: FontWeight.w600,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      if (address.isNotEmpty) ...[
+                                                        SizedBox(height: AppDesign.spacing8),
+                                                        Row(
+                                                          children: [
+                                                            Icon(
+                                                              Icons.location_on_outlined,
+                                                              size: 14,
+                                                              color: AppDesign.subtleText,
+                                                            ),
+                                                            SizedBox(width: AppDesign.spacing4),
+                                                            Expanded(
+                                                              child: Text(
+                                                                address,
+                                                                style: AppDesign.caption.copyWith(
+                                                                  color: AppDesign.secondaryText,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
+                                                    ],
+                                                  ),
+                                                ),
+                                                // 화살표
+                                                Container(
+                                                  padding: EdgeInsets.all(AppDesign.spacing8),
+                                                  decoration: BoxDecoration(
+                                                    color: AppDesign.lightGray,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.arrow_forward_ios_rounded,
+                                                    color: AppDesign.secondaryText,
+                                                    size: 14,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               );
                             },
-                            itemBuilder: (context, index) {
-                              final marker = viewModel.orderedMarkers[index];
-                              print(
-                                  'UI 렌더링 인덱스: $index, 마커 ID: ${marker.markerId.value}');
-
-                              final details = markerDetailsMap[marker.markerId.value] ??
-                                      {
-                                        'title': '제목 없음',
-                                        'keyword': '키워드 없음',
-                                      };
-
-                              final title = details['title']!;
-                              final keyword = details['keyword']!;
-                              final orderNumber = index + 1;
-
-                              return Container(
-                                key: ValueKey(marker.markerId.value),
-                                margin: EdgeInsets.only(
-                                    bottom: AppDesign.spacing12),
+                          ),
+                        ),
+                      ),
+                      // 하단 액션 버튼
+                      Container(
+                        padding: EdgeInsets.all(AppDesign.spacing20),
+                        decoration: BoxDecoration(
+                          color: AppDesign.cardBg,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: Offset(0, -5),
+                            ),
+                          ],
+                        ),
+                        child: SafeArea(
+                          child: Row(
+                            children: [
+                              Expanded(
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: AppDesign.cardBg,
-                                    borderRadius: BorderRadius.circular(
-                                        AppDesign.radiusMedium),
-                                    boxShadow: AppDesign.softShadow,
+                                    border: Border.all(
+                                      color: AppDesign.borderColor,
+                                      width: 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
                                   ),
                                   child: Material(
                                     color: Colors.transparent,
                                     child: InkWell(
-                                      borderRadius: BorderRadius.circular(
-                                          AppDesign.radiusMedium),
+                                      borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
                                       onTap: () {
                                         Navigator.pop(context);
-                                        viewModel
-                                            .onMarkerTapped(marker.markerId);
+                                        showUserLists(context);
                                       },
                                       child: Padding(
-                                        padding:
-                                            EdgeInsets.all(AppDesign.spacing16),
+                                        padding: EdgeInsets.symmetric(vertical: AppDesign.spacing16),
                                         child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
                                             Icon(
-                                              Icons.drag_handle_rounded,
+                                              Icons.arrow_back_rounded,
                                               color: AppDesign.secondaryText,
+                                              size: 20,
                                             ),
-                                            SizedBox(
-                                                width: AppDesign.spacing12),
-                                            Container(
-                                              width: 32,
-                                              height: 32,
-                                              decoration: BoxDecoration(
-                                                gradient:
-                                                    AppDesign.sunsetGradient,
-                                                shape: BoxShape.circle,
+                                            SizedBox(width: AppDesign.spacing8),
+                                            Text(
+                                              '뒤로가기',
+                                              style: AppDesign.bodyMedium.copyWith(
+                                                fontWeight: FontWeight.w600,
                                               ),
-                                              child: Center(
-                                                child: Text(
-                                                  orderNumber.toString(),
-                                                  style: TextStyle(
-                                                    color: AppDesign.whiteText,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(
-                                                width: AppDesign.spacing12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    title,
-                                                    style: AppDesign.bodyMedium
-                                                        .copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                      height:
-                                                          AppDesign.spacing4),
-                                                  Container(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                      horizontal:
-                                                          AppDesign.spacing8,
-                                                      vertical:
-                                                          AppDesign.spacing4,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      color: AppDesign
-                                                          .travelBlue
-                                                          .withOpacity(0.1),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              AppDesign
-                                                                  .radiusSmall),
-                                                    ),
-                                                    child: Text(
-                                                      keyword,
-                                                      style: AppDesign.caption
-                                                          .copyWith(
-                                                        color: AppDesign
-                                                            .travelBlue,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Icon(
-                                              Icons.chevron_right_rounded,
-                                              color: AppDesign.secondaryText,
                                             ),
                                           ],
                                         ),
@@ -761,57 +998,96 @@ class _MapSampleViewState extends State<MapSampleView> {
                                     ),
                                   ),
                                 ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    SizedBox(height: AppDesign.spacing16),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppDesign.borderColor),
-                        borderRadius:
-                            BorderRadius.circular(AppDesign.radiusMedium),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius:
-                              BorderRadius.circular(AppDesign.radiusMedium),
-                          onTap: () {
-                            Navigator.pop(context);
-                            showUserLists(context);
-                          },
-                          child: Padding(
-                            padding: EdgeInsets.all(AppDesign.spacing16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.arrow_back_rounded,
-                                    color: AppDesign.primaryText),
-                                SizedBox(width: AppDesign.spacing12),
-                                Text(
-                                  '뒤로가기',
-                                  style: AppDesign.bodyMedium.copyWith(
-                                    fontWeight: FontWeight.w600,
+                              ),
+                              SizedBox(width: AppDesign.spacing12),
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: AppDesign.primaryGradient,
+                                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                    boxShadow: AppDesign.glowShadow,
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        // 경로 최적화 또는 네비게이션 시작
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Row(
+                                              children: [
+                                                Icon(Icons.navigation_rounded, color: Colors.white, size: 20),
+                                                SizedBox(width: AppDesign.spacing8),
+                                                Text('경로 안내를 시작합니다'),
+                                              ],
+                                            ),
+                                            backgroundColor: AppDesign.travelGreen,
+                                            behavior: SnackBarBehavior.floating,
+                                            margin: EdgeInsets.all(AppDesign.spacing16),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(vertical: AppDesign.spacing16),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.navigation_rounded,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                            SizedBox(width: AppDesign.spacing8),
+                                            Text(
+                                              '경로 시작',
+                                              style: AppDesign.bodyMedium.copyWith(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                    ],
+                  ),
+                );
+              },
             );
           },
         );
       },
     );
+  }
+
+// 키워드별 아이콘 헬퍼 함수
+  IconData _getKeywordIcon(String keyword) {
+    switch (keyword) {
+      case '카페':
+        return Icons.coffee_rounded;
+      case '호텔':
+        return Icons.hotel_rounded;
+      case '사진':
+        return Icons.camera_alt_rounded;
+      case '음식점':
+        return Icons.restaurant_rounded;
+      case '전시회':
+        return Icons.museum_rounded;
+      default:
+        return Icons.place_rounded;
+    }
   }
 
   @override

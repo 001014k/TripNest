@@ -8,15 +8,11 @@ import 'mapsample_view.dart';
 
 class MarkerDetailView extends StatefulWidget {
   final Marker marker;
-  final Function(Marker, String) onSave;
   final String keyword;
-  final Function(Marker) onBookmark;
 
   MarkerDetailView({
     required this.marker,
-    required this.onSave,
     required this.keyword,
-    required this.onBookmark,
   });
 
   @override
@@ -223,7 +219,7 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
                           );
                         }
                       } else if (value == '수정') {
-                        widget.onSave(widget.marker, popupContext.read<MarkerDetailViewModel>().title ?? '');
+                        // 수정 기능 구현
                       }
                     },
                     itemBuilder: (context) => [
