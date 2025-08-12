@@ -62,8 +62,10 @@ class AddMarkersToListViewModel extends ChangeNotifier {
             ? json['address'] as String
             : '주소 없음';
 
+        final id = json['id']?.toString() ?? const Uuid().v4();
+
         final marker = Marker(
-          markerId: MarkerId(json['id']),
+          markerId: MarkerId(id),
           position: LatLng(lat, lng),
           infoWindow: InfoWindow(
             title: title,
@@ -95,57 +97,36 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     if (user == null) return;
 
     try {
-      // 1. 현재 리스트에 같은 marker_id가 있는지 확인
-      final existing = await supabase
-          .from('list_bookmarks')
-          .select('id')
-          .eq('list_id', listId)
-          .eq('marker_id', marker.markerId.value) // marker_id 컬럼 사용
-          .maybeSingle();
-
-      if (existing != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${marker.infoWindow.title ?? "이 장소"}는 이미 리스트에 있습니다.',
-            ),
-          ),
-        );
-        return;
-      }
-
-      // 2. 현재 리스트 내 순서(sort_order) 계산
-      final orderData = await supabase
-          .from('list_bookmarks')
-          .select('id')
-          .eq('list_id', listId);
-
-      final orderCount = (orderData as List).length;
-
-      // 3. 새 마커 추가 (UUID PK + marker_id 저장)
-      await supabase.from('list_bookmarks').insert({
-        'id': const Uuid().v4(), // PK
-        'list_id': listId,
-        'marker_id': marker.markerId.value, // DB에서 unique(list_id, marker_id) 제약
-        'lat': marker.position.latitude,
-        'lng': marker.position.longitude,
-        'title': marker.infoWindow.title,
-        'snippet': marker.infoWindow.snippet,
-        'keyword': _markerKeywords[marker.markerId] ?? '',
-        'sort_order': orderCount,
+      await supabase.rpc('add_marker_to_list', params: {
+        'p_list_id': listId,
+        'p_marker_id': marker.markerId.value, // markerId.value 는 UUID 문자열이어야 합니다.
+        'p_lat': marker.position.latitude,
+        'p_lng': marker.position.longitude,
+        'p_title': marker.infoWindow.title ?? '',
+        'p_snippet': marker.infoWindow.snippet ?? '',
+        'p_keyword': _markerKeywords[marker.markerId] ?? '',
       });
 
-      // 4. 로컬 상태 업데이트
       _markersInLists.putIfAbsent(listId, () => <String>{});
       _markersInLists[listId]!.add(marker.markerId.value);
 
-      // 5. 성공 메시지
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${marker.infoWindow.title}이(가) 리스트에 추가되었습니다.')),
+        SnackBar(content: Text('${marker.infoWindow.title ?? "장소"}이(가) 리스트에 추가되었습니다.')),
       );
 
       Navigator.pop(context, true);
       _error = null;
+    } on PostgrestException catch (e) {
+      if (e.message.contains('Marker already exists')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${marker.infoWindow.title ?? "이 장소"}는 이미 리스트에 있습니다.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('마커 추가 실패: ${e.message}')),
+        );
+      }
+      _error = 'Failed to add marker to list: ${e.message}';
     } catch (e) {
       _error = 'Failed to add marker to list: $e';
       ScaffoldMessenger.of(context).showSnackBar(
