@@ -58,8 +58,8 @@ class AddMarkersToListViewModel extends ChangeNotifier {
             ? json['title'] as String
             : '제목 없음';
 
-        final snippet = (json['snippet'] as String?)?.trim().isNotEmpty == true
-            ? json['snippet'] as String
+        final snippet = (json['address'] as String?)?.trim().isNotEmpty == true
+            ? json['address'] as String
             : '주소 없음';
 
         final marker = Marker(
@@ -163,12 +163,15 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     try {
       final data = await supabase
           .from('list_bookmarks')
-          .select('id')
-          //.eq('user_id', user.id)
+          .select('marker_id')
           .eq('list_id', listId)
           .order('sort_order');
 
-      final markerIds = (data as List<dynamic>).map((e) => e['id'] as String).toSet();
+      final markerIds = (data as List<dynamic>)
+          .map((e) => e['marker_id'] as String?)
+          .whereType<String>()
+          .toSet();
+
       _markersInLists[listId] = markerIds;
       _error = null;
     } catch (e) {
