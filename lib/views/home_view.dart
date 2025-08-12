@@ -6,6 +6,7 @@ import '../models/shared_link_model.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../models/marker_model.dart';
 import '../design/app_design.dart';
+import 'markerdetail_view.dart';
 
 // ================================
 // 메인 홈 대시보드 뷰
@@ -878,11 +879,17 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     );
   }
 
-  void _navigateToMarkerDetail(MarkerModel marker) {
-    Navigator.pushNamed(
+  void _navigateToMarkerDetail(MarkerModel markerModel) {
+    final googleMarker = markerModel.toGoogleMarker();
+
+    Navigator.push(
       context,
-      '/user_list',
-      arguments: marker.id,
+      MaterialPageRoute(
+        builder: (context) => MarkerDetailView(
+          marker: googleMarker,
+          keyword: markerModel.keyword,
+        ),
+      ),
     );
   }
 }
