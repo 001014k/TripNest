@@ -4,6 +4,8 @@ import 'package:fluttertrip/views/mapsample_view.dart';
 import 'package:fluttertrip/services/user_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'nickname_dialog_view.dart';
+
 class SplashScreenView extends StatefulWidget {
   @override
   State<SplashScreenView> createState() => _SplashScreenViewState();
@@ -36,7 +38,9 @@ class _SplashScreenViewState extends State<SplashScreenView> {
       } else {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => MapSampleView()),
+          MaterialPageRoute(
+            builder: (_) => NicknameSetupPage(userId: user.id),
+          ),
         );
       }
     } else {

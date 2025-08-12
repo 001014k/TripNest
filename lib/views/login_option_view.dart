@@ -26,36 +26,6 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
 
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
-
-    _authSubscription = supa.Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
-      final event = data.event;
-      final session = data.session;
-
-      if (!_navigated && event == supa.AuthChangeEvent.signedIn && session != null) {
-        _navigated = true;
-
-        final user = supa.Supabase.instance.client.auth.currentUser;
-        if (user == null) return;
-
-        try {
-          final data = await supa.Supabase.instance.client
-              .from('profiles')
-              .select('nickname')
-              .eq('id', user.id)
-              .maybeSingle();
-
-          final nickname = data?['nickname'] as String?;
-
-          if (nickname == null || nickname.isEmpty) {
-            Navigator.pushReplacementNamed(context, '/nickname_setup');
-          } else {
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        } catch (error) {
-          Navigator.pushReplacementNamed(context, '/home');
-        }
-      }
-    });
   }
 
   @override
