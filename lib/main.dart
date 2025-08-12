@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertrip/services/directions_service.dart';
 import 'package:fluttertrip/views/profile_view.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:fluttertrip/services/app_group_handler_service.dart';
@@ -6,7 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
-import 'package:fluttertrip/env.dart'; // Env 클래스 import
+import 'package:fluttertrip/env.dart';
+import 'config.dart';
 
 // ViewModel imports...
 import 'viewmodels/mapsample_viewmodel.dart';
@@ -49,6 +51,7 @@ import 'views/nickname_dialog_view.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
+  final directionsService = DirectionsService(Config.googleMapsApiKey);
   WidgetsFlutterBinding.ensureInitialized();
 
   // intl 로케일 데이터 초기화 추가
@@ -70,7 +73,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AddMarkersToListViewModel()),
-        ChangeNotifierProvider(create: (_) => MapSampleViewModel()),
+        ChangeNotifierProvider(create: (_) => MapSampleViewModel(directionsService: directionsService)),
         ChangeNotifierProvider(create: (_) => SharedLinkViewModel()),
         ChangeNotifierProvider(create: (_) => DashboardViewModel()),
         ChangeNotifierProvider(create: (_) => ForgotPasswordViewModel()),
@@ -140,9 +143,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         debugPrint("✅ 로그인 완료: $userId");
 
         final context = navigatorKey.currentContext;
-        if (context != null) {
+        if (context == null) return;
+
+        try {
+          // 닉네임 조회
+          final response = await Supabase.instance.client
+              .from('profiles')
+              .select('nickname')
+              .eq('id', userId)
+              .maybeSingle();
+
+          final nickname = response?['nickname'] as String?;
+
+          if (nickname == null || nickname.isEmpty) {
+            debugPrint("⚠ 닉네임이 없음 → 닉네임 설정 페이지로 이동");
+            navigatorKey.currentState
+                ?.pushNamedAndRemoveUntil('/nickname_setup', (route) => false);
+            return;
+          }
+
+          // 닉네임 있음 → 홈으로 이동
           await context.read<ListViewModel>().loadLists();
           await context.read<ProfileViewModel>().fetchUserStats(userId);
+          navigatorKey.currentState?.pushNamedAndRemoveUntil('/home', (route) => false);
+        } catch (e) {
+          debugPrint("❌ 닉네임 조회 실패: $e");
+          // 닉네임 조회 실패 시 홈으로 이동 (혹은 로그인 화면으로 복귀)
           navigatorKey.currentState?.pushNamedAndRemoveUntil('/home', (route) => false);
         }
       }

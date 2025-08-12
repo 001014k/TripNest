@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import '../viewmodels/login_option_viewmodel.dart';
+import '../views/nickname_dialog_view.dart';
 
 class CombinedLoginView extends StatefulWidget {
   const CombinedLoginView({super.key});
@@ -31,7 +32,27 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
 
       if (!_navigated && event == supa.AuthChangeEvent.signedIn && session != null) {
         _navigated = true;
-        Navigator.pushReplacementNamed(context, '/home');
+
+        final user = supa.Supabase.instance.client.auth.currentUser;
+        if (user == null) return;
+
+        try {
+          final data = await supa.Supabase.instance.client
+              .from('profiles')
+              .select('nickname')
+              .eq('id', user.id)
+              .maybeSingle();
+
+          final nickname = data?['nickname'] as String?;
+
+          if (nickname == null || nickname.isEmpty) {
+            Navigator.pushReplacementNamed(context, '/nickname_setup');
+          } else {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        } catch (error) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
       }
     });
   }
