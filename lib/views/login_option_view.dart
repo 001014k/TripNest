@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import '../viewmodels/login_option_viewmodel.dart';
-import '../views/nickname_dialog_view.dart';
+import 'email_login_page.dart';
+import '../design/app_design.dart'; // 디자인 시스템 import
 
 class CombinedLoginView extends StatefulWidget {
   const CombinedLoginView({super.key});
@@ -87,155 +88,198 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
           });
 
           return Scaffold(
-            backgroundColor: const Color(0xFF121212),
-            appBar: AppBar(
-              title: const Text('FlutterTrip 로그인'),
-              backgroundColor: const Color(0xFF121212),
-              elevation: 0,
-            ),
-            body: SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 80,
-                      backgroundImage: AssetImage('assets/kmj.png'),
-                      backgroundColor: Colors.transparent,
-                    ),
-                    const SizedBox(height: 24),
+            backgroundColor: AppDesign.primaryBg,
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: AppDesign.backgroundGradient,
+              ),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppDesign.spacing24,
+                      vertical: AppDesign.spacing32
+                  ),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: AppDesign.spacing40),
 
-                    // 이메일 입력
-                    TextField(
-                      controller: _emailController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: '이메일',
-                        prefixIcon: const Icon(Icons.email_outlined, color: Colors.white70),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        filled: true,
-                        fillColor: Colors.grey[900],
-                        labelStyle: const TextStyle(color: Colors.white70),
+                      // 로고 및 타이틀 섹션
+                      Column(
+                        children: [
+                          Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: AppDesign.elevatedShadow,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 4,
+                              ),
+                            ),
+                            child: CircleAvatar(
+                              radius: 58,
+                              backgroundImage: AssetImage('assets/kmj.png'),
+                              backgroundColor: Colors.transparent,
+                            ),
+                          ),
+                          const SizedBox(height: AppDesign.spacing24),
+
+                          Text(
+                            'TripNest',
+                            style: AppDesign.headingXL.copyWith(
+                              foreground: Paint()
+                                ..shader = AppDesign.primaryGradient
+                                    .createShader(const Rect.fromLTWH(0.0, 0.0, 200.0, 70.0)),
+                            ),
+                          ),
+                          const SizedBox(height: AppDesign.spacing8),
+
+                          Text(
+                            '여행의 새로운 시작',
+                            style: AppDesign.bodyLarge.copyWith(
+                              color: AppDesign.secondaryText,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
 
-                    // 비밀번호 입력
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: '비밀번호',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.white70),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        filled: true,
-                        fillColor: Colors.grey[900],
-                        labelStyle: const TextStyle(color: Colors.white70),
+                      const SizedBox(height: AppDesign.spacing80),
+
+                      // 메인 로그인 카드
+                      Container(
+                        padding: const EdgeInsets.all(AppDesign.spacing32),
+                        decoration: BoxDecoration(
+                          color: AppDesign.cardBg,
+                          borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+                          boxShadow: AppDesign.softShadow,
+                        ),
+                        child: Column(
+                          children: [
+                            // 이메일 로그인 버튼
+                            _primaryLoginButton(),
+
+                            const SizedBox(height: AppDesign.spacing32),
+
+                            // OR 구분선
+                            _buildDivider(),
+
+                            const SizedBox(height: AppDesign.spacing32),
+
+                            // 소셜 로그인 버튼들
+                            _socialLoginButton(
+                              context,
+                              label: 'Google로 계속하기',
+                              backgroundColor: AppDesign.cardBg,
+                              foregroundColor: AppDesign.primaryText,
+                              icon: Container(
+                                padding: const EdgeInsets.all(2),
+                                child: Image.asset('assets/google_signin_button.png', height: 20),
+                              ),
+                              borderColor: AppDesign.borderColor,
+                              onPressed: () => _handleSocialLogin(context, viewModel.signInWithGoogle, 'Google 로그인 실패'),
+                            ),
+
+                            const SizedBox(height: AppDesign.spacing16),
+
+                            _socialLoginButton(
+                              context,
+                              label: 'Kakao로 계속하기',
+                              backgroundColor: const Color(0xFFFFE812),
+                              foregroundColor: const Color(0xFF3C1E1E),
+                              icon: Container(
+                                padding: const EdgeInsets.all(2),
+                                child: Image.asset('assets/kakao_icon.png', height: 20),
+                              ),
+                              onPressed: () => _handleSocialLogin(context, viewModel.signInWithKakao, 'Kakao 로그인 실패'),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
 
-                    CheckboxListTile(
-                      title: const Text('Remember Me', style: TextStyle(color: Colors.white70)),
-                      value: viewModel.rememberMe,
-                      onChanged: (v) => viewModel.setRememberMe(v ?? false),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      activeColor: Colors.cyanAccent,
-                      checkColor: Colors.black,
-                      contentPadding: EdgeInsets.zero,
-                    ),
+                      const SizedBox(height: AppDesign.spacing32),
 
-                    const SizedBox(height: 20),
-
-                    // 이메일 로그인 버튼
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.cyanAccent,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () async {
-                          String? error = await viewModel.login();
-                          if (error == null) {
-                            String route = viewModel.email == 'hm4854@gmail.com' ? '/user_list' : '/home';
-                            Navigator.pushReplacementNamed(context, route);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(error)),
-                            );
-                          }
-                        },
-                        child: viewModel.isLoading
-                            ? const CircularProgressIndicator(color: Colors.black)
-                            : const Text('이메일로 로그인', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // OR 구분선
-                    Row(
-                      children: const [
-                        Expanded(child: Divider(color: Colors.white30)),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text('또는 소셜 계정으로 로그인', style: TextStyle(color: Colors.white54)),
-                        ),
-                        Expanded(child: Divider(color: Colors.white30)),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Google 로그인 버튼
-                    _socialLoginButton(
-                      context,
-                      label: 'Google 로그인',
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      icon: Image.asset('assets/google_signin_button.png', height: 24),
-                      onPressed: () => _handleSocialLogin(context, viewModel.signInWithGoogle, 'Google 로그인 실패'),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Kakao 로그인 버튼
-                    _socialLoginButton(
-                      context,
-                      label: 'Kakao 로그인',
-                      backgroundColor: const Color(0xFFFFE812),
-                      foregroundColor: Colors.black,
-                      icon: Image.asset('assets/kakao_icon.png', height: 24),
-                      onPressed: () => _handleSocialLogin(context, viewModel.signInWithKakao, 'Kakao 로그인 실패'),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // 회원가입, 비밀번호 찾기 버튼
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pushNamed(context, '/signup'),
-                          child: const Text('회원가입', style: TextStyle(color: Colors.cyanAccent)),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pushNamed(context, '/forgot_password'),
-                          child: const Text('비밀번호 찾기', style: TextStyle(color: Colors.cyanAccent)),
-                        ),
-                      ],
-                    ),
-                  ],
+                      // 하단 링크들
+                      _buildBottomLinks(),
+                    ],
+                  ),
                 ),
               ),
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _primaryLoginButton() {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: AppDesign.primaryGradient,
+        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+        boxShadow: AppDesign.glowShadow,
+      ),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          foregroundColor: AppDesign.whiteText,
+          padding: const EdgeInsets.symmetric(vertical: AppDesign.spacing16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+          ),
+        ),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const EmailLoginPage()),
+          );
+        },
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.email_outlined, size: 20),
+            const SizedBox(width: AppDesign.spacing8),
+            Text(
+              '이메일로 로그인',
+              style: AppDesign.bodyMedium.copyWith(
+                color: AppDesign.whiteText,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 1,
+            color: AppDesign.borderColor,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppDesign.spacing16),
+          child: Text(
+            '또는 소셜 계정으로 로그인',
+            style: AppDesign.caption.copyWith(
+              color: AppDesign.subtleText,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Container(
+            height: 1,
+            color: AppDesign.borderColor,
+          ),
+        ),
+      ],
     );
   }
 
@@ -246,19 +290,99 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
         required Color foregroundColor,
         required Widget icon,
         required VoidCallback onPressed,
+        Color? borderColor,
       }) {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      child: ElevatedButton.icon(
+      height: 52,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+        border: borderColor != null
+            ? Border.all(color: borderColor, width: 1.5)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
           foregroundColor: foregroundColor,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(vertical: AppDesign.spacing12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+          ),
         ),
-        icon: icon,
-        label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
         onPressed: onPressed,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            icon,
+            const SizedBox(width: AppDesign.spacing12),
+            Text(
+              label,
+              style: AppDesign.bodyMedium.copyWith(
+                color: foregroundColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomLinks() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: AppDesign.spacing16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildTextButton(
+            text: '회원가입',
+            onPressed: () => Navigator.pushNamed(context, '/signup'),
+          ),
+          Container(
+            width: 1,
+            height: 16,
+            color: AppDesign.borderColor,
+          ),
+          _buildTextButton(
+            text: '비밀번호 찾기',
+            onPressed: () => Navigator.pushNamed(context, '/forgot_password'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextButton({
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDesign.spacing16,
+          vertical: AppDesign.spacing8,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+        ),
+      ),
+      child: Text(
+        text,
+        style: AppDesign.bodyMedium.copyWith(
+          color: AppDesign.travelBlue,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -274,7 +398,14 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
       await loginMethod();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$failMessage: $e')),
+        SnackBar(
+          content: Text('$failMessage: $e'),
+          backgroundColor: AppDesign.sunsetGradientStart,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+          ),
+        ),
       );
     }
   }

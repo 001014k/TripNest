@@ -1,18 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/forgot_password_viewmodel.dart';
+import '../viewmodels/login_option_viewmodel.dart';
 import '../design/app_design.dart'; // 디자인 시스템 import
 
-class ForgotPasswordView extends StatelessWidget {
-  final TextEditingController _emailController = TextEditingController();
+class EmailLoginPage extends StatefulWidget {
+  const EmailLoginPage({super.key});
+
+  @override
+  State<EmailLoginPage> createState() => _EmailLoginPageState();
+}
+
+class _EmailLoginPageState extends State<EmailLoginPage> {
+  late TextEditingController _emailController;
+  late TextEditingController _passwordController;
   final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => ForgotPasswordViewModel(),
-      child: Consumer<ForgotPasswordViewModel>(
+      create: (_) => LoginViewModel()..loadUserPreferences(),
+      child: Consumer<LoginViewModel>(
         builder: (context, viewModel, child) {
+          _emailController.text = viewModel.email;
+          _passwordController.text = viewModel.password;
+
+          _emailController.addListener(() {
+            if (_emailController.text != viewModel.email) {
+              viewModel.setEmail(_emailController.text);
+            }
+          });
+          _passwordController.addListener(() {
+            if (_passwordController.text != viewModel.password) {
+              viewModel.setPassword(_passwordController.text);
+            }
+          });
+
           return Scaffold(
             backgroundColor: AppDesign.primaryBg,
             body: Container(
@@ -30,27 +69,17 @@ class ForgotPasswordView extends StatelessWidget {
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(AppDesign.spacing24),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const SizedBox(height: AppDesign.spacing40),
-
-                            // 일러스트레이션 섹션
-                            _buildIllustration(),
-
-                            const SizedBox(height: AppDesign.spacing32),
+                            const SizedBox(height: AppDesign.spacing20),
 
                             // 헤더 섹션
                             _buildHeader(),
 
                             const SizedBox(height: AppDesign.spacing40),
 
-                            // 비밀번호 재설정 폼 카드
-                            _buildResetForm(context, viewModel),
-
-                            const SizedBox(height: AppDesign.spacing24),
-
-                            // 도움말 섹션
-                            _buildHelpSection(),
+                            // 로그인 폼 카드
+                            _buildLoginForm(context, viewModel),
                           ],
                         ),
                       ),
@@ -96,7 +125,7 @@ class ForgotPasswordView extends StatelessWidget {
           ),
           const SizedBox(width: AppDesign.spacing16),
           Text(
-            '비밀번호 찾기',
+            '이메일 로그인',
             style: AppDesign.headingMedium.copyWith(
               color: AppDesign.primaryText,
             ),
@@ -106,54 +135,28 @@ class ForgotPasswordView extends StatelessWidget {
     );
   }
 
-  Widget _buildIllustration() {
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        gradient: AppDesign.sunsetGradient,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: AppDesign.sunsetGradientStart.withOpacity(0.3),
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -8,
-          ),
-        ],
-      ),
-      child: const Icon(
-        Icons.lock_reset,
-        size: 48,
-        color: AppDesign.whiteText,
-      ),
-    );
-  }
-
   Widget _buildHeader() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '비밀번호를 잊으셨나요? 🔐',
+          '안녕하세요! 👋',
           style: AppDesign.headingLarge.copyWith(
             color: AppDesign.primaryText,
           ),
-          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: AppDesign.spacing12),
+        const SizedBox(height: AppDesign.spacing8),
         Text(
-          '등록하신 이메일 주소로\n비밀번호 재설정 링크를 보내드릴게요',
+          '이메일과 비밀번호로 로그인해주세요',
           style: AppDesign.bodyLarge.copyWith(
             color: AppDesign.secondaryText,
-            height: 1.6,
           ),
-          textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
-  Widget _buildResetForm(BuildContext context, ForgotPasswordViewModel viewModel) {
+  Widget _buildLoginForm(BuildContext context, LoginViewModel viewModel) {
     return Container(
       padding: const EdgeInsets.all(AppDesign.spacing32),
       decoration: BoxDecoration(
@@ -164,23 +167,62 @@ class ForgotPasswordView extends StatelessWidget {
       child: Column(
         children: [
           // 이메일 입력 필드
-          _buildEmailField(),
+          _buildTextField(
+            controller: _emailController,
+            focusNode: _emailFocusNode,
+            label: '이메일',
+            hint: 'example@email.com',
+            prefixIcon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            onSubmitted: (_) {
+              FocusScope.of(context).requestFocus(_passwordFocusNode);
+            },
+          ),
+
+          const SizedBox(height: AppDesign.spacing24),
+
+          // 비밀번호 입력 필드
+          _buildTextField(
+            controller: _passwordController,
+            focusNode: _passwordFocusNode,
+            label: '비밀번호',
+            hint: '비밀번호를 입력해주세요',
+            prefixIcon: Icons.lock_outline_rounded,
+            obscureText: true,
+            textInputAction: TextInputAction.done,
+          ),
+
+          const SizedBox(height: AppDesign.spacing20),
+
+          // Remember Me 체크박스
+          _buildRememberMeCheckbox(viewModel),
 
           const SizedBox(height: AppDesign.spacing32),
 
-          // 재설정 버튼
-          _buildResetButton(context, viewModel),
+          // 로그인 버튼
+          _buildLoginButton(context, viewModel),
         ],
       ),
     );
   }
 
-  Widget _buildEmailField() {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String label,
+    required String hint,
+    required IconData prefixIcon,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+    Function(String)? onSubmitted,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '이메일 주소',
+          label,
           style: AppDesign.bodyMedium.copyWith(
             color: AppDesign.primaryText,
             fontWeight: FontWeight.w600,
@@ -192,34 +234,36 @@ class ForgotPasswordView extends StatelessWidget {
             color: AppDesign.lightGray,
             borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
             border: Border.all(
-              color: _emailFocusNode.hasFocus
-                  ? AppDesign.travelOrange
+              color: focusNode.hasFocus
+                  ? AppDesign.travelBlue
                   : AppDesign.borderColor,
-              width: _emailFocusNode.hasFocus ? 2 : 1,
+              width: focusNode.hasFocus ? 2 : 1,
             ),
           ),
           child: TextField(
-            controller: _emailController,
-            focusNode: _emailFocusNode,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.done,
+            controller: controller,
+            focusNode: focusNode,
+            obscureText: obscureText,
+            keyboardType: keyboardType,
+            textInputAction: textInputAction,
+            onSubmitted: onSubmitted,
             style: AppDesign.bodyMedium.copyWith(
               color: AppDesign.primaryText,
             ),
             decoration: InputDecoration(
-              hintText: 'example@email.com',
+              hintText: hint,
               hintStyle: AppDesign.bodyMedium.copyWith(
                 color: AppDesign.subtleText,
               ),
               prefixIcon: Container(
                 margin: const EdgeInsets.all(AppDesign.spacing12),
                 decoration: BoxDecoration(
-                  color: AppDesign.travelOrange.withOpacity(0.1),
+                  color: AppDesign.travelBlue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppDesign.spacing8),
                 ),
-                child: const Icon(
-                  Icons.email_outlined,
-                  color: AppDesign.travelOrange,
+                child: Icon(
+                  prefixIcon,
+                  color: AppDesign.travelBlue,
                   size: 20,
                 ),
               ),
@@ -235,21 +279,43 @@ class ForgotPasswordView extends StatelessWidget {
     );
   }
 
-  Widget _buildResetButton(BuildContext context, ForgotPasswordViewModel viewModel) {
+  Widget _buildRememberMeCheckbox(LoginViewModel viewModel) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: AppDesign.spacing4),
+      child: Row(
+        children: [
+          Transform.scale(
+            scale: 1.1,
+            child: Checkbox(
+              value: viewModel.rememberMe,
+              onChanged: (v) => viewModel.setRememberMe(v ?? false),
+              activeColor: AppDesign.travelBlue,
+              checkColor: AppDesign.whiteText,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppDesign.spacing8),
+          Text(
+            '로그인 정보 기억하기',
+            style: AppDesign.bodyMedium.copyWith(
+              color: AppDesign.secondaryText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoginButton(BuildContext context, LoginViewModel viewModel) {
     return Container(
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
-        gradient: AppDesign.sunsetGradient,
+        gradient: AppDesign.primaryGradient,
         borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        boxShadow: [
-          BoxShadow(
-            color: AppDesign.travelOrange.withOpacity(0.15),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-            spreadRadius: -8,
-          ),
-        ],
+        boxShadow: AppDesign.glowShadow,
       ),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
@@ -262,39 +328,13 @@ class ForgotPasswordView extends StatelessWidget {
           ),
         ),
         onPressed: viewModel.isLoading ? null : () async {
-          String email = _emailController.text.trim();
-          String? errorMessage = await viewModel.sendPasswordResetEmail(email);
-
-          if (errorMessage == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(
-                      Icons.mark_email_read_outlined,
-                      color: AppDesign.whiteText,
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppDesign.spacing8),
-                    Expanded(
-                      child: Text(
-                        '비밀번호 재설정 이메일을 보냈습니다.',
-                        style: AppDesign.bodyMedium.copyWith(
-                          color: AppDesign.whiteText,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                backgroundColor: AppDesign.travelGreen,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                margin: const EdgeInsets.all(AppDesign.spacing16),
-              ),
-            );
-            Navigator.pop(context);
+          String? error = await viewModel.login();
+          if (error == null) {
+            String route = viewModel.email == 'hm4854@gmail.com'
+                ? '/user_list'
+                : '/home';
+            if (!mounted) return;
+            Navigator.pushReplacementNamed(context, route);
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -308,7 +348,7 @@ class ForgotPasswordView extends StatelessWidget {
                     const SizedBox(width: AppDesign.spacing8),
                     Expanded(
                       child: Text(
-                        errorMessage,
+                        error,
                         style: AppDesign.bodyMedium.copyWith(
                           color: AppDesign.whiteText,
                         ),
@@ -338,10 +378,10 @@ class ForgotPasswordView extends StatelessWidget {
             : Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.send_outlined, size: 20),
+            const Icon(Icons.login, size: 20),
             const SizedBox(width: AppDesign.spacing8),
             Text(
-              '재설정 이메일 보내기',
+              '로그인',
               style: AppDesign.bodyMedium.copyWith(
                 color: AppDesign.whiteText,
                 fontWeight: FontWeight.w600,
@@ -349,58 +389,6 @@ class ForgotPasswordView extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHelpSection() {
-    return Container(
-      padding: const EdgeInsets.all(AppDesign.spacing24),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        border: Border.all(
-          color: AppDesign.borderColor.withOpacity(0.5),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppDesign.spacing8),
-                decoration: BoxDecoration(
-                  color: AppDesign.travelBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppDesign.spacing8),
-                ),
-                child: const Icon(
-                  Icons.info_outline,
-                  color: AppDesign.travelBlue,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppDesign.spacing12),
-              Expanded(
-                child: Text(
-                  '도움이 필요하신가요?',
-                  style: AppDesign.bodyMedium.copyWith(
-                    color: AppDesign.primaryText,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDesign.spacing12),
-          Text(
-            '• 이메일이 도착하지 않았다면 스팸함을 확인해주세요\n• 입력하신 이메일이 가입 시 사용한 주소인지 확인해주세요\n• 문제가 지속되면 고객지원팀에 문의해주세요',
-            style: AppDesign.caption.copyWith(
-              color: AppDesign.secondaryText,
-              height: 1.6,
-            ),
-          ),
-        ],
       ),
     );
   }
