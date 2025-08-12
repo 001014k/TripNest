@@ -1,17 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:fluttertrip/views/markercreationscreen_view.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import '../services/user_service.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
 import '../viewmodels/markercreationscreen_viewmodel.dart';
-import '../viewmodels/nickname_dialog_viewmodel.dart';
 import '../views/markerdetail_view.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
 import '../design/app_design.dart';
-import 'nickname_dialog_view.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -41,8 +39,6 @@ class _MapSampleViewState extends State<MapSampleView> {
 
   final ZoomDrawerController zoomDrawerController = ZoomDrawerController();
   late GoogleMapController _controller;
-  Set<Marker> _markers = {};
-  Set<Marker> _allMarkers = {};
   Map<MarkerId, String> _markerKeywords = {};
   TextEditingController _searchController = TextEditingController();
   bool _isMapInitialized = false;
@@ -62,22 +58,6 @@ class _MapSampleViewState extends State<MapSampleView> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final viewModel = context.read<MapSampleViewModel>();
       await viewModel.loadMarkers();
-
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        final userService = UserService();
-        final hasNickname = await userService.hasNickname(user.id);
-        if (!hasNickname) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => ChangeNotifierProvider(
-              create: (_) => NicknameDialogViewModel(userId: user.id),
-              child: NicknameSetupPage(),
-            ),
-          );
-        }
-      }
 
       viewModel.onMarkerTappedCallback = (marker) {
         String keyword =
@@ -1128,6 +1108,15 @@ class _MapSampleViewState extends State<MapSampleView> {
                       ),
                     );
                   }
+                  // iOS일 경우 네이티브 채널 안정화를 위해 약간 지연
+                  if (Platform.isIOS) {
+                    await Future.delayed(const Duration(milliseconds: 300));
+                  }
+
+                  // GoogleMap 위젯 attach 후 ClusterManager 실행
+                  WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    await viewModel.applyMarkersToCluster(controller);
+                  });
                 },
                 initialCameraPosition: CameraPosition(
                   target: LatLng(

@@ -15,11 +15,18 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart' as cluster_manager;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import '../models/marker_model.dart';
 import '../models/place_model.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
 import 'package:geolocator/geolocator.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
+  // 리스트에 저장된 마커 목록을 저장할 필드 추가
+  List<MarkerModel> currentMarkers = [];
+
+  // (또는 getter만 구현)
+  // List<MarkerModel> get currentMarkers => _markersFromSelectedList;
+
   Set<Marker> _clusteredMarkers = {};
 
   Set<Marker> get clusteredMarkers => _clusteredMarkers;
@@ -199,7 +206,6 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   }
 
-
   Future<void> toggleKeyword(String keyword) async {
     if (activeKeywords.contains(keyword)) {
       activeKeywords.remove(keyword);
@@ -310,6 +316,7 @@ class MapSampleViewModel extends ChangeNotifier {
         try {
           await Supabase.instance.client.from('list_bookmarks').insert({
             'list_id': listId,
+            'marker_id': uuid,
             'title': title,
             'keyword': keyword,
             'lat': position.latitude,
@@ -565,6 +572,11 @@ class MapSampleViewModel extends ChangeNotifier {
     debugPrint('applyMarkersToCluster called with ${_filteredPlaces.length} places');
 
     try {
+      // iOS일 경우 추가 안정 지연
+      if (Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+
       if (_clusterManager == null) {
         _clusterManager = cluster_manager.ClusterManager<Place>(
           _filteredPlaces,
@@ -584,7 +596,7 @@ class MapSampleViewModel extends ChangeNotifier {
         _clusterManager!.setItems(_filteredPlaces);
       }
 
-      // 클러스터 업데이트 (네이티브 채널 오류 방지용 try-catch)
+      // updateMap 안전 실행
       try {
         _clusterManager!.updateMap();
       } catch (e) {
