@@ -20,7 +20,13 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _initializeAnimations();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final viewModel = context.read<ListViewModel>();
+      viewModel.loadLists();
+    });
   }
+
 
   void _initializeAnimations() {
     _fadeAnimationController = AnimationController(
