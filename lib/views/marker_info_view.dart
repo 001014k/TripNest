@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../design/app_design.dart';
+import '../models/marker_model.dart';
 import '../viewmodels/marker_info_viewmodel.dart';
 import '../views/add_markers_to_list_view.dart';
+import 'markerdetail_view.dart';
 
 class MarkerInfoPage extends StatefulWidget {
   final String listId;
@@ -108,6 +110,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                                     );
                                   }
                                   return _MarkerInfoCard(
+                                    marker: marker,
                                     details: snapshot.data!,
                                     index: index,
                                     onDelete: () =>
@@ -652,11 +655,13 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
 
 // 마커 카드 위젯
 class _MarkerInfoCard extends StatelessWidget {
+  final MarkerModel marker;
   final Map<String, String> details;
   final int index;
   final VoidCallback onDelete;
 
   const _MarkerInfoCard({
+    required this.marker,
     required this.details,
     required this.index,
     required this.onDelete,
@@ -679,6 +684,19 @@ class _MarkerInfoCard extends StatelessWidget {
 
     final keywordColor = keywordColors[keyword] ?? AppDesign.travelBlue;
 
+    void _navigateToMarkerDetail(MarkerModel markerModel) {
+      final googleMarker = markerModel.toGoogleMarker();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MarkerDetailView(
+            marker: googleMarker,
+            keyword: markerModel.keyword,
+          ),
+        ),
+      );
+    }
+
     return Container(
       margin: EdgeInsets.only(bottom: AppDesign.spacing16),
       decoration: BoxDecoration(
@@ -690,9 +708,7 @@ class _MarkerInfoCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          onTap: () {
-            // 마커 상세 정보 액션
-          },
+          onTap: () => _navigateToMarkerDetail(marker),
           child: Padding(
             padding: EdgeInsets.all(AppDesign.spacing20),
             child: Column(

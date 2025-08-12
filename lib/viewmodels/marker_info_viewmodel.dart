@@ -94,18 +94,36 @@ class MarkerInfoViewModel extends ChangeNotifier {
     if (user == null) return;
 
     try {
-      await supabase
+      final response = await supabase
           .from('list_bookmarks')
           .delete()
-          .eq('id', markerId);
+          .eq('marker_id', markerId)
+          .select();  // 삭제된 레코드 반환 요청
 
+      print('삭제 결과: $response');
+
+      // 삭제가 제대로 됐는지 체크
+      if (response == null || (response is List && response.isEmpty)) {
+        print('삭제 실패: 해당 ID의 레코드가 없습니다.');
+        error = '삭제 실패: 해당 마커를 찾을 수 없습니다.';
+        notifyListeners();
+        return;
+      }
+
+      // markers 리스트에서 제거
       markers.removeWhere((marker) => marker.id == markerId);
+
+      // 서버에서 다시 마커 리스트 갱신 (필요하다면)
+      await loadMarkers();
+
       notifyListeners();
     } catch (e) {
+      print('삭제 중 예외 발생: $e');
       error = 'Failed to delete marker: $e';
       notifyListeners();
     }
   }
+
 
   Future<Map<String, String>> fetchMarkerDetail(String markerId) async {
     final user = Supabase.instance.client.auth.currentUser;
