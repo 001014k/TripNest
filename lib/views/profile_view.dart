@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../viewmodels/profile_viewmodel.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -109,10 +110,21 @@ class _ProfilePageState extends State<ProfilePage> {
                   ListTile(
                     leading: Icon(Icons.logout),
                     title: Text('로그아웃'),
-                    onTap: () {
-                      // 로그아웃 로직 구현
-                      // 예: context.read<AuthViewModel>().logout();
-                      Navigator.pushNamedAndRemoveUntil(context, '/login_option', (route) => false);
+                    onTap: () async {
+                      try {
+                        await Supabase.instance.client.auth.signOut(); // ✅ Supabase 로그아웃
+                        if (!mounted) return;
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/login_option', // 로그인 페이지 라우트
+                              (route) => false, // 스택 완전 제거
+                        );
+                      } catch (e) {
+                        debugPrint('로그아웃 실패: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('로그아웃에 실패했습니다. 다시 시도해주세요.')),
+                        );
+                      }
                     },
                   ),
                 ],
