@@ -881,7 +881,6 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
 
   void _navigateToMarkerDetail(MarkerModel markerModel) {
     final googleMarker = markerModel.toGoogleMarker();
-
     Navigator.push(
       context,
       MaterialPageRoute(
