@@ -87,8 +87,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildStatCard('마커', viewModel.stats?['markers'] ?? 0, Icons.location_on),
                   const SizedBox(height: 12),
                   _buildStatCard('리스트', viewModel.stats?['lists'] ?? 0, Icons.list),
-                  const SizedBox(height: 12),
-                  _buildStatCard('북마크', viewModel.stats?['bookmarks'] ?? 0, Icons.bookmark),
 
                   const SizedBox(height: 32),
 

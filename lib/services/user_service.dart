@@ -16,15 +16,10 @@ class UserService {
         .from('lists')
         .select('id')
         .eq('user_id', userId);
-    final bookmarks = await supabase
-        .from('bookmarks')
-        .select('id')
-        .eq('user_id', userId);
 
     return {
       'markers': (markers as List).length,
       'lists': (lists as List).length,
-      'bookmarks': (bookmarks as List).length,
     };
   }
 
@@ -75,14 +70,31 @@ class UserService {
     return (response as List).map((item) => UserModel.fromMap(item)).toList();
   }
 
-  Future<UserProfile> getProfileById(String userId) async {
-    final response = await supabase
-        .from('profiles')
-        .select()
-        .eq('id', userId)
-        .single();
-    return UserProfile.fromMap(response);
+  Future<UserProfile?> getProfileById(String userId) async {
+    if (userId.isEmpty) {
+      print('getProfileById: 빈 userId로 호출됨');
+      return null;
+    }
+
+    try {
+      final response = await supabase
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (response == null) {
+        print('getProfileById: 프로필이 존재하지 않음');
+        return null;
+      }
+
+      return UserProfile.fromMap(response);
+    } catch (e) {
+      print('getProfileById 에러: $e');
+      return null;
+    }
   }
+
 
   /// 닉네임 중복 여부 체크
   Future<bool> isNicknameAvailable(String nickname) async {

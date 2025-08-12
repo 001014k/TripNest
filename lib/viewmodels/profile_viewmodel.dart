@@ -27,6 +27,12 @@ class ProfileViewModel extends ChangeNotifier {
   Set<String> get followingIds => _followingIds;
 
   Future<void> fetchUserStats(String userId) async {
+    if (userId.isEmpty) {
+      _errorMessage = "유효하지 않은 사용자 ID";
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -34,16 +40,23 @@ class ProfileViewModel extends ChangeNotifier {
     try {
       _stats = await _userService.getUserStats(userId);
 
-      // 닉네임도 같이 가져오기
       final profile = await _userService.getProfileById(userId);
-      _nickname = profile.nickname;
-    } catch (e) {
-      _errorMessage = "사용자 데이터를 불러오는 중 오류 발생";
+      if (profile == null) {
+        _nickname = null;
+        _errorMessage = "사용자 프로필을 찾을 수 없습니다.";
+      } else {
+        _nickname = profile.nickname;
+      }
+    } catch (e, st) {
+      print('fetchUserStats 오류: $e');
+      print(st);
+      _errorMessage = "사용자 데이터를 불러오는 중 오류 발생: $e";
     }
 
     _isLoading = false;
     notifyListeners();
   }
+
 
   // 닉네임 검색
   Future<void> searchUsers(String nickname, String currentUserId) async {
