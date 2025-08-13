@@ -55,6 +55,9 @@ class MapSampleViewModel extends ChangeNotifier {
   cluster_manager.ClusterManager<Place>? _clusterManager;
 
   cluster_manager.ClusterManager<Place>? get clusterManager => _clusterManager;
+  set clusterManager(cluster_manager.ClusterManager<Place>? manager) {
+    _clusterManager = manager;
+  }
 
   List<Place> _filteredPlaces = [];
   Set<Marker> _allMarkers = {}; // 모든 마커 저장
@@ -152,6 +155,21 @@ class MapSampleViewModel extends ChangeNotifier {
     _clusterManager = null;
     _controller = null;
     super.dispose();
+  }
+
+
+  // Map detach용 안전 메서드
+  void detachMap() {
+    if (controller != null && clusterManager != null) {
+      try {
+        clusterManager!.setMapId(controller!.mapId); // null 대신 안전하게 mapId 사용
+      } catch (e) {
+        debugPrint('detachMap: setMapId failed: $e');
+      }
+    }
+
+    clusterManager = null;
+    controller = null;
   }
 
   void setMapController(GoogleMapController controller) {
@@ -567,43 +585,45 @@ class MapSampleViewModel extends ChangeNotifier {
 
   Future<void> applyMarkersToCluster(GoogleMapController? controller) async {
     if (_isDisposed || controller == null) return;
-    if (_controller == null) return;
 
     debugPrint('applyMarkersToCluster called with ${_filteredPlaces.length} places');
 
-    try {
-      // iOS일 경우 추가 안정 지연
-      if (Platform.isIOS) {
+    // iOS에서 네이티브 채널 안정화를 위한 딜레이
+    if (Platform.isIOS) await Future.delayed(const Duration(milliseconds: 400));
+
+    // ClusterManager 초기화
+    if (_clusterManager == null) {
+      _clusterManager = cluster_manager.ClusterManager<Place>(
+        _filteredPlaces,
+        _updateMarkers,
+        markerBuilder: _markerBuilder,
+        levels: [1, 5, 10, 15, 20],
+        extraPercent: 0.2,
+      );
+
+      try {
+        _clusterManager!.setMapId(controller.mapId);
+      } catch (e) {
+        debugPrint('setMapId failed: $e');
+        return; // 채널 연결 실패 시 종료
+      }
+    } else {
+      _clusterManager!.setItems(_filteredPlaces);
+    }
+
+    // updateMap 안전 실행 (채널 준비 확인 + 재시도)
+    int retry = 0;
+    const maxRetry = 5;
+    while (retry < maxRetry) {
+      try {
+        await controller.getVisibleRegion(); // 채널 연결 확인
+        _clusterManager!.updateMap();         // updateMap은 void
+        break;                                // 성공하면 루프 종료
+      } catch (e) {
+        retry++;
+        debugPrint('getVisibleRegion not ready, retry $retry/$maxRetry: $e');
         await Future.delayed(const Duration(milliseconds: 200));
       }
-
-      if (_clusterManager == null) {
-        _clusterManager = cluster_manager.ClusterManager<Place>(
-          _filteredPlaces,
-          _updateMarkers,
-          markerBuilder: _markerBuilder,
-          levels: [1, 5, 10, 15, 20],
-          extraPercent: 0.2,
-        );
-
-        try {
-          _clusterManager!.setMapId(controller.mapId);
-        } catch (e) {
-          debugPrint('setMapId failed: $e');
-          return; // 채널 연결 실패 시 클러스터 적용 중단
-        }
-      } else {
-        _clusterManager!.setItems(_filteredPlaces);
-      }
-
-      // updateMap 안전 실행
-      try {
-        _clusterManager!.updateMap();
-      } catch (e) {
-        debugPrint('updateMap failed: $e');
-      }
-    } catch (e) {
-      debugPrint('applyMarkersToCluster error: $e');
     }
   }
 

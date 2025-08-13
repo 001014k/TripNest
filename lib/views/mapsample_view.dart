@@ -25,18 +25,6 @@ class MapSampleView extends StatefulWidget {
 
 class _MapSampleViewState extends State<MapSampleView> {
   late MapSampleViewModel viewModel;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    viewModel = context.read<MapSampleViewModel>();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   final ZoomDrawerController zoomDrawerController = ZoomDrawerController();
   late GoogleMapController _controller;
   Map<MarkerId, String> _markerKeywords = {};
@@ -51,6 +39,17 @@ class _MapSampleViewState extends State<MapSampleView> {
   };
   LatLng? _pendingLatLng;
   List<Marker> bookmarkedMarkers = [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    viewModel = context.read<MapSampleViewModel>();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -1070,6 +1069,16 @@ class _MapSampleViewState extends State<MapSampleView> {
     }
   }
 
+  // 뒤로가기 / 홈 이동 시 안전 처리
+  void _onBackPressed() {
+    viewModel.detachMap(); // 안전 detach
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/home',
+          (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<String> keywords =
@@ -1196,13 +1205,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                             size: 20,
                           ),
                         ),
-                        onPressed: () {
-                          Navigator.pushNamedAndRemoveUntil(
-                            context,
-                            '/home',
-                            (route) => false,
-                          );
-                        },
+                        onPressed: _onBackPressed,
                       ),
                       SizedBox(width: AppDesign.spacing8),
                       Expanded(
