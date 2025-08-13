@@ -93,23 +93,21 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                       ),
                     ),
 
-                    // 최근 마커 섹션
-                    if (viewModel.recentMarkers.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: RecentMarkersSection(
-                          markers: viewModel.recentMarkers,
-                          onViewAll: () => _navigateToList(),
-                        ),
+                    // 최근 마커 섹션 (항상 표시)
+                    SliverToBoxAdapter(
+                      child: RecentMarkersSection(
+                        markers: viewModel.recentMarkers,
+                        onViewAll: () => _navigateToList(),
                       ),
+                    ),
 
-                    // 공유 링크 섹션
-                    if (viewModel.sharedLinks.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: SharedLinksSection(
-                          sharedLinks: viewModel.sharedLinks,
-                          onViewAll: () => _navigateToSharedLinks(),
-                        ),
+                    // 공유 링크 섹션 (항상 표시)
+                    SliverToBoxAdapter(
+                      child: SharedLinksSection(
+                        sharedLinks: viewModel.sharedLinks,
+                        onViewAll: () => _navigateToSharedLinks(),
                       ),
+                    ),
 
                     // 하단 여백
                     const SliverToBoxAdapter(
@@ -682,7 +680,7 @@ class SectionHeader extends StatelessWidget {
 }
 
 // ================================
-// 프리미엄 최근 마커 섹션
+// 프리미엄 최근 마커 섹션 (항상 표시)
 // ================================
 class RecentMarkersSection extends StatefulWidget {
   final List<MarkerModel> markers;
@@ -705,7 +703,9 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
   @override
   void initState() {
     super.initState();
-    _loadPreviewData();
+    if (widget.markers.isNotEmpty) {
+      _loadPreviewData();
+    }
   }
 
   Future<void> _loadPreviewData() async {
@@ -750,7 +750,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
           child: SectionHeader(
             icon: Icons.location_on,
             title: '최근 저장한 장소',
-            onViewAll: _handleViewAll,  // 내부 함수 연결
+            onViewAll: _handleViewAll,
           ),
         ),
         const SizedBox(height: AppDesign.spacing20),
@@ -760,16 +760,15 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     );
   }
 
-// 섹션 내부에 onViewAll 전용 핸들러 추가
   void _handleViewAll() {
-    if (widget.onViewAll != null) {
-      widget.onViewAll!(); // 외부 콜백 있으면 실행
-    } else {
-      Navigator.pushNamed(context, '/marker_list'); // 기본 동작 (전체 보기 페이지 이동)
-    }
+    widget.onViewAll();
   }
 
   Widget _buildMarkersList() {
+    if (widget.markers.isEmpty) {
+      return _buildEmptyMarkersState();
+    }
+
     return SizedBox(
       height: 270,
       child: ListView.separated(
@@ -778,6 +777,184 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
         itemCount: widget.markers.length,
         separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing16),
         itemBuilder: (context, index) => _buildPremiumMarkerCard(widget.markers[index]),
+      ),
+    );
+  }
+
+  Widget _buildEmptyMarkersState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        height: 270,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppDesign.cardBg,
+              AppDesign.primaryBg,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+          boxShadow: AppDesign.elevatedShadow,
+          border: Border.all(
+            color: AppDesign.travelBlue.withOpacity(0.1),
+            width: 2,
+          ),
+        ),
+        child: Stack(
+          children: [
+            // 백그라운드 패턴
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+                  gradient: RadialGradient(
+                    center: Alignment.topRight,
+                    radius: 1.5,
+                    colors: [
+                      AppDesign.travelBlue.withOpacity(0.05),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // 장식적 요소들
+            Positioned(
+              top: 20,
+              right: 20,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppDesign.travelBlue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 20,
+              left: 20,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppDesign.travelPurple.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                ),
+              ),
+            ),
+            // 메인 콘텐츠 - 중앙 정렬
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppDesign.spacing24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: AppDesign.primaryGradient,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppDesign.travelBlue.withOpacity(0.3),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                            spreadRadius: -4,
+                          ),
+                          BoxShadow(
+                            color: AppDesign.travelPurple.withOpacity(0.2),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.explore_outlined,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
+                    const SizedBox(height: AppDesign.spacing16),
+                    Text(
+                      '새로운 모험을 시작하세요!',
+                      style: AppDesign.headingSmall.copyWith(
+                        color: AppDesign.primaryText,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppDesign.spacing8),
+                    Text(
+                      '지도에서 특별한 장소를 발견하고\n나만의 여행 컬렉션을 만들어보세요',
+                      style: AppDesign.bodyMedium.copyWith(
+                        color: AppDesign.secondaryText,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppDesign.spacing20),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: AppDesign.primaryGradient,
+                        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppDesign.travelBlue.withOpacity(0.3),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                            spreadRadius: -2,
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.pushNamed(context, '/map'),
+                          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppDesign.spacing20,
+                              vertical: AppDesign.spacing10,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.add_location_alt,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                ),
+                                const SizedBox(width: AppDesign.spacing8),
+                                Text(
+                                  '지도 탐색하기',
+                                  style: AppDesign.bodyMedium.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -894,7 +1071,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
 }
 
 // ================================
-// 프리미엄 공유 링크 섹션
+// 프리미엄 공유 링크 섹션 (항상 표시)
 // ================================
 class SharedLinksSection extends StatefulWidget {
   final List<SharedLinkModel> sharedLinks;
@@ -920,7 +1097,15 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
   void initState() {
     super.initState();
     _initializePulseAnimation();
-    _loadAllPreviewData();
+    print('[Preview] initState 호출, 링크 개수: ${widget.sharedLinks.length}');
+    if (widget.sharedLinks.isNotEmpty) {
+      _loadAllPreviewData();
+    } else {
+      setState(() {
+        _isLoading = false;
+        print('[Preview] 링크가 없어서 _isLoading=false 설정');
+      });
+    }
   }
 
   void _initializePulseAnimation() {
@@ -936,7 +1121,9 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
 
   Future<void> _loadAllPreviewData() async {
     await Future.wait(
-      widget.sharedLinks.map((link) => _loadPreviewForLink(link)),
+      widget.sharedLinks.map((link) {
+        return _loadPreviewForLink(link);
+      }),
     );
 
     if (mounted) {
@@ -968,14 +1155,12 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
 
   @override
   Widget build(BuildContext context) {
-    if (widget.sharedLinks.isEmpty) return const SizedBox.shrink();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(),
         const SizedBox(height: AppDesign.spacing20),
-        _isLoading ? _buildPremiumLoadingState() : _buildLinksList(),
+        widget.sharedLinks.isEmpty ? _buildEmptyLinksState() : (_isLoading ? _buildPremiumLoadingState() : _buildLinksList()),
         const SizedBox(height: AppDesign.spacing40),
       ],
     );
@@ -992,13 +1177,202 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
     );
   }
 
-// 내부 핸들러 함수 추가
   void _handleViewAll() {
     if (widget.onViewAll != null) {
-      widget.onViewAll!();  // 외부에서 콜백이 전달됐으면 실행
+      widget.onViewAll!();
     } else {
-      _navigateToSharedLinks();  // 기본 동작 실행
+      _navigateToSharedLinks();
     }
+  }
+
+  Widget _buildEmptyLinksState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        height: 290,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppDesign.cardBg,
+              AppDesign.lightGray,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+          boxShadow: AppDesign.elevatedShadow,
+          border: Border.all(
+            color: AppDesign.sunsetGradientStart.withOpacity(0.1),
+            width: 2,
+          ),
+        ),
+        child: Stack(
+          children: [
+            // 백그라운드 패턴
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+                  gradient: RadialGradient(
+                    center: Alignment.bottomLeft,
+                    radius: 1.8,
+                    colors: [
+                      AppDesign.sunsetGradientStart.withOpacity(0.06),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // 장식적 요소들
+            Positioned(
+              top: 16,
+              left: 16,
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: AppDesign.travelOrange.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: AppDesign.sunsetGradientEnd.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 60,
+              right: 30,
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: AppDesign.sunsetGradientStart.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            // 메인 콘텐츠 - 중앙 정렬
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppDesign.spacing24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: AppDesign.sunsetGradient,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppDesign.sunsetGradientStart.withOpacity(0.4),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                            spreadRadius: -4,
+                          ),
+                          BoxShadow(
+                            color: AppDesign.sunsetGradientEnd.withOpacity(0.3),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.share_outlined,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
+                    const SizedBox(height: AppDesign.spacing16),
+                    Text(
+                      '여행 링크를 공유해보세요!',
+                      style: AppDesign.headingSmall.copyWith(
+                        color: AppDesign.primaryText,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppDesign.spacing8),
+                    Text(
+                      '멋진 여행 관련 링크를 저장하고\n나중에 쉽게 찾아볼 수 있어요',
+                      style: AppDesign.bodyMedium.copyWith(
+                        color: AppDesign.secondaryText,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppDesign.spacing20),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: AppDesign.sunsetGradient,
+                        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppDesign.sunsetGradientStart.withOpacity(0.3),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                            spreadRadius: -2,
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.pushNamed(context, '/shared_link'),
+                          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppDesign.spacing20,
+                              vertical: AppDesign.spacing10,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.add_link,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                ),
+                                const SizedBox(width: AppDesign.spacing8),
+                                Text(
+                                  '링크 추가하기',
+                                  style: AppDesign.bodyMedium.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildPremiumLoadingState() {
