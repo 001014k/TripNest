@@ -1,3 +1,5 @@
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 class MarkerModel {
   final String id;
   final String title;
@@ -39,5 +41,18 @@ class MarkerModel {
       'lng': lng,
       'markerImagePath': markerImagePath,
     };
+  }
+
+  // Google Maps의 Marker 타입으로 변환하는 메서드 추가
+  Marker toGoogleMarker() {
+    return Marker(
+      markerId: MarkerId(id),
+      position: LatLng(lat, lng),
+      infoWindow: InfoWindow(
+        title: title,
+        snippet: address,
+      ),
+      // 필요하면 아이콘, onTap 콜백 등 추가 가능
+    );
   }
 }
