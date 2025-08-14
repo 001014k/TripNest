@@ -15,6 +15,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart' as cluster_manager;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import '../env.dart';
 import '../models/marker_model.dart';
 import '../models/place_model.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
@@ -922,7 +923,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
     // 2. Places API 호출 (places:searchText)
     final placesUrl = Uri.parse(
-        'https://places.googleapis.com/v1/places:searchText?&key=${Config.googleMapsApiKey}');
+        'https://places.googleapis.com/v1/places:searchText?&key=${Env.googleMapsApiKey}');
     final requestBody = json.encode({
       "textQuery": query,
       "languageCode": "ko",
@@ -975,7 +976,7 @@ class MapSampleViewModel extends ChangeNotifier {
               try {
                 final detailsUrl = Uri.parse(
                     'https://maps.googleapis.com/maps/api/place/details/json'
-                        '?place_id=$placeId&language=ko&fields=name,formatted_address&key=${Config
+                        '?place_id=$placeId&language=ko&fields=name,formatted_address&key=${Env
                         .googleMapsApiKey}');
                 final detailsResponse = await http.get(detailsUrl);
 
