@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../env.dart';
 import '../services/user_service.dart';
 import '../config.dart';
 
@@ -71,7 +72,7 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
 
 
   Future<String> getAddressFromCoordinates(double latitude, double longitude) async {
-    final apiKey = Config.googleMapsApiKey;
+    final apiKey = Env.googleMapsApiKey;
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/geocode/json?latlng=$latitude,$longitude&key=$apiKey&language=ko',
     );
