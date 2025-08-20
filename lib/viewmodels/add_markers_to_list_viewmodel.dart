@@ -171,11 +171,11 @@ class AddMarkersToListViewModel extends ChangeNotifier {
       final index = entry.key;
       final markerId = entry.value.markerId.value;
       return {
-        'id': markerId,
+        // 서버 함수에서 보통 'marker_id'로 기대하므로 키를 명확히 지정
+        'marker_id': markerId,
         'sort_order': index,
       };
     }).toList();
-
     try {
       // Supabase RPC 호출
       final result = await supabase.rpc(
@@ -186,8 +186,36 @@ class AddMarkersToListViewModel extends ChangeNotifier {
         },
       );
       print('✅ RPC 호출 성공 결과: $result');
+    } on PostgrestException catch (e) {
+      // RPC 스키마 불일치/RLS 등 상세 로그 확인
+      print('❌ RPC PostgrestException: ${e.message}, code=${e.code}');
+      print('➡️ 개별 업데이트 폴백을 시도합니다.');
+      await _fallbackUpdateOrders(listId, markerOrders);
     } catch (e) {
       print('❌ Marker order update error: $e');
+      print('➡️ 개별 업데이트 폴백을 시도합니다.');
+      await _fallbackUpdateOrders(listId, markerOrders);
     }
+  }
+
+  Future<void> _fallbackUpdateOrders(
+      String listId, List<Map<String, dynamic>> markerOrders) async {
+    for (final order in markerOrders) {
+      final String markerId = order['marker_id'] as String;
+      final int sortOrder = order['sort_order'] as int;
+      try {
+        await supabase
+            .from('list_bookmarks')
+            .update({'sort_order': sortOrder})
+            .eq('list_id', listId)
+            .eq('marker_id', markerId);
+      } on PostgrestException catch (e) {
+        print('❌ 개별 정렬 업데이트 실패 (marker_id=$markerId): ${e.message}');
+      } catch (e) {
+        print('❌ 개별 정렬 업데이트 예외 (marker_id=$markerId): $e');
+      }
+    }
+
+    print('✅ 폴백 개별 업데이트 완료');
   }
 }

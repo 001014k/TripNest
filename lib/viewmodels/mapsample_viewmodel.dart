@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import '../config.dart';
 import 'package:location/location.dart' as location;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -59,6 +58,9 @@ class MapSampleViewModel extends ChangeNotifier {
   set clusterManager(cluster_manager.ClusterManager<Place>? manager) {
     _clusterManager = manager;
   }
+
+  // list_bookmarks 테이블의 row id를 marker_id로 역참조하기 위한 매핑
+  final Map<String, String> _listBookmarkRowIdByMarkerId = {};
 
   List<Place> _filteredPlaces = [];
   Set<Marker> _allMarkers = {}; // 모든 마커 저장
@@ -455,10 +457,10 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await addMarkersVM.updateMarkerOrders(listId, _orderedMarkers);
-      print('✅ updateMarkerOrders 호출 성공');
+      await updateMarkerOrdersForList(listId);
+      print('✅ updateMarkerOrdersForList 호출 성공');
     } catch (e) {
-      print('❌ updateMarkerOrders 호출 에러: $e');
+      print('❌ updateMarkerOrdersForList 호출 에러: $e');
     }
     await loadMarkersForList(listId); // 여기서 notifyListeners 포함
   }
@@ -484,7 +486,15 @@ class MapSampleViewModel extends ChangeNotifier {
       print('ID: ${item['id']}, sort_order: ${item['sort_order']}');
     }
 
+    // 매핑 초기화 후 최신 매핑 저장
+    _listBookmarkRowIdByMarkerId.clear();
+
     final markers = await Future.wait(response.map((doc) async {
+      final String rowId = doc['id']?.toString() ?? '';
+      final String markerIdStr = doc['marker_id']?.toString() ?? '';
+      if (rowId.isNotEmpty && markerIdStr.isNotEmpty) {
+        _listBookmarkRowIdByMarkerId[markerIdStr] = rowId;
+      }
       final String keyword = doc['keyword']?.toString() ?? 'default';
       final String? markerImagePath = keywordMarkerImages[keyword];
 
@@ -500,7 +510,7 @@ class MapSampleViewModel extends ChangeNotifier {
           snippet: doc['snippet'] ?? '설명 없음',
         ),
         icon: markerIcon,
-        onTap: () => onMarkerTapped(MarkerId(doc['id'])),
+        onTap: () => onMarkerTapped(MarkerId(doc['marker_id'])),
       );
     }).toList());
 
@@ -509,6 +519,225 @@ class MapSampleViewModel extends ChangeNotifier {
     _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
     setFilteredMarkers(markers);
     notifyListeners();
+  }
+
+  Future<void> updateMarkerOrdersForList(String listId) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    // 현재 메모리상의 순서를 list_bookmarks의 row id 기준으로 변환
+    print('updateMarkerOrdersForList: _orderedMarkers.length=${_orderedMarkers.length}');
+    print('updateMarkerOrdersForList: ordered markerIds=${_orderedMarkers.map((m) => m.markerId.value).toList()}');
+    print('updateMarkerOrdersForList: mapping keys=${_listBookmarkRowIdByMarkerId.keys.toList()}');
+    final List<Map<String, dynamic>> orders = _orderedMarkers
+        .asMap()
+        .entries
+        .map((entry) {
+          final int index = entry.key;
+          final String markerId = entry.value.markerId.value;
+          final String? rowId = _listBookmarkRowIdByMarkerId[markerId];
+          if (rowId == null) return null;
+          return {
+            'id': rowId,        // list_bookmarks의 PK id
+            'sort_order': index,
+          };
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
+
+    if (orders.isEmpty) {
+      print('⚠️ updateMarkerOrdersForList: 업데이트할 orders가 비어있습니다. 매핑 리프레시를 시도합니다.');
+      await _ensureRowIdMappingForList(listId);
+
+      final refreshedOrders = _orderedMarkers
+          .asMap()
+          .entries
+          .map((entry) {
+            final int index = entry.key;
+            final String markerId = entry.value.markerId.value;
+            final String? rowId = _listBookmarkRowIdByMarkerId[markerId];
+            if (rowId == null) return null;
+            return {
+              'id': rowId,
+              'sort_order': index,
+            };
+          })
+          .whereType<Map<String, dynamic>>()
+          .toList();
+
+      if (refreshedOrders.isEmpty) {
+        print('⚠️ updateMarkerOrdersForList: 리프레시 후에도 orders 비어있음 → marker_id 기반 폴백 업데이트 수행');
+        await _fallbackUpdateOrdersByMarkerId(listId);
+        return;
+      }
+
+      // 리프레시된 orders로 진행
+      await _performRpcOrFallback(listId, refreshedOrders);
+      return;
+    }
+
+    await _performRpcOrFallback(listId, orders);
+  }
+
+  Future<void> _performRpcOrFallback(String listId, List<Map<String, dynamic>> orders) async {
+    try {
+      final result = await Supabase.instance.client.rpc(
+        'update_marker_orders',
+        params: {
+          'p_list_id': listId,
+          'p_orders': orders,
+        },
+      );
+      print('✅ RPC(update_marker_orders) 결과: $result');
+    } on PostgrestException catch (e) {
+      print('❌ RPC PostgrestException: ${e.message}, code=${e.code}');
+      print('➡️ 두 단계 폴백(id 기반)을 시도합니다.');
+      await _fallbackUpdateOrdersByRowId(listId, orders);
+    } catch (e) {
+      print('❌ RPC 예외: $e');
+      print('➡️ 두 단계 폴백(id 기반)을 시도합니다.');
+      await _fallbackUpdateOrdersByRowId(listId, orders);
+    }
+  }
+
+  Future<void> _fallbackUpdateOrdersByRowId(String listId, List<Map<String, dynamic>> orders) async {
+    // 1) 현재 최대 sort_order를 조회하여 충돌 없는 스테이징 오프셋 계산
+    final int offset = await _getSortOrderOffset(listId);
+    print('fallbackByRowId: using offset=$offset');
+
+    // 2) 1차: 각 행을 고유한 스테이징 값으로 이동 (offset + index)
+    for (final order in orders) {
+      final String rowId = order['id'] as String;
+      final int index = order['sort_order'] as int;
+      final int stagingOrder = offset + index;
+      try {
+        await Supabase.instance.client
+            .from('list_bookmarks')
+            .update({'sort_order': stagingOrder})
+            .eq('id', rowId)
+            .eq('list_id', listId);
+      } on PostgrestException catch (e) {
+        print('❌ 1차(스테이징) 업데이트 실패 (row id=$rowId): ${e.message}');
+      } catch (e) {
+        print('❌ 1차(스테이징) 업데이트 예외 (row id=$rowId): $e');
+      }
+    }
+
+    // 3) 2차: 최종 인덱스로 정렬 값 재설정
+    for (final order in orders) {
+      final String rowId = order['id'] as String;
+      final int finalOrder = order['sort_order'] as int;
+      try {
+        await Supabase.instance.client
+            .from('list_bookmarks')
+            .update({'sort_order': finalOrder})
+            .eq('id', rowId)
+            .eq('list_id', listId);
+      } on PostgrestException catch (e) {
+        print('❌ 2차(최종) 업데이트 실패 (row id=$rowId): ${e.message}');
+      } catch (e) {
+        print('❌ 2차(최종) 업데이트 예외 (row id=$rowId): $e');
+      }
+    }
+
+    print('✅ 폴백 개별 업데이트(id 기반, 2단계) 완료');
+  }
+
+  Future<void> _fallbackUpdateOrdersByMarkerId(String listId) async {
+    final List<Map<String, dynamic>> markerIdOrders = _orderedMarkers
+        .asMap()
+        .entries
+        .map((entry) => {
+              'marker_id': entry.value.markerId.value,
+              'sort_order': entry.key,
+            })
+        .toList();
+
+    // 1) 현재 최대 sort_order를 조회하여 충돌 없는 스테이징 오프셋 계산
+    final int offset = await _getSortOrderOffset(listId);
+    print('fallbackByMarkerId: using offset=$offset');
+
+    // 2) 1차: 스테이징 값으로 이동
+    for (final order in markerIdOrders) {
+      final String markerId = order['marker_id'] as String;
+      final int index = order['sort_order'] as int;
+      final int stagingOrder = offset + index;
+      try {
+        await Supabase.instance.client
+            .from('list_bookmarks')
+            .update({'sort_order': stagingOrder})
+            .eq('list_id', listId)
+            .eq('marker_id', markerId);
+      } on PostgrestException catch (e) {
+        print('❌ 1차(스테이징) 업데이트 실패 (marker_id=$markerId): ${e.message}');
+      } catch (e) {
+        print('❌ 1차(스테이징) 업데이트 예외 (marker_id=$markerId): $e');
+      }
+    }
+
+    // 3) 2차: 최종 인덱스로 재설정
+    for (final order in markerIdOrders) {
+      final String markerId = order['marker_id'] as String;
+      final int finalOrder = order['sort_order'] as int;
+      try {
+        await Supabase.instance.client
+            .from('list_bookmarks')
+            .update({'sort_order': finalOrder})
+            .eq('list_id', listId)
+            .eq('marker_id', markerId);
+      } on PostgrestException catch (e) {
+        print('❌ 2차(최종) 업데이트 실패 (marker_id=$markerId): ${e.message}');
+      } catch (e) {
+        print('❌ 2차(최종) 업데이트 예외 (marker_id=$markerId): $e');
+      }
+    }
+
+    print('✅ 폴백 개별 업데이트(marker_id 기반, 2단계) 완료');
+  }
+
+  Future<int> _getSortOrderOffset(String listId) async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('list_bookmarks')
+          .select('sort_order')
+          .eq('list_id', listId);
+      int maxOrder = -1;
+      for (final row in rows as List) {
+        final dynamic v = row['sort_order'];
+        if (v is int) {
+          if (v > maxOrder) maxOrder = v;
+        } else if (v is num) {
+          final int vi = v.toInt();
+          if (vi > maxOrder) maxOrder = vi;
+        }
+      }
+      return maxOrder + 1000; // 넉넉한 오프셋
+    } catch (e) {
+      print('sort_order offset 조회 실패: $e');
+      return 1000; // 조회 실패 시 기본 오프셋
+    }
+  }
+
+  Future<void> _ensureRowIdMappingForList(String listId) async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('list_bookmarks')
+          .select('id, marker_id')
+          .eq('list_id', listId);
+
+      _listBookmarkRowIdByMarkerId.clear();
+      for (final row in rows as List) {
+        final String rowId = row['id']?.toString() ?? '';
+        final String markerId = row['marker_id']?.toString() ?? '';
+        if (rowId.isNotEmpty && markerId.isNotEmpty) {
+          _listBookmarkRowIdByMarkerId[markerId] = rowId;
+        }
+      }
+
+      print('ensureRowIdMapping: mapping size=${_listBookmarkRowIdByMarkerId.length}');
+    } catch (e) {
+      print('ensureRowIdMapping 실패: $e');
+    }
   }
 
 
