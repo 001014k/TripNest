@@ -47,46 +47,53 @@
 <h2>1. 로그인 및 시작</h2>
 <details><summary>이메일 또는 소셜 로그인(Google, Kakao)으로 시작할 수 있습니다.</summary>
 <p align="center">
-<img src="https://github.com/user-attachments/assets/22bab7bb-ab9a-4839-9d4f-a4179c4282c7" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/5009dcb5-f310-4b3d-b194-14b14e3236cf" width="20%"></img>
 </p>
 </details>
 
-<h2>2. 지도에서 마커 추가</h2>
+<h2>2. 홈화면</h2>
+<details><summary>지도 탐색, 저장 목록, 친구 관리,최근 저장한 장소,공유된 링크 섹션을 클릭할수 있습니다.</summary>
+<p align="center">
+<img src="https://github.com/user-attachments/assets/43f10e13-c8e1-42fd-84ce-ce7a0d53fd79" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/f01ce697-2223-4e7e-88d2-dbbc97f60ad3" width="20%"></img>
+</p>
+</details>
+
+<h2>3. 지도에서 마커 추가</h2>
 <details><summary>지도를 눌러 위치에 마커를 등록하고 제목, 키워드 등을 입력합니다.</summary>
 <p align="center">
-<img src="https://github.com/user-attachments/assets/55ca2f98-57e3-4ade-b8e8-9f47296707f8" width="20%"></img>
-<img src="https://github.com/user-attachments/assets/60a5543b-b2cc-4049-b912-f96952c3c972" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/7b4c9983-9f22-424f-a963-236e882b8db1" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/b958e800-e5d3-4247-8926-1b5054a2fded" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/ae740b24-36c7-41c2-a894-ea23fdad23d2" width="20%"></img>
 </p>
 </details>
 
-
-<h2>3. 키워드 필터 및 클러스터링</h2>
+<h2>4. 키워드 필터 및 클러스터링</h2>
 <details><summary>여러 마커를 키워드로 필터링하고 줌 레벨에 따라 자동으로 클러스터링됩니다.</summary>
 <p align="center">
-<img src="https://github.com/user-attachments/assets/93d37fd0-7cba-456d-873e-94f206052dfc" width="20%"></img>
-<img src="https://github.com/user-attachments/assets/b182f7f0-c61a-4448-8862-ea342de19b7d" width="20%"></img>
-<img src="https://github.com/user-attachments/assets/f265fefc-8890-4027-813f-4b68db7c7dda" width="20%"></img>
-<img src="https://github.com/user-attachments/assets/992a5659-a98a-4d43-bccb-77265df2dc65" width="20%"></img>
-
+<img src="https://github.com/user-attachments/assets/103d1964-0977-430f-a5cc-744f1fe9255e" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/dfa1fc25-de99-4017-b7b9-d203a7c629e8" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/be6b875f-5edd-428d-ad3c-0ac6578def5e" width="20%"></img>
 </p>
 </details>
 
-<h2>4. 링크페이지 및 협업 리스트</h2>
-<details><summary>자신만의 리스트를 만들거나 친구와 함께 협업 리스트를 관리할 수 있으며 또한 인스타,유튜브로 공유링크를 통해 앱에 저장할 수 있습니다</summary>
+<h2>5. 링크페이지</h2>
+<details><summary>인스타,유튜브로 공유링크를 통해 앱에 저장할 수 있습니다</summary>
 <p align="center">
-<img src="https://github.com/user-attachments/assets/56207ce1-7b8b-44df-a7fe-b56e46f83d9e" width="20%"></img>
-<img src="https://github.com/user-attachments/assets/5da73b06-4040-4066-9b9e-48fe98b13758" width="20%"></img>
-<img src="https://github.com/user-attachments/assets/a3b9713f-fe37-458b-87f6-fcae88585084" width="20%"></img>
-<img src="https://github.com/user-attachments/assets/123cb4b0-2251-4da8-b201-877607c17f0b" width="20%"> </img>
-
+<img src="https://github.com/user-attachments/assets/75a5381c-a821-4f6e-99ff-d4be42e3c267" width="20%"></img>
 </p>
 </details>
 
-<h2>5. 외부 길찾기 앱 연동</h2>
+<h2>6. 리스트 페이지</h2>
+<details><summary>자신만의 리스트를 만들거나 친구와 함께 협업 리스트를 관리할 수 있습니다.</summary>
+<p align="center">
+<img src="https://github.com/user-attachments/assets/c45a052c-f47c-4f6b-b4f2-8394291f1de6" width="20%"></img>
+</details>
+
+<h2>7. 외부 길찾기 앱 연동</h2>
 <details><summary>Google Maps, Kakao Map 등으로 선택한 마커까지 길찾기를 할 수 있습니다.</summary>
 <p align="center">
 <img src="https://github.com/user-attachments/assets/c45a052c-f47c-4f6b-b4f2-8394291f1de6" width="20%"></img>
-
 </p>
 </details>
 
