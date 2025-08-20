@@ -33,5 +33,29 @@ class MarkerListViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
-}
 
+  Future<void> deleteMarker(BuildContext context, String markerId) async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+
+      final response = await supabase
+          .from('user_markers')
+          .delete()
+          .eq('id', markerId)
+          .eq('user_id', user.id);
+
+      // 성공적으로 삭제되면 리스트에서 제거
+      markers.removeWhere((m) => m['id'] == markerId);
+      notifyListeners();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('삭제되었습니다.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('삭제 실패: $e')),
+      );
+    }
+  }
+}

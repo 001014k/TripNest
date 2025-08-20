@@ -1345,7 +1345,6 @@ class _MarkerListScreenState extends State<MarkerListScreen>
         ],
       ),
     );
-
     if (confirm == true) {
       for (final id in selectedMarkerIds) {
         await vm.deleteMarker(context, id);
