@@ -516,8 +516,12 @@ class MapSampleViewModel extends ChangeNotifier {
 
     print('ViewModel _orderedMarkers ID 순서: ${markers.map((m) => m.markerId.value).toList()}');
     _orderedMarkers = markers;
-    _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
     setFilteredMarkers(markers);
+    notifyListeners();
+  }
+
+  void showPolyline() {
+    _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
     notifyListeners();
   }
 

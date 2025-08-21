@@ -992,6 +992,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                                       borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
                                       onTap: () {
                                         Navigator.pop(context);
+                                        final viewModel = context.read<MapSampleViewModel>(); // ViewModel 타입에 맞게 바꿔주세요
+                                        viewModel.showPolyline();
                                         // 경로 최적화 또는 네비게이션 시작
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(
