@@ -987,12 +987,34 @@ class MapSampleViewModel extends ChangeNotifier {
     if (user == null) return [];
 
     try {
-      final List<dynamic> response = await Supabase.instance.client
+      // 1️⃣ 내가 생성한 리스트
+      final List<dynamic> myLists = await Supabase.instance.client
           .from('lists')
           .select()
           .eq('user_id', user.id);
 
-      return response.cast<Map<String, dynamic>>();
+      // 2️⃣ 내가 멤버로 속한 리스트
+      final List<dynamic> invitedLists = await Supabase.instance.client
+          .from('list_members')
+          .select('lists(*)') // list_members에 연결된 리스트를 가져오기
+          .eq('user_id', user.id);
+
+      // invitedLists에서 lists 필드만 추출
+      final List<Map<String, dynamic>> invitedListsData = invitedLists
+          .map<Map<String, dynamic>>((item) => item['lists'] as Map<String, dynamic>)
+          .toList();
+
+      // 3️⃣ 합치고 중복 제거
+      final Map<String, Map<String, dynamic>> tempLists = {};
+
+      for (var list in myLists.cast<Map<String, dynamic>>()) {
+        tempLists[list['id']] = list;
+      }
+      for (var list in invitedListsData) {
+        tempLists[list['id']] = list;
+      }
+
+      return tempLists.values.toList();
     } catch (e) {
       print('Error fetching user lists: $e');
       return [];
