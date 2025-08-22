@@ -15,35 +15,95 @@ class ListViewModel extends ChangeNotifier {
 
   Future<void> loadLists() async {
     final user = supabase.auth.currentUser;
-    if (user == null) {
-      isLoading = false;
-      notifyListeners();
-      return;
-    }
+    if (user == null) return;
 
     try {
       isLoading = true;
       notifyListeners();
 
-      // lists와 list_bookmarks, list_members 배열을 같이 가져옴
-      final response = await supabase
+      final tempLists = <String, ListModel>{};
+
+      // 1️⃣ 내가 만든 리스트 조회 Future
+      final myListsFuture = supabase
           .from('lists')
-          .select('id, name, created_at, list_bookmarks(id), list_members(id)')
+          .select(
+          '''
+          id, name, created_at,
+          list_bookmarks(id, title, lat, lng),
+          list_members(id, user_id)
+          '''
+      )
           .eq('user_id', user.id)
           .order('created_at', ascending: false);
 
-      lists = (response as List).map((item) {
+      // 2️⃣ 내가 멤버로 초대받은 리스트 list_id 조회 Future
+      final invitedListMembersFuture = supabase
+          .from('list_members')
+          .select('list_id')
+          .eq('user_id', user.id);
+
+      // 두 Future 동시에 실행
+      final results = await Future.wait([myListsFuture, invitedListMembersFuture]);
+
+      final myListsResponse = results[0] as List;
+      final invitedListMembers = results[1] as List;
+
+      // 1️⃣ 내가 만든 리스트 처리
+      for (final item in myListsResponse) {
         final bookmarks = item['list_bookmarks'] as List<dynamic>? ?? [];
         final members = item['list_members'] as List<dynamic>? ?? [];
 
-        return ListModel(
+        tempLists[item['id']] = ListModel(
           id: item['id'] as String,
           name: item['name'] as String,
           createdAt: DateTime.parse(item['created_at'] as String),
           markerCount: bookmarks.length,
           collaboratorCount: members.length,
         );
+      }
+
+      // 2️⃣ 초대받은 리스트 처리
+      // list_id별 리스트 정보를 동시에 조회
+      final invitedListsFutures = invitedListMembers.map((member) async {
+        final listId = member['list_id'] as String?;
+        if (listId == null) return null;
+
+        final listResponse = await supabase
+            .from('lists')
+            .select(
+            '''
+            id, name, created_at,
+            list_bookmarks(id, title, lat, lng),
+            list_members(id, user_id)
+            '''
+        )
+            .eq('id', listId)
+            .single();
+
+        if (listResponse == null) return null;
+
+        final bookmarks = listResponse['list_bookmarks'] as List<dynamic>? ?? [];
+        final members = listResponse['list_members'] as List<dynamic>? ?? [];
+
+        return ListModel(
+          id: listResponse['id'] as String,
+          name: listResponse['name'] as String,
+          createdAt: DateTime.parse(listResponse['created_at'] as String),
+          markerCount: bookmarks.length,
+          collaboratorCount: members.length,
+        );
       }).toList();
+
+      final invitedListsResults = await Future.wait(invitedListsFutures);
+
+      for (final listModel in invitedListsResults) {
+        if (listModel != null) {
+          tempLists[listModel.id] = listModel; // 중복 자동 제거
+        }
+      }
+
+      // 최종 리스트
+      lists = tempLists.values.toList();
     } catch (e) {
       errorMessage = '리스트 불러오기 실패: $e';
     } finally {

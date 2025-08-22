@@ -15,14 +15,12 @@ class MarkerInfoViewModel extends ChangeNotifier {
   }
 
   Future<void> loadMarkers() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
+    if (listId == null) return; // 리스트 아이디가 없으면 종료
     isLoading = true;
     notifyListeners();
 
     try {
-      // 리스트 내 마커 목록 조회
+      // 1️⃣ 리스트 내 마커 목록 조회
       final listBookmarksData = await supabase
           .from('list_bookmarks')
           .select('id, marker_id, sort_order')
@@ -40,40 +38,35 @@ class MarkerInfoViewModel extends ChangeNotifier {
         return;
       }
 
+      // 2️⃣ marker_id 기준으로 모든 마커 정보 조회 (user_id 조건 제거)
       final orFilter = markerIds.map((id) => "id.eq.$id").join(',');
 
       final userMarkersData = await supabase
           .from('user_markers')
           .select('id, title, address, keyword, lat, lng, marker_image_path')
-          .or(orFilter);
+          .or(orFilter); // 모든 마커 가져오기
 
-
-
-      // 마커 id 기준으로 맵 생성
+      // 3️⃣ 마커 id 기준으로 맵 생성
       final Map<String, Map<String, dynamic>> userMarkersMap = {
         for (var item in (userMarkersData as List))
           item['id'] as String: item as Map<String, dynamic>
       };
 
-      // MarkerModel 리스트 생성
+      // 4️⃣ MarkerModel 리스트 생성
       markers = listBookmarksData.map<MarkerModel>((bookmark) {
         final markerId = bookmark['marker_id'] as String;
         final userMarker = userMarkersMap[markerId];
 
         return MarkerModel(
-          id: markerId,  // bookmark['id']가 아니라 marker_id 써야 맞음
+          id: markerId,
           title: userMarker?['title']?.toString() ?? '제목 없음',
           keyword: userMarker?['keyword']?.toString() ?? '키워드 없음',
           address: userMarker?['address']?.toString() ?? '주소 없음',
           lat: userMarker != null && userMarker['lat'] != null
-              ? (userMarker['lat'] is num
               ? (userMarker['lat'] as num).toDouble()
-              : 0.0)
               : 0.0,
           lng: userMarker != null && userMarker['lng'] != null
-              ? (userMarker['lng'] is num
               ? (userMarker['lng'] as num).toDouble()
-              : 0.0)
               : 0.0,
           markerImagePath: userMarker?['marker_image_path']?.toString() ?? '',
         );
