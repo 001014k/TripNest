@@ -87,13 +87,19 @@
 <h2>6. 리스트 페이지</h2>
 <details><summary>자신만의 리스트를 만들거나 친구와 함께 협업 리스트를 관리할 수 있습니다.</summary>
 <p align="center">
-<img src="https://github.com/user-attachments/assets/c45a052c-f47c-4f6b-b4f2-8394291f1de6" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/fe766f95-df61-482f-b85d-c154dd35195d" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/0e426c47-f5c6-4b2b-92c5-f8434e2eb4b7" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/99464f4f-422e-44ba-80a4-10cd00a4f264" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/68d08119-8b5d-4c33-a8f0-4cf07e196615" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/f1a82fac-b593-4ff3-b483-978057e0f490" width="20%"></img>
+
+
 </details>
 
 <h2>7. 외부 길찾기 앱 연동</h2>
 <details><summary>Google Maps, Kakao Map 등으로 선택한 마커까지 길찾기를 할 수 있습니다.</summary>
 <p align="center">
-<img src="https://github.com/user-attachments/assets/c45a052c-f47c-4f6b-b4f2-8394291f1de6" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/7f7cc537-7751-47f2-965f-ca903669aea1" width="20%"></img>
 </p>
 </details>
 
