@@ -1277,7 +1277,7 @@ class MapSampleViewModel extends ChangeNotifier {
           temporaryMarker = Marker(
             markerId: MarkerId('temp_$placeId'),
             position: latLng,
-            infoWindow: InfoWindow(title: title, snippet: snippet),
+            infoWindow: InfoWindow.noText,
           );
 
           // ✅ 리스트에도 넣어줘야 하단 “검색 결과”가 보임
