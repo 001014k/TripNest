@@ -14,14 +14,35 @@
 현재 개발중이며 목표는 앱 출시 입니다.
 
 ## 주요 기능
-- 지도 위 마커 추가, 수정, 삭제  
+- 지도 위 마커 추가, 수정, 삭제
 - 키워드 필터링 및 클러스터링 기능  
 - 소셜 로그인(Google, Kakao) 및 이메일 로그인 지원  
-- 북마크 및 협업 리스트 관리  
-- 실시간 데이터 동기화  
-- 공유 링크를 통한 마커 임포트 - 구현중
+- 개인 리스트 및 협업 리스트 관리  
+- 실시간 데이터 동기화
+- 공유 링크를 앱에다가 저장
+- 각 마커에 대한 길찾기 기능
 
 ---
+
+## 🌍 앱 소개
+
+여행을 다니다 보면,
+- 가고 싶은 장소를 지도에 따로 정리하기 어렵고  
+- 친구와 일정을 공유할 때 복잡하며  
+- 저장해 둔 링크나 정보를 다시 찾기 힘들 때가 많습니다.  
+
+**TripNest**는 이런 문제를 해결하기 위해 만들어졌습니다.  
+지도 기반으로 마커를 등록하고, 리스트를 만들고, 실시간 협업까지 지원하여  
+혼자 여행할 때도, 친구와 함께 여행할 때도 편리하게 사용할 수 있는 **여행 관리 플랫폼**입니다.
+
+---
+
+## 🚀 목표와 비전
+- 단순한 장소 저장을 넘어, **여행 계획의 허브**로 발전  
+- SNS/지도 서비스와의 연동을 통해 정보 수집을 더 쉽게  
+- 협업 기능을 강화하여 **친구, 가족, 동료와 함께 쓰는 여행 앱**으로 성장  
+- 최종적으로는 누구나 자신만의 여행 지도를 만들고 공유할 수 있는 플랫폼이 되는 것  
+
 
 ## 🛠️ 사용 기술 (Languages & Frameworks)
 
@@ -87,13 +108,19 @@
 <h2>6. 리스트 페이지</h2>
 <details><summary>자신만의 리스트를 만들거나 친구와 함께 협업 리스트를 관리할 수 있습니다.</summary>
 <p align="center">
-<img src="https://github.com/user-attachments/assets/c45a052c-f47c-4f6b-b4f2-8394291f1de6" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/fe766f95-df61-482f-b85d-c154dd35195d" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/0e426c47-f5c6-4b2b-92c5-f8434e2eb4b7" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/99464f4f-422e-44ba-80a4-10cd00a4f264" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/68d08119-8b5d-4c33-a8f0-4cf07e196615" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/f1a82fac-b593-4ff3-b483-978057e0f490" width="20%"></img>
+
+
 </details>
 
 <h2>7. 외부 길찾기 앱 연동</h2>
 <details><summary>Google Maps, Kakao Map 등으로 선택한 마커까지 길찾기를 할 수 있습니다.</summary>
 <p align="center">
-<img src="https://github.com/user-attachments/assets/c45a052c-f47c-4f6b-b4f2-8394291f1de6" width="20%"></img>
+<img src="https://github.com/user-attachments/assets/7f7cc537-7751-47f2-965f-ca903669aea1" width="20%"></img>
 </p>
 </details>
 
