@@ -55,6 +55,7 @@ class MapSampleViewModel extends ChangeNotifier {
   cluster_manager.ClusterManager<Place>? _clusterManager;
 
   cluster_manager.ClusterManager<Place>? get clusterManager => _clusterManager;
+
   set clusterManager(cluster_manager.ClusterManager<Place>? manager) {
     _clusterManager = manager;
   }
@@ -264,11 +265,17 @@ class MapSampleViewModel extends ChangeNotifier {
     print("Active Keywords: $activeKeywords");
     print('Filtered Markers count: ${_filteredMarkers.length}');
     print(
-        'Filtered Marker IDs: ${_filteredMarkers.map((m) => m.markerId.value).toSet().length}');
+        'Filtered Marker IDs: ${_filteredMarkers
+            .map((m) => m.markerId.value)
+            .toSet()
+            .length}');
 
     print('Clustered Markers count: ${_clusteredMarkers.length}');
     print(
-        'Clustered Marker IDs: ${_clusteredMarkers.map((m) => m.markerId.value).toSet().length}');
+        'Clustered Marker IDs: ${_clusteredMarkers
+            .map((m) => m.markerId.value)
+            .toSet()
+            .length}');
 
     _clusterManager?.setItems(_filteredPlaces); // 키워드에 맞게 클러스터링에 있는 마커 갯수 표현
     notifyListeners(); // 상태 변경알림
@@ -302,7 +309,8 @@ class MapSampleViewModel extends ChangeNotifier {
     final marker = Marker(
       markerId: markerId,
       position: position,
-      infoWindow: const InfoWindow(title: '', snippet: ''), // ✅ 말풍선 숨기기
+      infoWindow: const InfoWindow(title: '', snippet: ''),
+      // ✅ 말풍선 숨기기
       icon: markerIcon,
       onTap: () => onTapCallback(markerId),
     );
@@ -386,10 +394,10 @@ class MapSampleViewModel extends ChangeNotifier {
       final BitmapDescriptor markerIcon = markerImagePath != null
           ? await createCustomMarkerImage(markerImagePath, 128, 128)
           : BitmapDescriptor.defaultMarkerWithHue(
-              data['hue'] != null
-                  ? (data['hue'] as num).toDouble()
-                  : BitmapDescriptor.hueOrange,
-            );
+        data['hue'] != null
+            ? (data['hue'] as num).toDouble()
+            : BitmapDescriptor.hueOrange,
+      );
 
       final lat = (data['lat'] as num).toDouble();
       final lng = (data['lng'] as num).toDouble();
@@ -441,12 +449,10 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> reorderMarkers(
-      int oldIndex,
+  Future<void> reorderMarkers(int oldIndex,
       int newIndex,
       String listId,
-      AddMarkersToListViewModel addMarkersVM,
-      ) async {
+      AddMarkersToListViewModel addMarkersVM,) async {
     if (oldIndex < newIndex) newIndex -= 1;
 
     final marker = _orderedMarkers.removeAt(oldIndex);
@@ -475,11 +481,13 @@ class MapSampleViewModel extends ChangeNotifier {
 
     final response = await Supabase.instance.client
         .from('list_bookmarks')
-        .select('id, marker_id, title, snippet, lat, lng, keyword, sort_order') // sort_order도 같이 받아서 출력해보기
+        .select(
+        'id, marker_id, title, snippet, lat, lng, keyword, sort_order') // sort_order도 같이 받아서 출력해보기
         .eq('list_id', listId)
         .order('sort_order', ascending: true) // 정렬 보장
         .limit(100)
-        .withConverter<List<Map<String, dynamic>>>((data) => data as List<Map<String, dynamic>>);
+        .withConverter<List<Map<String, dynamic>>>((data) =>
+    data as List<Map<String, dynamic>>);
 
     print('DB에서 불러온 마커 ID 및 순서:');
     for (final item in response) {
@@ -514,7 +522,10 @@ class MapSampleViewModel extends ChangeNotifier {
       );
     }).toList());
 
-    print('ViewModel _orderedMarkers ID 순서: ${markers.map((m) => m.markerId.value).toList()}');
+    print(
+        'ViewModel _orderedMarkers ID 순서: ${markers
+            .map((m) => m.markerId.value)
+            .toList()}');
     _orderedMarkers = markers;
     setFilteredMarkers(markers);
     notifyListeners();
@@ -530,47 +541,53 @@ class MapSampleViewModel extends ChangeNotifier {
     if (user == null) return;
 
     // 현재 메모리상의 순서를 list_bookmarks의 row id 기준으로 변환
-    print('updateMarkerOrdersForList: _orderedMarkers.length=${_orderedMarkers.length}');
-    print('updateMarkerOrdersForList: ordered markerIds=${_orderedMarkers.map((m) => m.markerId.value).toList()}');
-    print('updateMarkerOrdersForList: mapping keys=${_listBookmarkRowIdByMarkerId.keys.toList()}');
+    print('updateMarkerOrdersForList: _orderedMarkers.length=${_orderedMarkers
+        .length}');
+    print('updateMarkerOrdersForList: ordered markerIds=${_orderedMarkers.map((
+        m) => m.markerId.value).toList()}');
+    print(
+        'updateMarkerOrdersForList: mapping keys=${_listBookmarkRowIdByMarkerId
+            .keys.toList()}');
     final List<Map<String, dynamic>> orders = _orderedMarkers
         .asMap()
         .entries
         .map((entry) {
-          final int index = entry.key;
-          final String markerId = entry.value.markerId.value;
-          final String? rowId = _listBookmarkRowIdByMarkerId[markerId];
-          if (rowId == null) return null;
-          return {
-            'id': rowId,        // list_bookmarks의 PK id
-            'sort_order': index,
-          };
-        })
+      final int index = entry.key;
+      final String markerId = entry.value.markerId.value;
+      final String? rowId = _listBookmarkRowIdByMarkerId[markerId];
+      if (rowId == null) return null;
+      return {
+        'id': rowId, // list_bookmarks의 PK id
+        'sort_order': index,
+      };
+    })
         .whereType<Map<String, dynamic>>()
         .toList();
 
     if (orders.isEmpty) {
-      print('⚠️ updateMarkerOrdersForList: 업데이트할 orders가 비어있습니다. 매핑 리프레시를 시도합니다.');
+      print(
+          '⚠️ updateMarkerOrdersForList: 업데이트할 orders가 비어있습니다. 매핑 리프레시를 시도합니다.');
       await _ensureRowIdMappingForList(listId);
 
       final refreshedOrders = _orderedMarkers
           .asMap()
           .entries
           .map((entry) {
-            final int index = entry.key;
-            final String markerId = entry.value.markerId.value;
-            final String? rowId = _listBookmarkRowIdByMarkerId[markerId];
-            if (rowId == null) return null;
-            return {
-              'id': rowId,
-              'sort_order': index,
-            };
-          })
+        final int index = entry.key;
+        final String markerId = entry.value.markerId.value;
+        final String? rowId = _listBookmarkRowIdByMarkerId[markerId];
+        if (rowId == null) return null;
+        return {
+          'id': rowId,
+          'sort_order': index,
+        };
+      })
           .whereType<Map<String, dynamic>>()
           .toList();
 
       if (refreshedOrders.isEmpty) {
-        print('⚠️ updateMarkerOrdersForList: 리프레시 후에도 orders 비어있음 → marker_id 기반 폴백 업데이트 수행');
+        print(
+            '⚠️ updateMarkerOrdersForList: 리프레시 후에도 orders 비어있음 → marker_id 기반 폴백 업데이트 수행');
         await _fallbackUpdateOrdersByMarkerId(listId);
         return;
       }
@@ -583,7 +600,8 @@ class MapSampleViewModel extends ChangeNotifier {
     await _performRpcOrFallback(listId, orders);
   }
 
-  Future<void> _performRpcOrFallback(String listId, List<Map<String, dynamic>> orders) async {
+  Future<void> _performRpcOrFallback(String listId,
+      List<Map<String, dynamic>> orders) async {
     try {
       final result = await Supabase.instance.client.rpc(
         'update_marker_orders',
@@ -604,7 +622,8 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _fallbackUpdateOrdersByRowId(String listId, List<Map<String, dynamic>> orders) async {
+  Future<void> _fallbackUpdateOrdersByRowId(String listId,
+      List<Map<String, dynamic>> orders) async {
     // 1) 현재 최대 sort_order를 조회하여 충돌 없는 스테이징 오프셋 계산
     final int offset = await _getSortOrderOffset(listId);
     print('fallbackByRowId: using offset=$offset');
@@ -651,10 +670,11 @@ class MapSampleViewModel extends ChangeNotifier {
     final List<Map<String, dynamic>> markerIdOrders = _orderedMarkers
         .asMap()
         .entries
-        .map((entry) => {
-              'marker_id': entry.value.markerId.value,
-              'sort_order': entry.key,
-            })
+        .map((entry) =>
+    {
+      'marker_id': entry.value.markerId.value,
+      'sort_order': entry.key,
+    })
         .toList();
 
     // 1) 현재 최대 sort_order를 조회하여 충돌 없는 스테이징 오프셋 계산
@@ -738,7 +758,8 @@ class MapSampleViewModel extends ChangeNotifier {
         }
       }
 
-      print('ensureRowIdMapping: mapping size=${_listBookmarkRowIdByMarkerId.length}');
+      print('ensureRowIdMapping: mapping size=${_listBookmarkRowIdByMarkerId
+          .length}');
     } catch (e) {
       print('ensureRowIdMapping 실패: $e');
     }
@@ -746,7 +767,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
 
   Future<Marker> Function(cluster_manager.Cluster<Place>) get _markerBuilder =>
-      (cluster) async {
+          (cluster) async {
         return Marker(
           markerId: MarkerId(cluster.getId()), // 클러스터 ID
           position: cluster.location, // 클러스터 위치
@@ -781,8 +802,10 @@ class MapSampleViewModel extends ChangeNotifier {
   Future<BitmapDescriptor> _getMarkerBitmap(int size, {String? text}) async {
     final PictureRecorder pictureRecorder = PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    final Paint paint1 = Paint()..color = Colors.blue; // 외곽 원 색
-    final Paint paint2 = Paint()..color = Colors.white; // 내부 원 색
+    final Paint paint1 = Paint()
+      ..color = Colors.blue; // 외곽 원 색
+    final Paint paint2 = Paint()
+      ..color = Colors.white; // 내부 원 색
 
     // 외곽 원
     canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint1);
@@ -820,7 +843,8 @@ class MapSampleViewModel extends ChangeNotifier {
   Future<void> applyMarkersToCluster(GoogleMapController? controller) async {
     if (_isDisposed || controller == null) return;
 
-    debugPrint('applyMarkersToCluster called with ${_filteredPlaces.length} places');
+    debugPrint(
+        'applyMarkersToCluster called with ${_filteredPlaces.length} places');
 
     // iOS에서 네이티브 채널 안정화를 위한 딜레이
     if (Platform.isIOS) await Future.delayed(const Duration(milliseconds: 400));
@@ -851,8 +875,8 @@ class MapSampleViewModel extends ChangeNotifier {
     while (retry < maxRetry) {
       try {
         await controller.getVisibleRegion(); // 채널 연결 확인
-        _clusterManager!.updateMap();         // updateMap은 void
-        break;                                // 성공하면 루프 종료
+        _clusterManager!.updateMap(); // updateMap은 void
+        break; // 성공하면 루프 종료
       } catch (e) {
         retry++;
         debugPrint('getVisibleRegion not ready, retry $retry/$maxRetry: $e');
@@ -890,8 +914,8 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   }
 
-  Future<BitmapDescriptor> createCustomMarkerImage(
-      String imagePath, int width, int height) async {
+  Future<BitmapDescriptor> createCustomMarkerImage(String imagePath, int width,
+      int height) async {
     print('커스텀 마커 이미지 생성 시작: $imagePath, 크기: ${width}x$height');
     // 이미지 파일 로드
     final ByteData data = await rootBundle.load(imagePath);
@@ -902,7 +926,7 @@ class MapSampleViewModel extends ChangeNotifier {
         targetWidth: width, targetHeight: height);
     final ui.FrameInfo frameInfo = await codec.getNextFrame();
     final ByteData? byteData =
-        await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
+    await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
 
     // 크기 조정된 이미지 데이터를 바이트 배열로 변환
     final Uint8List resizedBytes = byteData!.buffer.asUint8List();
@@ -912,18 +936,18 @@ class MapSampleViewModel extends ChangeNotifier {
     return BitmapDescriptor.fromBytes(resizedBytes);
   }
 
-  void updateMarker(
-      Marker marker, String keyword, String markerImagePath) async {
+  void updateMarker(Marker marker, String keyword,
+      String markerImagePath) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
       final response = await Supabase.instance.client
           .from('user_markers')
           .update({
-            'title': marker.infoWindow.title,
-            'snippet': marker.infoWindow.snippet,
-            'keyword': keyword,
-            'marker_image_path': markerImagePath,
-          })
+        'title': marker.infoWindow.title,
+        'snippet': marker.infoWindow.snippet,
+        'keyword': keyword,
+        'marker_image_path': markerImagePath,
+      })
           .eq('user_id', user.id)
           .eq('id', marker.markerId.value);
 
@@ -932,10 +956,6 @@ class MapSampleViewModel extends ChangeNotifier {
       }
     }
   }
-
-// 파이어베이스: 'set' vs 'update'
-// set: 기존 문서를 덮어 쓰거나 문서가 없을 경우 새로 생성
-// update: 문서가 이미 존재하는 경우에만 특정 필드를 수정하며 문서가 존재하지 않으면 에러를 발생
 
   void getLocation() async {
     final hasPermission = await _location.hasPermission();
@@ -1001,7 +1021,8 @@ class MapSampleViewModel extends ChangeNotifier {
 
       // invitedLists에서 lists 필드만 추출
       final List<Map<String, dynamic>> invitedListsData = invitedLists
-          .map<Map<String, dynamic>>((item) => item['lists'] as Map<String, dynamic>)
+          .map<Map<String, dynamic>>((item) =>
+      item['lists'] as Map<String, dynamic>)
           .toList();
 
       // 3️⃣ 합치고 중복 제거
@@ -1117,7 +1138,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
   Future<void> onMarkerTapped(MarkerId markerId) async {
     final marker = _markers.firstWhere(
-      (m) => m.markerId == markerId,
+          (m) => m.markerId == markerId,
       orElse: () => throw Exception('Marker not found for ID: $markerId'),
     );
 
