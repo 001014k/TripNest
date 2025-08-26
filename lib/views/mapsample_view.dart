@@ -1145,7 +1145,15 @@ class _MapSampleViewState extends State<MapSampleView> {
 
                 markers: {
                   ...viewModel.displayMarkers,
-                  if (viewModel.temporaryMarker != null) viewModel.temporaryMarker!,
+                  if (viewModel.temporaryMarker != null)
+                    viewModel.temporaryMarker!.copyWith(
+                      onTapParam: () {
+                        // 임시 마커 위치 가져오기
+                        final LatLng latLng = viewModel.temporaryMarker!.position;
+                        // ✅ 기존 onMapTapped 호출
+                        _onMapTapped(context, latLng);
+                      },
+                    ),
                 },
 
                 polylines: {

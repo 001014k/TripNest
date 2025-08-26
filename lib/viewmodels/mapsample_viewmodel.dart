@@ -1191,7 +1191,7 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void onSearchSubmitted(String query) async {
+  Future<void> onSearchSubmitted(String query) async {
     if (query.trim().isEmpty) {
       _searchResults = [];
       temporaryMarker = null;
@@ -1200,23 +1200,18 @@ class MapSampleViewModel extends ChangeNotifier {
       return;
     }
 
-    // 1️⃣ 사용자 마커 필터링
-    final filteredMarkers = _markers.where((marker) {
-      final title = marker.infoWindow.title?.toLowerCase() ?? '';
-      return title.contains(query.toLowerCase());
+    // 1) 기존 사용자 마커 필터 (있으면 결과 리스트에 먼저 반영)
+    final filteredMarkers = _markers.where((m) {
+      final t = m.infoWindow.title?.toLowerCase() ?? '';
+      return t.contains(query.toLowerCase());
     }).toList();
-
     _searchResults = {for (var m in filteredMarkers) m.markerId: m}.values.toList();
     print("ℹ️ 사용자 마커 필터링 완료: ${_searchResults.length}개");
 
     try {
-      // 2️⃣ SearchText API 호출
-      final placesUrl = Uri.parse(
-          'https://places.googleapis.com/v1/places:searchText?&key=${Env.googleMapsApiKey}');
-      final requestBody = json.encode({
-        "textQuery": query,
-        "languageCode": "ko",
-      });
+      // 2) SearchText
+      final placesUrl = Uri.parse('https://places.googleapis.com/v1/places:searchText?&key=${Env.googleMapsApiKey}');
+      final requestBody = json.encode({"textQuery": query, "languageCode": "ko"});
 
       final placesResponse = await http.post(
         placesUrl,
@@ -1231,88 +1226,76 @@ class MapSampleViewModel extends ChangeNotifier {
       print("ℹ️ SearchText API body: ${placesResponse.body}");
 
       if (placesResponse.statusCode == 200) {
-        final placesData = json.decode(placesResponse.body);
-
-        if (placesData['places'] != null && (placesData['places'] as List).isNotEmpty) {
-          final firstResult = (placesData['places'] as List).first;
-
-          final placeId = firstResult['id'] ?? '';
-          final lat = firstResult['location']['latitude'];
-          final lng = firstResult['location']['longitude'];
-          final displayName = firstResult['displayName']?['text'] ?? query;
-          final formattedAddress = firstResult['formattedAddress'] ?? '';
+        final data = json.decode(placesResponse.body);
+        final list = (data['places'] as List?) ?? [];
+        if (list.isEmpty) {
+          print("❌ SearchText API 결과 없음");
+        } else {
+          final first = list.first;
+          final placeId = first['id'] ?? '';
+          final baseLat = first['location']['latitude'];
+          final baseLng = first['location']['longitude'];
+          final baseName = first['displayName']?['text'] ?? query;
+          final baseAddr = first['formattedAddress'] ?? '';
 
           print("ℹ️ placeId 확보: $placeId");
 
-          // 3️⃣ Place Details API 호출
+          LatLng latLng = LatLng(baseLat, baseLng);
+          String title = baseName;
+          String snippet = baseAddr;
+
+          // 3) Details (보완 정보)
           if (placeId.isNotEmpty) {
             final detailsUrl = Uri.parse(
-                'https://places.googleapis.com/v1/places/$placeId'
-                    '?fields=name,formattedAddress,location&languageCode=ko&key=${Env.googleMapsApiKey}');
-            final detailsResponse = await http.get(detailsUrl);
+              'https://places.googleapis.com/v1/places/$placeId'
+                  '?fields=name,formattedAddress,location&languageCode=ko&key=${Env.googleMapsApiKey}',
+            );
+            final detailsRes = await http.get(detailsUrl);
 
-            print("ℹ️ Place Details API status: ${detailsResponse.statusCode}");
-            print("ℹ️ Place Details API body: ${detailsResponse.body}");
+            print("ℹ️ Place Details API status: ${detailsRes.statusCode}");
+            print("ℹ️ Place Details API body: ${detailsRes.body}");
 
-            if (detailsResponse.statusCode == 200) {
-              final detailsData = json.decode(detailsResponse.body);
-
-              final placeName = detailsData['name'] ?? displayName;
-              final placeAddress = detailsData['formattedAddress'] ?? formattedAddress;
-              final latDetail = detailsData['location']?['latitude'] ?? lat;
-              final lngDetail = detailsData['location']?['longitude'] ?? lng;
-
-              if (latDetail != null && lngDetail != null) {
-                final latLng = LatLng(latDetail, lngDetail);
-
-                temporaryMarker = Marker(
-                  markerId: MarkerId('temp_$placeId'),
-                  position: latLng,
-                  infoWindow: InfoWindow(
-                    title: placeName,
-                    snippet: placeAddress,
-                  ),
-                );
-
-                _controller?.animateCamera(
-                  CameraUpdate.newCameraPosition(
-                    CameraPosition(target: latLng, zoom: 20),
-                  ),
-                );
-
-                print("ℹ️ Place Details API 임시 마커 생성: $placeName / $placeAddress (lat=$latDetail, lng=$lngDetail)");
-
-                notifyListeners();
-                return;
-              } else {
-                print("❌ Place Details API geometry 정보 없음 → SearchText API 결과로 임시 마커 생성");
-                temporaryMarker = Marker(
-                  markerId: MarkerId('temp_$placeId'),
-                  position: LatLng(lat, lng),
-                  infoWindow: InfoWindow(
-                    title: displayName,
-                    snippet: formattedAddress,
-                  ),
-                );
-                notifyListeners();
-                return;
+            if (detailsRes.statusCode == 200) {
+              final dd = json.decode(detailsRes.body);
+              title = (dd['name'] as String?)?.split('/').last.isNotEmpty == true
+                  ? (dd['displayName']?['text'] ?? baseName) // 안전하게
+                  : (dd['displayName']?['text'] ?? baseName);
+              // New Places의 name은 "places/{id}" 형태라 표시용 이름은 displayName을 쓰는 편이 안전
+              title = dd['displayName']?['text'] ?? baseName;
+              snippet = dd['formattedAddress'] ?? baseAddr;
+              final dLat = dd['location']?['latitude'];
+              final dLng = dd['location']?['longitude'];
+              if (dLat != null && dLng != null) {
+                latLng = LatLng(dLat, dLng);
               }
             } else {
-              print("❌ Place Details API 실패: ${detailsResponse.statusCode} → SearchText API 결과로 임시 마커 생성");
-              temporaryMarker = Marker(
-                markerId: MarkerId('temp_$placeId'),
-                position: LatLng(lat, lng),
-                infoWindow: InfoWindow(
-                  title: displayName,
-                  snippet: formattedAddress,
-                ),
-              );
-              notifyListeners();
-              return;
+              print("❌ Place Details API 실패 → SearchText 결과로 진행");
             }
           }
-        } else {
-          print("❌ SearchText API 결과 없음");
+
+          // 4) 임시 마커 + 검색 결과 리스트에 동시에 반영 (클러스터 제외)
+          temporaryMarker = Marker(
+            markerId: MarkerId('temp_$placeId'),
+            position: latLng,
+            infoWindow: InfoWindow(title: title, snippet: snippet),
+          );
+
+          // ✅ 리스트에도 넣어줘야 하단 “검색 결과”가 보임
+          // (기존 사용자 필터 결과 뒤에 덧붙임)
+          final searchItem = Marker(
+            markerId: MarkerId('search_$placeId'),
+            position: latLng,
+            infoWindow: InfoWindow(title: title, snippet: snippet),
+          );
+          _searchResults = [..._searchResults, searchItem];
+
+          // 카메라 이동
+          _controller?.animateCamera(
+            CameraUpdate.newCameraPosition(CameraPosition(target: latLng, zoom: 20)),
+          );
+
+          notifyListeners();
+          return;
         }
       } else {
         print("❌ SearchText API 실패: ${placesResponse.statusCode}");
@@ -1321,44 +1304,38 @@ class MapSampleViewModel extends ChangeNotifier {
       print("❌ SearchText / Place Details API 호출 중 에러: $e");
     }
 
-    // 4️⃣ Geocoding fallback
+    // 5) Geocoding fallback (임시 마커 + 리스트에 넣기)
     try {
-      final locations = await geocoding.locationFromAddress(query);
-      if (locations.isNotEmpty) {
-        final location = locations.first;
-        final latLng = LatLng(location.latitude, location.longitude);
+      final locs = await geocoding.locationFromAddress(query);
+      if (locs.isNotEmpty) {
+        final loc = locs.first;
+        final latLng = LatLng(loc.latitude, loc.longitude);
 
         String fallbackAddress = '';
         try {
-          final placemarks = await geocoding.placemarkFromCoordinates(
-            location.latitude,
-            location.longitude,
-          );
+          final placemarks = await geocoding.placemarkFromCoordinates(loc.latitude, loc.longitude);
           if (placemarks.isNotEmpty) {
-            final place = placemarks.first;
-            fallbackAddress =
-                "${place.administrativeArea ?? ''} ${place.locality ?? ''} ${place.street ?? ''}".trim();
+            final p = placemarks.first;
+            fallbackAddress = "${p.administrativeArea ?? ''} ${p.locality ?? ''} ${p.street ?? ''}".trim();
           }
-        } catch (e) {
-          print("Placemark parsing 실패: $e");
-        }
+        } catch (_) {}
 
         temporaryMarker = Marker(
-          markerId: MarkerId('temp_geocoding'),
+          markerId: const MarkerId('temp_geocoding'),
           position: latLng,
-          infoWindow: InfoWindow(
-            title: query,
-            snippet: fallbackAddress,
-          ),
+          infoWindow: InfoWindow(title: query, snippet: fallbackAddress),
         );
+
+        final searchItem = Marker(
+          markerId: const MarkerId('search_geocoding'),
+          position: latLng,
+          infoWindow: InfoWindow(title: query, snippet: fallbackAddress),
+        );
+        _searchResults = [..._searchResults, searchItem];
 
         _controller?.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(target: latLng, zoom: 20),
-          ),
+          CameraUpdate.newCameraPosition(CameraPosition(target: latLng, zoom: 20)),
         );
-
-        print("ℹ️ Geocoding fallback 임시 마커 생성: $query / $fallbackAddress (lat=${latLng.latitude}, lng=${latLng.longitude})");
       }
     } catch (e) {
       print('❌ Geocoding fallback 실패: $e');
