@@ -1175,6 +1175,8 @@ class MapSampleViewModel extends ChangeNotifier {
 
     if (query.isEmpty) {
       _searchResults.clear();
+      temporaryMarker = null; // 🔹 임시 마커 제거
+      print("ℹ️ 검색어 비움 → 임시 마커 제거 및 검색 결과 초기화");
     } else {
       final filteredMarkers = _markers.where((marker) {
         final title = marker.infoWindow.title?.toLowerCase() ?? '';
