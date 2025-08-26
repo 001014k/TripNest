@@ -1141,7 +1141,13 @@ class _MapSampleViewState extends State<MapSampleView> {
                 zoomControlsEnabled: false,
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
-                markers: viewModel.displayMarkers,
+                //markers: viewModel.displayMarkers,
+
+                markers: {
+                  ...viewModel.displayMarkers,
+                  if (viewModel.temporaryMarker != null) viewModel.temporaryMarker!,
+                },
+
                 polylines: {
                   if (viewModel.polygonPoints.length >= 2)
                     Polyline(
