@@ -11,7 +11,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/yourusername/your_flutter_project.git',
+                    url: 'https://github.com/001014k/TripNest.git',
                     credentialsId: 'github-token'
             }
         }
