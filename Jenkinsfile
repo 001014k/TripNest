@@ -3,8 +3,8 @@ pipeline {
 
 
     environment {
-            FLUTTER_HOME = "/Users/gimmyeongjong/flutter/bin/flutter"
-            PATH = "$PATH:$FLUTTER_HOME/bin:$PATH"
+        FLUTTER_HOME = "/Users/gimmyeongjong/flutter" // bin까지 붙이지 말 것
+        PATH = "$FLUTTER_HOME/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
     }
     stages {
         // 1️⃣ 코드 가져오기
