@@ -51,6 +51,10 @@ pipeline {
         stage('iOS Setup') {
             steps {
                 sh '''
+                    # CocoaPods 경로 추가 (macOS 환경에 따라 수정)
+                    export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+
+                    # ios 디렉토리로 이동 후 pod install 실행
                     cd ios
                     pod install
                 '''
