@@ -43,7 +43,7 @@ pipeline {
         // 4️⃣ Android APK 빌드
         stage('Build Android APK') {
             steps {
-                sh 'flutter build apk --release'
+                sh 'flutter build apk --release --target-platform=android-arm64'
             }
         }
 
