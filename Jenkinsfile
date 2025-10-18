@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        FLUTTER_HOME = "/Users/gimmyeongjong/flutter/bin/flutter"
-        PATH = "$PATH:$FLUTTER_HOME/bin:$PATH"
-    }
 
     stages {
         // 1️⃣ 코드 가져오기
