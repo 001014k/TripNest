@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        FLUTTER_HOME = "/Users/gimmyeongjong/flutter"
-        PATH = "/usr/bin:/bin:/usr/sbin:/sbin:$FLUTTER_HOME/bin"
+        FLUTTER_HOME = "/Users/gimmyeongjong/flutter/bin/flutter"
+        PATH = "$PATH:$FLUTTER_HOME/bin:$PATH"
     }
 
     stages {
