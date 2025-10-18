@@ -41,11 +41,11 @@ pipeline {
         }
 
         // 4️⃣ Android APK 빌드
-        stage('Build Android APK') {
+        /* stage('Build Android APK') {
             steps {
                 sh 'flutter build apk --release --target-platform=android-arm64'
             }
-        }
+        } */
 
         // 5️⃣ iOS 빌드 준비
         stage('iOS Setup') {
