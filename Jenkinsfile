@@ -51,12 +51,15 @@ pipeline {
         stage('iOS Setup') {
             steps {
                 sh '''
-                    # CocoaPods 경로 추가 (macOS 환경에 따라 수정)
-                    export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+                    # CocoaPods 설치 확인, 없으면 설치
+                    if ! command -v pod &> /dev/null; then
+                        echo "CocoaPods not found, installing..."
+                        sudo gem install cocoapods
+                    fi
 
-                    # ios 디렉토리로 이동 후 pod install 실행
+                    # ios 디렉토리 이동 후 pod install
                     cd ios
-                    pod install
+                    pod install --repo-update
                 '''
             }
         }
@@ -72,8 +75,9 @@ pipeline {
         stage('Distribute iOS') {
             steps {
                 sh '''
+                    export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
                     cd ios
-                    fastlane beta
+                    bundle exec fastlane beta
                 '''
             }
         }
@@ -90,8 +94,11 @@ pipeline {
     }
 
     post {
+        always {
+            echo '🔹 Pipeline finished'
+        }
         success {
-            echo '✅ Android + iOS build and iOS TestFlight deploy succeeded!'
+            echo '✅ Android + iOS build and TestFlight deploy succeeded!'
         }
         failure {
             echo '❌ Build or deploy failed!'
