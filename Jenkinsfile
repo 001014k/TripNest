@@ -3,7 +3,7 @@ pipeline {
 
 
     environment {
-        FLUTTER_HOME = "/Users/gimmyeongjong/flutter" // bin까지 붙이지 말 것
+        FLUTTER_HOME = "/Users/gimmyeongjong/flutter" //
         PATH = "$FLUTTER_HOME/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
     }
     stages {
@@ -15,6 +15,16 @@ pipeline {
                     credentialsId: 'github-token'
             }
         }
+
+        // ⚡ 환경 확인 스테이지 추가
+            stage('Check Environment') {
+                steps {
+                    sh 'echo $PATH'
+                    sh 'which flutter'
+                    sh 'which sh'
+                    sh 'flutter --version'
+                }
+            }
 
         // 2️⃣ Flutter 의존성 설치
         stage('Dependencies') {
