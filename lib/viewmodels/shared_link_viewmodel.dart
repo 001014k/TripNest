@@ -7,6 +7,7 @@ class SharedLinkViewModel extends ChangeNotifier {
   List<SharedLinkModel> sharedLinks = [];
   String? errorMessage;
   String? _lastSavedUrl;
+
   String detectPlatformFromUrl(String url) {
     final uri = Uri.parse(url);
     final host = uri.host.toLowerCase();
@@ -23,54 +24,74 @@ class SharedLinkViewModel extends ChangeNotifier {
     return '기타';
   }
 
+  // ✅ 공유 링크 저장
   Future<void> saveLink(String url) async {
+    debugPrint('🔹 [saveLink] 호출됨: $url');
     errorMessage = null;
 
-    // ✅ 중복 URL 방지
     if (_lastSavedUrl == url) {
-      debugPrint('중복된 링크입니다. 저장하지 않습니다.');
+      debugPrint('⚠️ [saveLink] 동일한 URL이 이미 방금 저장됨 → 저장 스킵');
       return;
     }
 
     try {
+      debugPrint('🔍 [saveLink] 중복 여부 확인 중...');
       final alreadyExists = await _service.doesLinkExist(url);
       if (alreadyExists) {
-        debugPrint('이미 저장된 링크입니다.');
+        debugPrint('⚠️ [saveLink] 이미 Supabase에 존재하는 URL입니다.');
         return;
       }
 
       final platform = detectPlatformFromUrl(url);
+      debugPrint('🧭 [saveLink] 플랫폼 감지됨: $platform');
 
       await _service.saveSharedLink(url, platform);
+      debugPrint('✅ [saveLink] 링크 저장 성공');
 
-      _lastSavedUrl = url; // ✅ 저장한 URL 기록
-      await loadSharedLinks(); // 저장 후 최신 목록 다시 불러오기
+      _lastSavedUrl = url;
+      await loadSharedLinks();
     } catch (e) {
       errorMessage = '링크 저장 실패: $e';
+      debugPrint('❌ [saveLink] 오류 발생: $e');
     }
 
     notifyListeners();
   }
 
+  // ✅ 공유 링크 불러오기
   Future<void> loadSharedLinks() async {
+    debugPrint('🔹 [loadSharedLinks] 호출됨');
     errorMessage = null;
+
     try {
       sharedLinks = await _service.loadSharedLinks();
+      debugPrint('✅ [loadSharedLinks] 불러온 링크 개수: ${sharedLinks.length}');
+      for (final link in sharedLinks) {
+        debugPrint('   ↳ ${link.platform} | ${link.url}');
+      }
     } catch (e) {
       errorMessage = '공유 링크 불러오기 실패: $e';
       sharedLinks = [];
+      debugPrint('❌ [loadSharedLinks] 오류 발생: $e');
     }
+
     notifyListeners();
   }
 
+  // ✅ 공유 링크 삭제
   Future<void> deleteLink(String id) async {
+    debugPrint('🔹 [deleteLink] 호출됨: id=$id');
     errorMessage = null;
+
     try {
       await _service.deleteSharedLink(id);
-      await loadSharedLinks(); // 삭제 후 목록 갱신
+      debugPrint('✅ [deleteLink] 링크 삭제 성공');
+      await loadSharedLinks();
     } catch (e) {
       errorMessage = '링크 삭제 실패: $e';
+      debugPrint('❌ [deleteLink] 오류 발생: $e');
     }
+
     notifyListeners();
   }
 }
