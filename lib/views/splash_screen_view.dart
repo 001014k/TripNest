@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertrip/views/login_option_view.dart';
-import 'package:fluttertrip/services/user_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'nickname_dialog_view.dart';
 import '../design/app_design.dart'; // 디자인 시스템 import
+import '../main.dart';
+import 'package:provider/provider.dart';
+import '../viewmodels/splash_viewmodel.dart';
 
 class SplashScreenView extends StatefulWidget {
   @override
@@ -12,13 +11,14 @@ class SplashScreenView extends StatefulWidget {
 
 class _SplashScreenViewState extends State<SplashScreenView>
     with TickerProviderStateMixin {
-  bool _isLoading = true;
   late AnimationController _fadeController;
   late AnimationController _scaleController;
   late AnimationController _floatingController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<double> _floatingAnimation;
+  bool _alreadyNavigated = false;
+
 
   @override
   void initState() {
@@ -26,7 +26,9 @@ class _SplashScreenViewState extends State<SplashScreenView>
     _initializeAnimations();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startAnimations();
-      _handleStartupLogic();
+      // 3️⃣ SplashViewModel startSplash 호출
+      final splashVM = context.read<SplashViewModel>();
+      splashVM.startSplash();
     });
   }
 
@@ -77,35 +79,6 @@ class _SplashScreenViewState extends State<SplashScreenView>
     super.dispose();
   }
 
-  Future<void> _handleStartupLogic() async {
-    await Future.delayed(const Duration(seconds: 2));
-    final client = Supabase.instance.client;
-    final session = client.auth.currentSession;
-    final user = session?.user;
-
-    if (!mounted) return;
-
-    if (user != null) {
-      final hasNickname = await UserService().hasNickname(user.id);
-      if (!mounted) return;
-      if (hasNickname) {
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => NicknameSetupPage(userId: user.id),
-          ),
-        );
-      }
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => CombinedLoginView()),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,27 +95,33 @@ class _SplashScreenViewState extends State<SplashScreenView>
             Center(
               child: FadeTransition(
                 opacity: _fadeAnimation,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 로고 섹션
-                    _buildLogoSection(),
+                child: Consumer<SplashViewModel>(
+                  builder: (context, vm, child) {
+                    // 화면 이동 처리
+                    if (!_alreadyNavigated && vm.nextRoute != null) {
+                      _alreadyNavigated = true;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        navigatorKey.currentState?.pushNamedAndRemoveUntil(
+                          vm.nextRoute!,
+                              (route) => false,
+                          arguments: vm.arguments,
+                        );
+                      });
+                    }
 
-                    const SizedBox(height: AppDesign.spacing40),
-
-                    // 브랜드명
-                    _buildBrandName(),
-
-                    const SizedBox(height: AppDesign.spacing16),
-
-                    // 서브타이틀
-                    _buildSubtitle(),
-
-                    const SizedBox(height: AppDesign.spacing80),
-
-                    // 로딩 인디케이터
-                    _buildLoadingIndicator(),
-                  ],
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildLogoSection(),
+                        const SizedBox(height: AppDesign.spacing40),
+                        _buildBrandName(),
+                        const SizedBox(height: AppDesign.spacing16),
+                        _buildSubtitle(),
+                        const SizedBox(height: AppDesign.spacing80),
+                        _buildLoadingIndicator(),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -152,7 +131,7 @@ class _SplashScreenViewState extends State<SplashScreenView>
     );
   }
 
-  Widget _buildBackgroundDecorations() {
+Widget _buildBackgroundDecorations() {
     return Stack(
       children: [
         // 상단 우측 장식
