@@ -1097,13 +1097,26 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
   void initState() {
     super.initState();
     _initializePulseAnimation();
-    print('[Preview] initState 호출, 링크 개수: ${widget.sharedLinks.length}');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensurePreviewDataLoaded();
+    });
+  }
+
+  /// sharedLinks가 늦게 세팅되어도 안전하게 preview 데이터 로드
+  void _ensurePreviewDataLoaded() {
     if (widget.sharedLinks.isNotEmpty) {
       _loadAllPreviewData();
     } else {
-      setState(() {
-        _isLoading = false;
-        print('[Preview] 링크가 없어서 _isLoading=false 설정');
+      // sharedLinks가 나중에 세팅될 수 있으므로 잠깐 지연 후 재시도
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && widget.sharedLinks.isNotEmpty) {
+          _loadAllPreviewData();
+        } else {
+          setState(() {
+            _isLoading = false;
+            print('[Preview] 링크가 없어서 _isLoading=false 설정');
+          });
+        }
       });
     }
   }
