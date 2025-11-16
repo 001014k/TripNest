@@ -2,7 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/user_service.dart';
+import '../viewmodels/list_viewmodel.dart';
 import '../viewmodels/login_option_viewmodel.dart';
+import '../viewmodels/profile_viewmodel.dart';
 import 'email_login_page.dart';
 import '../design/app_design.dart'; // 디자인 시스템 import
 
@@ -26,6 +30,49 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
 
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
+
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      final event = data.event;
+      final session = data.session;
+
+      if (!_navigated && event == AuthChangeEvent.signedIn && session != null) {
+        _navigated = true;
+
+        final userId = session.user.id;
+
+        try {
+          // 1. profiles 테이블에서 nickname 확인
+          final response = await Supabase.instance.client
+              .from('profiles')
+              .select('nickname')
+              .eq('id', userId)
+              .maybeSingle();
+
+          final nickname = response?['nickname'] as String?;
+
+          if (nickname == null || nickname.isEmpty) {
+            // 닉네임 없으면 설정 화면으로
+            Navigator.pushReplacementNamed(
+              context,
+              '/nickname_setup',
+              arguments: userId,
+            );
+          } else {
+            // 닉네임 있으면 데이터 로드 후 홈으로
+            await Future.wait([
+              context.read<ProfileViewModel>().fetchUserStats(userId),
+              context.read<ListViewModel>().loadLists(),
+            ]);
+
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        } catch (e) {
+          debugPrint("Auth 이벤트 처리 실패: $e");
+          // 오류나도 일단 홈으로
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      }
+    });
   }
 
   @override
