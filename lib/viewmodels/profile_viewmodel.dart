@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
 
@@ -55,6 +56,54 @@ class ProfileViewModel extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<bool> deleteAccount() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      // 1. 현재 세션 확인
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) {
+        _errorMessage = "로그인 상태가 아닙니다.";
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // 2. Edge Function 호출 (JWT 헤더 필수!)
+      final response = await Supabase.instance.client.functions.invoke(
+        'delete-account', // ← 함수 이름 (tripnest → delete-account)
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}', // JWT 전달
+        },
+        // body: 생략 → 보안상 userId 직접 전달 금지
+      );
+
+      // 3. 응답 처리
+      if (response.status == 200) {
+        // 성공 → 로그아웃 및 완료
+        await Supabase.instance.client.auth.signOut();
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        // 실패 → 서버에서 보낸 에러 메시지 표시
+        final errorMsg = response.data?.toString() ?? '알 수 없는 오류';
+        _errorMessage = "계정 삭제 실패: $errorMsg";
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      // 네트워크, 파싱 등 예외 처리
+      _errorMessage = "오류 발생: $e";
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
 
