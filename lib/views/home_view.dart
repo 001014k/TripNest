@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertrip/views/shared_link_view.dart';
+import 'package:fluttertrip/views/widgets/address_photo_preview.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/shared_link_model.dart';
@@ -7,6 +8,7 @@ import '../viewmodels/home_viewmodel.dart';
 import '../models/marker_model.dart';
 import '../design/app_design.dart';
 import 'markerdetail_view.dart';
+import '../services/address_to_photo_service.dart';
 
 // ================================
 // 메인 홈 대시보드 뷰
@@ -979,7 +981,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildPremiumMarkerImage(),
+                _buildPremiumMarkerImage(address: marker.address, title: marker.title,),
                 const SizedBox(height: AppDesign.spacing16),
                 _buildMarkerTitle(marker, previewData),
                 const SizedBox(height: AppDesign.spacing8),
@@ -994,6 +996,42 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     );
   }
 
+  Widget _buildPremiumMarkerImage({
+    required String address,
+    String? title,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+      child: Container(
+        height: 120,
+        width: double.infinity, // 또는 300처럼 넓게
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+        ),
+        child: AddressPhotoPreview(
+          address: address,
+          title: title,
+          size: 120, // 높이 120px 고정
+          // 아래로 오버레이 + 그라데이션 살리기
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.6),
+                  Colors.transparent,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /*
   Widget _buildPremiumMarkerImage() {
     return Container(
       height: 120,
@@ -1010,6 +1048,8 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
       ),
     );
   }
+
+   */
 
   Widget _buildMarkerTitle(MarkerModel marker, LinkPreviewData? previewData) {
     return Text(
