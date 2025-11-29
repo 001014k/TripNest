@@ -1108,8 +1108,10 @@ class _MapSampleViewState extends State<MapSampleView> {
                   await viewModel.applyMarkersToCluster(controller);
                   controller.setMapStyle(viewModel.mapStyle);
 
-                  if (viewModel.currentLocation != null) {
-                    controller!.animateCamera(
+                  // 핵심 수정: initialMarkerId가 있으면 내 위치 이동 안 함!
+                  if (widget.initialMarkerId == null && viewModel.currentLocation != null) {
+                    // 처음 앱 켤 때만 내 위치로 이동
+                    controller.animateCamera(
                       CameraUpdate.newCameraPosition(
                         CameraPosition(
                           target: LatLng(viewModel.currentLocation!.latitude!,
