@@ -409,10 +409,6 @@ class MapSampleViewModel extends ChangeNotifier {
       final marker = Marker(
         markerId: markerId,
         position: LatLng(lat, lng),
-        infoWindow: InfoWindow(
-          title: data['title'],
-          snippet: data['snippet'],
-        ),
         icon: markerIcon,
         onTap: () {
           onMarkerTapped(markerId);
