@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:fluttertrip/views/markercreationscreen_view.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +26,7 @@ class MapSampleView extends StatefulWidget {
 class _MapSampleViewState extends State<MapSampleView> {
   late MapSampleViewModel viewModel;
   final ZoomDrawerController zoomDrawerController = ZoomDrawerController();
-  late GoogleMapController _controller;
+  GoogleMapController? _controller; // late를 추가하면 오류가 뜨고 삭제하면 해당 위치에 대한 결과가 뜸
   Map<MarkerId, String> _markerKeywords = {};
   TextEditingController _searchController = TextEditingController();
   bool _isMapInitialized = false;
@@ -1545,16 +1545,40 @@ class _MapSampleViewState extends State<MapSampleView> {
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(
                                       AppDesign.radiusMedium),
-                                  onTap: () {
-                                    _controller?.animateCamera(
-                                      CameraUpdate.newLatLng(marker.position),
-                                    );
+                                  onTap: () async {
+                                    print("검색 결과 클릭 → ${marker.markerId.value}");
+
+                                    final viewModel = context.read<MapSampleViewModel>();
+
+                                    // 이게 핵심! viewModel.controller를 기다림
+                                    if (viewModel.controller == null) {
+                                      print("controller null → 기다리는 중...");
+                                      // 최대 5초 대기 (onMapCreated는 무조건 불림)
+                                      await Future.delayed(const Duration(seconds: 5));
+                                      if (viewModel.controller == null) {
+                                        print("5초 후에도 controller 없음 → 포기");
+                                        return;
+                                      }
+                                    }
+
+                                    try {
+                                      await viewModel.controller!.animateCamera(
+                                        CameraUpdate.newCameraPosition(
+                                          CameraPosition(
+                                            target: marker.position,
+                                            zoom: 17.0,
+                                          ),
+                                        ),
+                                      );
+                                      print("카메라 이동 성공!");
+                                    } catch (e) {
+                                      print("카메라 이동 실패: $e");
+                                    }
+
                                     _showMarkerInfoBottomSheet(
                                       context,
                                       marker,
-                                      (Marker markerToDelete) {
-                                        // 마커 삭제 로직
-                                      },
+                                          (m) => print("삭제 요청: ${m.markerId}"),
                                       keyword ?? '',
                                       selectedListId ?? '',
                                     );
