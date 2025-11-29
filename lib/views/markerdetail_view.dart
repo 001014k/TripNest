@@ -1,6 +1,12 @@
+import 'dart:convert';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertrip/views/widgets/address_photo_preview.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../env.dart';
 import '../viewmodels/markerdetail_viewmodel.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../design/app_design.dart';
@@ -20,11 +26,24 @@ class MarkerDetailView extends StatefulWidget {
 }
 
 class _MarkerDetailPageState extends State<MarkerDetailView> {
-
+  late PageController _pageController;
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
+    _pageController.addListener(() {
+      setState(() {
+        _currentPage = _pageController.page?.round() ?? 0;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   void _showBottomSheet(BuildContext context, MarkerDetailViewModel viewmodel) {
@@ -119,6 +138,8 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
                         children: [
                           _buildPremiumAppBar(context),
                           const SizedBox(height: AppDesign.spacing24),
+                          _buildPremiumMarkerImage(viewmodel),
+                          const SizedBox(height: AppDesign.spacing32),
                           _buildMarkerInfoCard(viewmodel),
                           const SizedBox(height: AppDesign.spacing24),
                           if (viewmodel.address != null)
@@ -391,6 +412,204 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // 이거 하나만 있으면 끝! (새 클래스 만들 필요 없음)
+  Widget _buildPremiumMarkerImage(MarkerDetailViewModel viewmodel) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+      child: Container(
+        height: 360,
+        width: double.infinity,
+        child: FutureBuilder<List<String>>(
+          future: _fetchMultiplePhotos(viewmodel.address ?? '', viewmodel.title),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return _buildPhotoPlaceholder(viewmodel);
+            }
+
+            final photoUrls = snapshot.data!.take(6).toList();
+
+            return Stack(
+              children: [
+                // 핵심: PageView + CachedNetworkImage + Key + precache!
+                PageView.builder(
+                  controller: _pageController,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: photoUrls.length,
+                  itemBuilder: (context, index) {
+                    final url = photoUrls[index];
+
+                    // 이 두 줄이 진짜 핵심!!!
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      precacheImage(CachedNetworkImageProvider(url), context);
+                    });
+
+                    return CachedNetworkImage(
+                      key: ValueKey(url), // 이거 필수!
+                      imageUrl: url,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: 360,
+                      placeholder: (_, __) => Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Colors.white54, strokeWidth: 2),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.broken_image, color: Colors.grey, size: 60),
+                      ),
+                      fadeInDuration: const Duration(milliseconds: 800),
+                      fadeOutDuration: const Duration(milliseconds: 0), // 이거 0으로!
+                    );
+                  },
+                ),
+
+                // 아래 그라데이션 + 제목 + 주소 (기존 그대로)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.9),
+                          Colors.black.withOpacity(0.3),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (viewmodel.title?.isNotEmpty == true)
+                          Text(
+                            viewmodel.title!,
+                            style: AppDesign.headingLarge.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              shadows: [Shadow(blurRadius: 12, color: Colors.black87)],
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, color: Colors.white, size: 20),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                viewmodel.address ?? '주소 불러오는 중...',
+                                style: AppDesign.bodyLarge.copyWith(
+                                  color: Colors.white,
+                                  shadows: [Shadow(blurRadius: 8, color: Colors.black)],
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 페이지 인디케이터
+                if (photoUrls.length > 1)
+                  Positioned(
+                    bottom: 100,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(photoUrls.length, (index) {
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: index == _currentPage ? 28 : 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: index == _currentPage ? Colors.white : Colors.white54,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<List<String>> _fetchMultiplePhotos(String address, String? title) async {
+    if (address.isEmpty) return [];
+
+    String query = title != null && title.isNotEmpty ? '$title $address' : address;
+
+    try {
+      final response = await http.post(
+        Uri.https('places.googleapis.com', '/v1/places:searchText'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': Env.googleMapsApiKey,
+          'X-Goog-FieldMask': 'places.id,places.photos',
+        },
+        body: jsonEncode({"textQuery": query}),
+      );
+
+      if (response.statusCode != 200) return [];
+
+      final data = jsonDecode(response.body);
+      final places = data['places'] as List<dynamic>?;
+
+      if (places == null || places.isEmpty) return [];
+
+      List<String> urls = [];
+      for (var photo in places[0]['photos'] ?? []) {
+        final name = photo['name'];
+        final url = 'https://places.googleapis.com/v1/$name/media'
+            '?key=${Env.googleMapsApiKey}&maxWidthPx=800';
+        urls.add(url);
+        if (urls.length >= 6) break;
+      }
+
+      return urls;
+    } catch (e) {
+      debugPrint('다중 사진 로드 실패: $e');
+      return [];
+    }
+  }
+
+  Widget _buildPhotoPlaceholder(MarkerDetailViewModel vm) {
+    return Container(
+      height: 360,
+      decoration: BoxDecoration(
+        gradient: AppDesign.primaryGradient,
+        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.photo_camera_back, size: 80, color: Colors.white70),
+            SizedBox(height: 16),
+            Text('사진을 찾을 수 없습니다', style: AppDesign.headingMedium.copyWith(color: Colors.white)),
+            Text('하지만 여전히 멋진 장소예요!', style: AppDesign.bodyMedium.copyWith(color: Colors.white70)),
+          ],
         ),
       ),
     );
