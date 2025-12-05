@@ -384,42 +384,25 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppDesign.cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        ),
-        title: Text(
-          '계정 탈퇴',
-          style: AppDesign.headingMedium,
-        ),
-        content: Text(
-          '정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDesign.radiusMedium)),
+        title: Text('계정 영구 삭제', style: AppDesign.headingMedium),
+        content: const Text(
+          '정말로 계정을 삭제하시겠습니까?\n\n'
+              '• 모든 마커, 리스트, 알림이 사라집니다\n'
+              '• 친구 관계도 자동 해제됩니다\n'
+              '• 이 작업은 되돌릴 수 없습니다',
           style: AppDesign.bodyLarge,
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              '취소',
-              style: AppDesign.bodyMedium.copyWith(
-                color: AppDesign.secondaryText,
-              ),
-            ),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.red.shade400, Colors.red.shade600],
-              ),
+              gradient: LinearGradient(colors: [Colors.red.shade400, Colors.red.shade600]),
               borderRadius: BorderRadius.circular(AppDesign.spacing8),
             ),
             child: TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(
-                '삭제',
-                style: AppDesign.bodyMedium.copyWith(
-                  color: AppDesign.whiteText,
-                ),
-              ),
+              child: Text('삭제', style: AppDesign.bodyMedium.copyWith(color: Colors.white)),
             ),
           ),
         ],
@@ -428,32 +411,45 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (confirm != true) return;
 
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        await Supabase.instance.client.auth.admin.deleteUser(user.id);
+    // 로딩 다이얼로그
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(strokeWidth: 3)),
+    );
 
-        if (!mounted) return;
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/login_option',
-              (route) => false,
-        );
-      }
-    } catch (e) {
-      debugPrint('계정 탈퇴 실패: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('계정 탈퇴에 실패했습니다. 다시 시도해주세요.'),
-          backgroundColor: Colors.red.shade400,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppDesign.spacing8),
-          ),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(AppDesign.spacing16),
-        ),
-      );
+    final viewModel = context.read<ProfileViewModel>();
+    final success = await viewModel.deleteAccount();
+
+    // 로딩 다이얼로그 닫기
+    if (context.mounted) {
+      Navigator.of(context).pop(); // 로딩 닫기
     }
+
+    // 여기서부터 context.mounted 무조건 체크!
+    if (!context.mounted) return;
+
+    if (success) {
+      // 성공 → 바로 로그인 화면으로 이동 (스낵바는 로그인 화면에서!)
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login_option',
+            (route) => false,
+        arguments: {'showDeletedMessage': true},
+      );
+      return; // 여기서 함수 종료 → 아래 스낵바 안 띄움
+    }
+
+    // 실패일 때만 여기서 스낵바 띄움 (화면 살아있음!)
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(viewModel.errorMessage ?? '계정 탈퇴에 실패했습니다.'),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(AppDesign.spacing16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDesign.spacing8)),
+      ),
+    );
   }
 
   Future<void> _handleLogout(BuildContext context) async {
