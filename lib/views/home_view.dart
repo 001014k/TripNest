@@ -8,7 +8,6 @@ import '../viewmodels/home_viewmodel.dart';
 import '../models/marker_model.dart';
 import '../design/app_design.dart';
 import 'markerdetail_view.dart';
-import '../services/address_to_photo_service.dart';
 
 // ================================
 // 메인 홈 대시보드 뷰
@@ -1030,26 +1029,6 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
       ),
     );
   }
-
-  /*
-  Widget _buildPremiumMarkerImage() {
-    return Container(
-      height: 120,
-      decoration: BoxDecoration(
-        gradient: AppDesign.primaryGradient,
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.place,
-          color: Colors.white,
-          size: 40,
-        ),
-      ),
-    );
-  }
-
-   */
 
   Widget _buildMarkerTitle(MarkerModel marker, LinkPreviewData? previewData) {
     return Text(
