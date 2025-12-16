@@ -734,7 +734,7 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
 
                 if (photoUrls.length > 1)
                   Positioned(
-                    bottom: 110,
+                    bottom: 20,
                     left: 0,
                     right: 0,
                     child: Row(
