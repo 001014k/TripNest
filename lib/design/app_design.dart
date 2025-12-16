@@ -29,6 +29,7 @@ class AppDesign {
 
   // 간격 시스템
   static const double spacing4 = 4;
+  static const double spacing6 = 6;
   static const double spacing8 = 8;
   static const double spacing10 = 10;
   static const double spacing12 = 12;
