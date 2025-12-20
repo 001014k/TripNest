@@ -38,22 +38,22 @@ class MarkerDetailViewModel extends ChangeNotifier {
     return [
       {
         'platform': '네이버',
-        'icon': 'assets/logos/naver.png',
+        //'icon': 'assets/logos/naver.png',
         'url': 'https://search.naver.com/search.naver?query=$encoded',
       },
       {
         'platform': '다음',
-        'icon': 'assets/logos/daum.png',
+        //'icon': 'assets/logos/daum.png',
         'url': 'https://search.daum.net/search?q=$encoded',
       },
       {
         'platform': '구글',
-        'icon': 'assets/logos/google.png',
+        //'icon': 'assets/logos/google.png',
         'url': 'https://www.google.com/search?q=$encoded',
       },
       {
         'platform': '인스타그램',
-        'icon': 'assets/logos/instagram.png', // 로고 추가 필요
+        //'icon': 'assets/logos/instagram.png', // 로고 추가 필요
         'url': 'https://www.instagram.com/explore/tags/$encoded/',
       },
     ];
