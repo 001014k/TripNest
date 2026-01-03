@@ -1146,13 +1146,17 @@ class _MapSampleViewState extends State<MapSampleView> {
                 //markers: viewModel.displayMarkers,
 
                 markers: {
+                  // 1. 기존 사용자 마커들 (클러스터 등)
                   ...viewModel.displayMarkers,
+
+                  // 2. 검색 결과 마커들 전체 추가 ← 이게 핵심!!
+                  ...viewModel.searchResults,
+
+                  // 3. 임시 마커 (첫 번째 결과 강조용, 선택사항)
                   if (viewModel.temporaryMarker != null)
                     viewModel.temporaryMarker!.copyWith(
                       onTapParam: () {
-                        // 임시 마커 위치 가져오기
                         final LatLng latLng = viewModel.temporaryMarker!.position;
-                        // ✅ 기존 onMapTapped 호출
                         _onMapTapped(context, latLng);
                       },
                     ),
@@ -1243,12 +1247,21 @@ class _MapSampleViewState extends State<MapSampleView> {
                           style: AppDesign.bodyMedium.copyWith(
                             color: AppDesign.primaryText,
                           ),
-                          onSubmitted: context
-                              .read<MapSampleViewModel>()
-                              .onSearchSubmitted,
-                          onChanged: context
-                              .read<MapSampleViewModel>()
-                              .updateSearchResults,
+                          onSubmitted: (value) {
+                            context.read<MapSampleViewModel>().onSearchSubmitted(value);
+                          },
+                          onChanged: (value) {
+                            final viewModel = context.read<MapSampleViewModel>();
+
+                            if (value.trim().isEmpty) {
+                              // 검색 텍스트가 비었을 때 → 검색 결과 초기화
+                              viewModel.clearSearchResults();        // _searchResults = []
+                              viewModel.temporaryMarker = null;      // 임시 마커 제거
+                            } else {
+                              // 기존 실시간 업데이트 로직 (있으면 유지)
+                              viewModel.updateSearchResults(value);
+                            }
+                          },
                         ),
                       ),
                       IconButton(
@@ -1455,57 +1468,47 @@ class _MapSampleViewState extends State<MapSampleView> {
             ),
           ),
           // 검색 결과 바텀시트 - 리디자인
-          if (searchResults.isNotEmpty) ...[
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Dismissible(
-                key: ValueKey(
-                    'searchResultsBottomSheet_${searchResults.length}'),
-                direction: DismissDirection.down,
-                onDismissed: (direction) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    context.read<MapSampleViewModel>().clearSearchResults();
-                  });
-                },
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.4,
-                  ),
+          if (viewModel.searchResults.isNotEmpty) ...[
+            DraggableScrollableSheet(
+              initialChildSize: 0.4,
+              minChildSize: 0.0,
+              maxChildSize: 0.6,
+              snap: true,
+              snapSizes: [0.0, 0.4],
+              builder: (context, scrollController) {
+                return Container(
                   decoration: BoxDecoration(
                     gradient: AppDesign.backgroundGradient,
-                    borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(AppDesign.radiusLarge)),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(AppDesign.radiusLarge)),
                     boxShadow: AppDesign.elevatedShadow,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                  child: ListView(
+                    controller: scrollController,
+                    padding: EdgeInsets.zero,
                     children: [
-                      Container(
-                        width: 50,
-                        height: 5,
-                        margin:
-                            EdgeInsets.symmetric(vertical: AppDesign.spacing12),
-                        decoration: BoxDecoration(
-                          color: AppDesign.borderColor,
-                          borderRadius: BorderRadius.circular(10),
+                      // 드래그 핸들
+                      Center(
+                        child: Container(
+                          width: 50,
+                          height: 5,
+                          margin: EdgeInsets.symmetric(vertical: AppDesign.spacing12),
+                          decoration: BoxDecoration(
+                            color: AppDesign.borderColor,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
+                      // 헤더
                       Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: AppDesign.spacing20),
+                        padding: EdgeInsets.symmetric(horizontal: AppDesign.spacing20),
                         child: Row(
                           children: [
                             Icon(Icons.search, color: AppDesign.travelBlue),
                             SizedBox(width: AppDesign.spacing8),
-                            Text(
-                              '검색 결과',
-                              style: AppDesign.headingSmall,
-                            ),
+                            Text('검색 결과', style: AppDesign.headingSmall),
                             Spacer(),
                             Text(
-                              '${searchResults.length}개',
+                              '${viewModel.searchResults.length}개',
                               style: AppDesign.caption.copyWith(
                                 color: AppDesign.travelBlue,
                                 fontWeight: FontWeight.w600,
@@ -1515,170 +1518,142 @@ class _MapSampleViewState extends State<MapSampleView> {
                         ),
                       ),
                       SizedBox(height: AppDesign.spacing12),
-                      Expanded(
-                        child: ListView.separated(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: AppDesign.spacing16),
-                          shrinkWrap: true,
-                          itemCount: context
-                              .watch<MapSampleViewModel>()
-                              .searchResults
-                              .length,
-                          separatorBuilder: (context, index) =>
-                              SizedBox(height: AppDesign.spacing8),
-                          itemBuilder: (context, index) {
-                            final marker = context
-                                .watch<MapSampleViewModel>()
-                                .searchResults[index];
-                            final keyword = _markerKeywords[marker.markerId];
-                            final icon = context
-                                .watch<MapSampleViewModel>()
-                                .keywordIcons[keyword];
+                      // 검색 결과 리스트
+                      ListView.separated(
+                        padding: EdgeInsets.symmetric(horizontal: AppDesign.spacing16),
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        itemCount: viewModel.searchResults.length,
+                        separatorBuilder: (context, index) => SizedBox(height: AppDesign.spacing8),
+                        itemBuilder: (context, index) {
+                          final marker = viewModel.searchResults[index];
+                          final keyword = _markerKeywords[marker.markerId];
+                          final icon = viewModel.keywordIcons[keyword];
 
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: AppDesign.cardBg,
-                                borderRadius: BorderRadius.circular(
-                                    AppDesign.radiusMedium),
-                                boxShadow: AppDesign.softShadow,
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(
-                                      AppDesign.radiusMedium),
-                                  onTap: () async {
-                                    print("검색 결과 클릭 → ${marker.markerId.value}");
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: AppDesign.cardBg,
+                              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                              boxShadow: AppDesign.softShadow,
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                onTap: () async {
+                                  print("검색 결과 클릭 → ${marker.markerId.value}");
 
-                                    final viewModel = context.read<MapSampleViewModel>();
+                                  final viewModel = context.read<MapSampleViewModel>();
 
-                                    // 이게 핵심! viewModel.controller를 기다림
+                                  // 컨트롤러 대기
+                                  if (viewModel.controller == null) {
+                                    print("controller null → 기다리는 중...");
+                                    await Future.delayed(const Duration(seconds: 5));
                                     if (viewModel.controller == null) {
-                                      print("controller null → 기다리는 중...");
-                                      // 최대 5초 대기 (onMapCreated는 무조건 불림)
-                                      await Future.delayed(const Duration(seconds: 5));
-                                      if (viewModel.controller == null) {
-                                        print("5초 후에도 controller 없음 → 포기");
-                                        return;
-                                      }
+                                      print("5초 후에도 controller 없음 → 포기");
+                                      return;
                                     }
+                                  }
 
-                                    try {
-                                      await viewModel.controller!.animateCamera(
-                                        CameraUpdate.newCameraPosition(
-                                          CameraPosition(
-                                            target: marker.position,
-                                            zoom: 17.0,
-                                          ),
+                                  try {
+                                    await viewModel.controller!.animateCamera(
+                                      CameraUpdate.newCameraPosition(
+                                        CameraPosition(
+                                          target: marker.position,
+                                          zoom: 17.0,
                                         ),
-                                      );
-                                      print("카메라 이동 성공!");
-                                    } catch (e) {
-                                      print("카메라 이동 실패: $e");
-                                    }
-
-                                    _showMarkerInfoBottomSheet(
-                                      context,
-                                      marker,
-                                          (m) => print("삭제 요청: ${m.markerId}"),
-                                      keyword ?? '',
-                                      selectedListId ?? '',
+                                      ),
                                     );
-                                  },
-                                  child: Padding(
-                                    padding:
-                                        EdgeInsets.all(AppDesign.spacing16),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: EdgeInsets.all(
-                                              AppDesign.spacing8),
-                                          decoration: BoxDecoration(
-                                            gradient: AppDesign.sunsetGradient,
-                                            borderRadius: BorderRadius.circular(
-                                                AppDesign.radiusSmall),
-                                          ),
-                                          child: Icon(
-                                            Icons.location_on_rounded,
-                                            color: AppDesign.whiteText,
-                                            size: 20,
-                                          ),
+                                    print("카메라 이동 성공!");
+                                  } catch (e) {
+                                    print("카메라 이동 실패: $e");
+                                  }
+
+                                  // 마커 상세 바텀시트 호출
+                                  _showMarkerInfoBottomSheet(
+                                    context,
+                                    marker,
+                                        (m) => print("삭제 요청: ${m.markerId}"),
+                                    keyword ?? '',
+                                    selectedListId ?? '',
+                                  );
+                                },
+                                child: Padding(
+                                  padding: EdgeInsets.all(AppDesign.spacing16),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(AppDesign.spacing8),
+                                        decoration: BoxDecoration(
+                                          gradient: AppDesign.sunsetGradient,
+                                          borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
                                         ),
-                                        SizedBox(width: AppDesign.spacing12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
+                                        child: Icon(
+                                          Icons.location_on_rounded,
+                                          color: AppDesign.whiteText,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      SizedBox(width: AppDesign.spacing12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              marker.infoWindow.title ?? 'Untitled',
+                                              style: AppDesign.bodyMedium.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            if (marker.infoWindow.snippet != null)
                                               Text(
-                                                marker.infoWindow.title ??
-                                                    'Untitled',
-                                                style: AppDesign.bodyMedium
-                                                    .copyWith(
+                                                marker.infoWindow.snippet!,
+                                                style: AppDesign.caption,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (keyword != null && keyword.isNotEmpty)
+                                        Container(
+                                          margin: EdgeInsets.only(left: AppDesign.spacing8),
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: AppDesign.spacing12,
+                                            vertical: AppDesign.spacing8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppDesign.travelBlue.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(icon, color: AppDesign.travelBlue, size: 16),
+                                              SizedBox(width: AppDesign.spacing4),
+                                              Text(
+                                                keyword,
+                                                style: AppDesign.caption.copyWith(
+                                                  color: AppDesign.travelBlue,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
-                                              if (marker.infoWindow.snippet !=
-                                                  null)
-                                                Text(
-                                                  marker.infoWindow.snippet!,
-                                                  style: AppDesign.caption,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
                                             ],
                                           ),
                                         ),
-                                        if (keyword != null &&
-                                            keyword.isNotEmpty)
-                                          Container(
-                                            margin: EdgeInsets.only(
-                                                left: AppDesign.spacing8),
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: AppDesign.spacing12,
-                                              vertical: AppDesign.spacing8,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppDesign.travelBlue
-                                                  .withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                      AppDesign.radiusXL),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(icon,
-                                                    color: AppDesign.travelBlue,
-                                                    size: 16),
-                                                SizedBox(
-                                                    width: AppDesign.spacing4),
-                                                Text(
-                                                  keyword,
-                                                  style: AppDesign.caption
-                                                      .copyWith(
-                                                    color: AppDesign.travelBlue,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
+                                    ],
                                   ),
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        },
                       ),
                       SizedBox(height: AppDesign.spacing16),
                     ],
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ],
         ],
