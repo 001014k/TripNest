@@ -1287,7 +1287,7 @@ class MapSampleViewModel extends ChangeNotifier {
           int addedCount = 0;
 
           for (var place in uniquePlaces.values) {
-            if (addedCount >= 10) break;
+            if (addedCount >= 10) break; // 검색결과 10개 이하 갯수 수정하면 그에 따른 검색 결과 갯수 변경
 
             final title = place['displayName']?['text'] ?? originalQuery;
             final addr = place['formattedAddress'] ?? '';
@@ -1315,6 +1315,31 @@ class MapSampleViewModel extends ChangeNotifier {
                 ),
               );
             }
+          }
+
+          // 모든 마커를 화면에 딱 맞게 자동 줌
+          if (newSearchMarkers.isNotEmpty) {
+            final List<LatLng> markerPositions = newSearchMarkers.map((m) => m.position).toList();
+
+            LatLng southwest = markerPositions.reduce((a, b) => LatLng(
+              a.latitude < b.latitude ? a.latitude : b.latitude,
+              a.longitude < b.longitude ? a.longitude : b.longitude,
+            ));
+            LatLng northeast = markerPositions.reduce((a, b) => LatLng(
+              a.latitude > b.latitude ? a.latitude : b.latitude,
+              a.longitude > b.longitude ? a.longitude : b.longitude,
+            ));
+
+            final LatLngBounds bounds = LatLngBounds(southwest: southwest, northeast: northeast);
+
+            temporaryMarker = newSearchMarkers.first.copyWith(infoWindowParam: InfoWindow.noText);
+
+            _controller?.animateCamera(
+              CameraUpdate.newLatLngBounds(bounds, 100.0),
+              // 100.0 -> 마커가 홤녀 끝에서 100px 떨어짐(추천)
+              // 50.0 -> 더 꽉 채움
+              // 150.0 -> 너 넓은 여유
+            );
           }
 
           _searchResults = [..._searchResults, ...newSearchMarkers];
