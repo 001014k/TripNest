@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/user_service.dart';
 import '../viewmodels/list_viewmodel.dart';
 import '../viewmodels/login_option_viewmodel.dart';
 import '../viewmodels/profile_viewmodel.dart';
@@ -81,6 +80,26 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // 첫 진입이고 플래그 있으면 스낵바 띄우기
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args?['showDeletedMessage'] == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('계정이 삭제되었습니다. 이용해 주셔서 감사합니다!'),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      });
+    }
   }
 
   @override
