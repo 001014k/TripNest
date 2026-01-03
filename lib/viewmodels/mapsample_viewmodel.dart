@@ -73,11 +73,6 @@ class MapSampleViewModel extends ChangeNotifier {
 
   List<Marker> get searchResults => _searchResults;
 
-  void clearSearchResults() {
-    searchResults.clear();
-    notifyListeners();
-  }
-
   String? _selectedListId;
 
   String? get selectedListId => _selectedListId;
@@ -155,6 +150,12 @@ class MapSampleViewModel extends ChangeNotifier {
   };
 
   bool _isDisposed = false;
+
+  void clearSearchResults() {
+    _searchResults.clear();
+    temporaryMarker = null;
+    notifyListeners();
+  }
 
   @override
   void dispose() {
@@ -903,6 +904,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
   void onCameraMove(CameraPosition position) {
     currentZoom = position.zoom;
+    _currentCameraPosition = position;
     notifyListeners();
   }
 
@@ -1194,157 +1196,145 @@ class MapSampleViewModel extends ChangeNotifier {
 
     notifyListeners();
   }
+  // 실시간 지도 중심 위치 저장용 변수 추가
+  CameraPosition _currentCameraPosition = const CameraPosition(
+    target: LatLng(37.5665, 126.9780), // 초기값: 서울 (fallback)
+    zoom: 15,
+  );
+
+  CameraPosition get currentCameraPosition => _currentCameraPosition;
+
 
   Future<void> onSearchSubmitted(String query) async {
     if (query.trim().isEmpty) {
       _searchResults = [];
       temporaryMarker = null;
       notifyListeners();
-      print("ℹ️ 검색어가 비어 있음 → _searchResults와 임시 마커 초기화");
       return;
     }
 
-    // 1) 기존 사용자 마커 필터 (있으면 결과 리스트에 먼저 반영)
+    final originalQuery = query.trim();
+
+    // 기존 사용자 마커 부분 검색 유지
     final filteredMarkers = _markers.where((m) {
-      final t = m.infoWindow.title?.toLowerCase() ?? '';
-      return t.contains(query.toLowerCase());
+      final title = m.infoWindow.title?.toLowerCase() ?? '';
+      return title.contains(originalQuery.toLowerCase());
     }).toList();
     _searchResults = {for (var m in filteredMarkers) m.markerId: m}.values.toList();
-    print("ℹ️ 사용자 마커 필터링 완료: ${_searchResults.length}개");
 
     try {
-      // 2) SearchText
-      final placesUrl = Uri.parse('https://places.googleapis.com/v1/places:searchText?&key=${Env.googleMapsApiKey}');
-      final requestBody = json.encode({"textQuery": query, "languageCode": "ko"});
+      // 현재 화면 중심 좌표 (사용자가 이동한 위치 기준!)
+      double centerLat = _currentCameraPosition.target.latitude;
+      double centerLng = _currentCameraPosition.target.longitude;
+
+      if (centerLat == 37.5665 && centerLng == 126.9780 && _currentLocation != null) {
+        centerLat = _currentLocation!.latitude;
+        centerLng = _currentLocation!.longitude;
+      }
+
+      final placesUrl = Uri.parse(
+          'https://places.googleapis.com/v1/places:searchText?key=${Env.googleMapsApiKey}');
+
+      final requestBody = json.encode({
+        "textQuery": originalQuery,
+        "languageCode": "ko",
+        "maxResultCount": 20,
+        "rankPreference": "DISTANCE",
+        "locationBias": {
+          "circle": {
+            "center": {"latitude": centerLat, "longitude": centerLng},
+            "radius": 5000.0, // 전 세계
+          }
+        }
+      });
+
+      print("🔍 Places API 호출 시작: '$originalQuery' | 중심: ($centerLat, $centerLng)");
 
       final placesResponse = await http.post(
         placesUrl,
         headers: {
           'Content-Type': 'application/json',
-          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.id',
+          'X-Goog-FieldMask':
+          'places.id,places.displayName,places.formattedAddress,places.location',
         },
         body: requestBody,
       );
 
-      print("ℹ️ SearchText API status: ${placesResponse.statusCode}");
-      print("ℹ️ SearchText API body: ${placesResponse.body}");
+      print("ℹ️ Places API 응답 코드: ${placesResponse.statusCode}");
 
       if (placesResponse.statusCode == 200) {
         final data = json.decode(placesResponse.body);
         final list = (data['places'] as List?) ?? [];
-        if (list.isEmpty) {
-          print("❌ SearchText API 결과 없음");
-        } else {
-          final first = list.first;
-          final placeId = first['id'] ?? '';
-          final baseLat = first['location']['latitude'];
-          final baseLng = first['location']['longitude'];
-          final baseName = first['displayName']?['text'] ?? query;
-          final baseAddr = first['formattedAddress'] ?? '';
 
-          print("ℹ️ placeId 확보: $placeId");
+        print("ℹ️ Places API 결과 수: ${list.length}개");
 
-          LatLng latLng = LatLng(baseLat, baseLng);
-          String title = baseName;
-          String snippet = baseAddr;
+        if (list.isNotEmpty) {
+          // 중복 제거 및 마커 생성 (기존 코드 그대로)
+          final Map<String, Map<String, dynamic>> uniquePlaces = {};
 
-          // 3) Details (보완 정보)
-          if (placeId.isNotEmpty) {
-            final detailsUrl = Uri.parse(
-              'https://places.googleapis.com/v1/places/$placeId'
-                  '?fields=name,formattedAddress,location&languageCode=ko&key=${Env.googleMapsApiKey}',
-            );
-            final detailsRes = await http.get(detailsUrl);
-
-            print("ℹ️ Place Details API status: ${detailsRes.statusCode}");
-            print("ℹ️ Place Details API body: ${detailsRes.body}");
-
-            if (detailsRes.statusCode == 200) {
-              final dd = json.decode(detailsRes.body);
-              title = (dd['name'] as String?)?.split('/').last.isNotEmpty == true
-                  ? (dd['displayName']?['text'] ?? baseName) // 안전하게
-                  : (dd['displayName']?['text'] ?? baseName);
-              // New Places의 name은 "places/{id}" 형태라 표시용 이름은 displayName을 쓰는 편이 안전
-              title = dd['displayName']?['text'] ?? baseName;
-              snippet = dd['formattedAddress'] ?? baseAddr;
-              final dLat = dd['location']?['latitude'];
-              final dLng = dd['location']?['longitude'];
-              if (dLat != null && dLng != null) {
-                latLng = LatLng(dLat, dLng);
+          for (var place in list) {
+            final latStr = place['location']?['latitude']?.toStringAsFixed(6);
+            final lngStr = place['location']?['longitude']?.toStringAsFixed(6);
+            if (latStr != null && lngStr != null) {
+              final key = '$latStr,$lngStr';
+              if (!uniquePlaces.containsKey(key)) {
+                uniquePlaces[key] = place;
               }
-            } else {
-              print("❌ Place Details API 실패 → SearchText 결과로 진행");
             }
           }
 
-          // 4) 임시 마커 + 검색 결과 리스트에 동시에 반영 (클러스터 제외)
-          temporaryMarker = Marker(
-            markerId: MarkerId('temp_$placeId'),
-            position: latLng,
-            infoWindow: InfoWindow.noText,
-          );
+          final newSearchMarkers = <Marker>[];
+          int addedCount = 0;
 
-          // ✅ 리스트에도 넣어줘야 하단 “검색 결과”가 보임
-          // (기존 사용자 필터 결과 뒤에 덧붙임)
-          final searchItem = Marker(
-            markerId: MarkerId('search_$placeId'),
-            position: latLng,
-            infoWindow: InfoWindow(title: title, snippet: snippet),
-          );
-          _searchResults = [..._searchResults, searchItem];
+          for (var place in uniquePlaces.values) {
+            if (addedCount >= 10) break;
 
-          // 카메라 이동
-          _controller?.animateCamera(
-            CameraUpdate.newCameraPosition(CameraPosition(target: latLng, zoom: 20)),
-          );
+            final title = place['displayName']?['text'] ?? originalQuery;
+            final addr = place['formattedAddress'] ?? '';
+            final lat = place['location']?['latitude'];
+            final lng = place['location']?['longitude'];
+            final placeId = place['id'] ?? 'result_$addedCount';
 
+            final latLng = LatLng(lat!, lng!);
+
+            final marker = Marker(
+              markerId: MarkerId('search_$placeId'),
+              position: latLng,
+              infoWindow: InfoWindow(title: title, snippet: addr),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+            );
+
+            newSearchMarkers.add(marker);
+            addedCount++;
+
+            if (addedCount == 1) {
+              temporaryMarker = marker.copyWith(infoWindowParam: InfoWindow.noText);
+              _controller?.animateCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(target: latLng, zoom: 8),
+                ),
+              );
+            }
+          }
+
+          _searchResults = [..._searchResults, ...newSearchMarkers];
+          print("✅ 검색 성공: $addedCount개 결과 표시");
           notifyListeners();
           return;
+        } else {
+          print("ℹ️ '$originalQuery'에 해당하는 결과가 없습니다.");
         }
       } else {
-        print("❌ SearchText API 실패: ${placesResponse.statusCode}");
+        print("❌ Places API HTTP 오류: ${placesResponse.statusCode} ${placesResponse.body}");
       }
-    } catch (e) {
-      print("❌ SearchText / Place Details API 호출 중 에러: $e");
+    } catch (e, stack) {
+      print("❌ Places API 호출 중 예외 발생: $e");
+      print(stack);
     }
 
-    // 5) Geocoding fallback (임시 마커 + 리스트에 넣기)
-    try {
-      final locs = await geocoding.locationFromAddress(query);
-      if (locs.isNotEmpty) {
-        final loc = locs.first;
-        final latLng = LatLng(loc.latitude, loc.longitude);
-
-        String fallbackAddress = '';
-        try {
-          final placemarks = await geocoding.placemarkFromCoordinates(loc.latitude, loc.longitude);
-          if (placemarks.isNotEmpty) {
-            final p = placemarks.first;
-            fallbackAddress = "${p.administrativeArea ?? ''} ${p.locality ?? ''} ${p.street ?? ''}".trim();
-          }
-        } catch (_) {}
-
-        temporaryMarker = Marker(
-          markerId: const MarkerId('temp_geocoding'),
-          position: latLng,
-          infoWindow: InfoWindow(title: query, snippet: fallbackAddress),
-        );
-
-        final searchItem = Marker(
-          markerId: const MarkerId('search_geocoding'),
-          position: latLng,
-          infoWindow: InfoWindow(title: query, snippet: fallbackAddress),
-        );
-        _searchResults = [..._searchResults, searchItem];
-
-        _controller?.animateCamera(
-          CameraUpdate.newCameraPosition(CameraPosition(target: latLng, zoom: 20)),
-        );
-      }
-    } catch (e) {
-      print('❌ Geocoding fallback 실패: $e');
-    }
-
+    // Geocoding fallback 완전 제거 → 카테고리 검색에선 불필요
+    // 결과 없으면 그냥 "결과 없음"으로 자연스럽게 처리
+    _searchResults = [..._searchResults]; // 기존 사용자 마커만 유지
     notifyListeners();
   }
 }
