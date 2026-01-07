@@ -19,13 +19,13 @@
 - CI/CD: Jenkins 파이프라인으로 자동 빌드/배포 구축 완료
   
 ## 주요 기능
-- 지도 위 마커 추가, 수정, 삭제
-- 키워드 필터링 및 클러스터링 기능  
-- 소셜 로그인(Google, Kakao) 및 이메일 로그인 지원  
-- 개인 리스트 및 협업 리스트 관리  
-- 실시간 데이터 동기화
-- 공유 링크를 앱에다가 저장
-- 각 마커에 대한 길찾기 기능
+- Google Maps 연동 + 마커 추가·수정·삭제
+- 마커 클러스터링 및 키워드 기반 필터링
+- 소셜 로그인 (Google, Kakao) + 이메일 로그인
+- 개인 리스트 및 실시간 협업 리스트 관리 (Supabase)
+- 외부 공유 링크 저장 기능
+- 선택한 마커 → Google Maps / Kakao Map / Naver Map.. 등 길찾기 연동
+- (개발 중) Gemini AI 기반 맞춤 여행지 추천 기능
 
 ---
 
@@ -52,9 +52,13 @@
 ## 🛠️ 사용 기술 (Languages & Frameworks)
 
 <p>
-  <img src="https://img.shields.io/badge/Dart-0175C2?style=flat&logo=dart&logoColor=white" alt="Dart" />
   <img src="https://img.shields.io/badge/Flutter-02569B?style=flat&logo=flutter&logoColor=white" alt="Flutter" />
+  <img src="https://img.shields.io/badge/Dart-0175C2?style=flat&logo=dart&logoColor=white" alt="Dart" />
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Google_Maps-4285F4?style=flat&logo=google-maps&logoColor=white" alt="Google Maps" />
+  <img src="https://img.shields.io/badge/Kakao-FFCD00?style=flat&logo=kakao&logoColor=black" alt="Kakao" />
+  <img src="https://img.shields.io/badge/Jenkins-D24939?style=flat&logo=jenkins&logoColor=white" alt="Jenkins" />
+  <img src="https://img.shields.io/badge/Gemini_AI-8B4BF8?style=flat&logo=google&logoColor=white" alt="Gemini" />
 </p>
 
 ---
