@@ -136,16 +136,16 @@
 ---
 
 ### 🔧 프로젝트 구조 (MVVM 아키텍처)
-
+```tree
 TripNest/
 ├── lib/
 │   ├── main.dart                  → 앱 엔트리 포인트
-│   ├── design/                    → 공통 디자인 시스템 (색상, 테마, 위젯 등)
-│   ├── models/                    → 데이터 모델 정의 (e.g., MarkerModel, ListModel 등)
-│   ├── services/                  → 외부 API 및 데이터 처리 (Supabase 서비스, 지도 API 등)
-│   ├── viewmodels/                → MVVM의 ViewModel (비즈니스 로직 및 상태 관리)
-│   └── views/                     → UI 화면 구성 (페이지 및 위젯)
-├── assets/                        → 이미지, 아이콘, 폰트 등 리소스 파일
+│   ├── design/                    → 공통 테마, 색상, 재사용 위젯, 디자인 시스템
+│   ├── models/                    → 데이터 모델 (Marker, TripList, User 등)
+│   ├── services/                  → Supabase, 지도 API, 인증 등 외부 연동
+│   ├── viewmodels/                → 비즈니스 로직 및 상태 관리
+│   └── views/                     → 모든 UI 화면 및 위젯
+├── assets/                        → 이미지, 아이콘, 폰트
 ├── android/                       → Android 네이티브 설정
 ├── ios/                           → iOS 네이티브 설정
 ├── test/                          → 유닛/위젯 테스트
