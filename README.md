@@ -72,7 +72,4 @@
 
 ### 📲 직접 실행해보기
 ```bash
-git clone https://github.com/001014k/TripNest.git
-cd TripNest
-flutter pub get
-flutter run
+https://testflight.apple.com/join/wP415NqW
