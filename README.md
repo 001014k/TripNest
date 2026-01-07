@@ -56,7 +56,6 @@
   <img src="https://img.shields.io/badge/Dart-0175C2?style=flat&logo=dart&logoColor=white" alt="Dart" />
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white" alt="Supabase" />
   <img src="https://img.shields.io/badge/Google_Maps-4285F4?style=flat&logo=google-maps&logoColor=white" alt="Google Maps" />
-  <img src="https://img.shields.io/badge/Kakao-FFCD00?style=flat&logo=kakao&logoColor=black" alt="Kakao" />
   <img src="https://img.shields.io/badge/Jenkins-D24939?style=flat&logo=jenkins&logoColor=white" alt="Jenkins" />
   <img src="https://img.shields.io/badge/Gemini_AI-8B4BF8?style=flat&logo=google&logoColor=white" alt="Gemini" />
 </p>
