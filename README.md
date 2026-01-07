@@ -135,13 +135,26 @@
 
 ---
 
-## 프로젝트 구조
+### 🔧 프로젝트 구조 (MVVM 아키텍처)
 
-- `/lib/models` — 데이터 모델 정의  
-- `/lib/viewmodels` — MVVM 아키텍처의 ViewModel  
-- `/lib/views` — UI 화면(View)  
-- `/lib/services` — API, 데이터 처리 서비스  
-- `/assets` — 이미지 및 리소스 파일
+TripNest/
+├── lib/
+│   ├── main.dart                  → 앱 엔트리 포인트
+│   ├── design/                    → 공통 디자인 시스템 (색상, 테마, 위젯 등)
+│   ├── models/                    → 데이터 모델 정의 (e.g., MarkerModel, ListModel 등)
+│   ├── services/                  → 외부 API 및 데이터 처리 (Supabase 서비스, 지도 API 등)
+│   ├── viewmodels/                → MVVM의 ViewModel (비즈니스 로직 및 상태 관리)
+│   └── views/                     → UI 화면 구성 (페이지 및 위젯)
+├── assets/                        → 이미지, 아이콘, 폰트 등 리소스 파일
+├── android/                       → Android 네이티브 설정
+├── ios/                           → iOS 네이티브 설정
+├── test/                          → 유닛/위젯 테스트
+└── pubspec.yaml                   → 의존성 및 에셋 관리
+
+### 추가 설명
+- **MVVM 패턴**을 엄격히 준수하여 UI(`/views`)와 비즈니스 로직(`/viewmodels`)을 분리
+- 공통 디자인 요소는 `/design`에 집중 관리하여 일관성 유지
+- Supabase 관련 서비스는 `/services`에 모듈화
 
 ---
 
