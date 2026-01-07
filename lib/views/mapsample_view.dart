@@ -13,6 +13,7 @@ import '../design/app_design.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'chat_recommendation_view.dart';
 
 class MapSampleView extends StatefulWidget {
   final MarkerId? initialMarkerId;
@@ -339,7 +340,6 @@ class _MapSampleViewState extends State<MapSampleView> {
       );
       return;
     }
-
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
@@ -1171,7 +1171,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                       width: 5,
                     ),
                 },
-                onTap: (latLng) => _onMapTapped(context, latLng),
+                //onTap: (latLng) => _onMapTapped(context, latLng),
                 onCameraMove: (position) {
                   viewModel.onCameraMove(position);
                   viewModel.clusterManager?.onCameraMove(position);
@@ -1401,12 +1401,14 @@ class _MapSampleViewState extends State<MapSampleView> {
               ),
             );
           }),
-          // 플로팅 액션 버튼들 - 리디자인
+          // 플로팅 액션 버튼
           Positioned(
             bottom: 40,
             right: 16,
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                // 1. 현재 위치 버튼
                 Container(
                   decoration: BoxDecoration(
                     gradient: AppDesign.greenGradient,
@@ -1435,13 +1437,11 @@ class _MapSampleViewState extends State<MapSampleView> {
                           behavior: SnackBarBehavior.floating,
                           shape: RoundedRectangleBorder(
                             borderRadius:
-                                BorderRadius.circular(AppDesign.radiusSmall),
+                            BorderRadius.circular(AppDesign.radiusSmall),
                           ),
                         ),
                       );
-                      context
-                          .read<MapSampleViewModel>()
-                          .moveToCurrentLocation();
+                      context.read<MapSampleViewModel>().moveToCurrentLocation();
                     },
                     backgroundColor: Colors.transparent,
                     elevation: 0,
@@ -1450,6 +1450,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                   ),
                 ),
                 SizedBox(height: AppDesign.spacing16),
+
+                // 2. 리스트 보기 버튼
                 Container(
                   decoration: BoxDecoration(
                     gradient: AppDesign.primaryGradient,
@@ -1462,6 +1464,45 @@ class _MapSampleViewState extends State<MapSampleView> {
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     child: Icon(Icons.list_rounded, color: AppDesign.whiteText),
+                  ),
+                ),
+                SizedBox(height: AppDesign.spacing16),
+
+                // 3. AI 챗봇 버튼 (새로 추가)
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(  // AI 느낌을 살리기 위해 새로운 그라데이션 추천
+                      colors: [Color(0xFF6A11CB), Color(0xFF2575FC)], // 보라-파랑 계열 (AI 스타일)
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: AppDesign.elevatedShadow,
+                  ),
+                  child: FloatingActionButton(
+                    heroTag: 'btn_ai_chat',  // heroTag 중복 방지 필수!
+                    onPressed: () {
+                      // AI 챗봇 화면으로 이동
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChatRecommendationScreen(),
+                        ),
+                      );
+                       ScaffoldMessenger.of(context).showSnackBar(
+                         SnackBar(
+                           content: Text("AI 여행 플래너를 열었습니다"),
+                           duration: Duration(seconds: 1),
+                         ),
+                       );
+                    },
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    child: Icon(
+                      Icons.smart_toy_rounded,  // 또는 Icons.chat_bubble_rounded
+                      color: AppDesign.whiteText,
+                      size: 28,
+                    ),
                   ),
                 ),
               ],
@@ -1542,7 +1583,6 @@ class _MapSampleViewState extends State<MapSampleView> {
                                 borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
                                 onTap: () async {
                                   print("검색 결과 클릭 → ${marker.markerId.value}");
-
                                   final viewModel = context.read<MapSampleViewModel>();
 
                                   // 컨트롤러 대기
@@ -1570,6 +1610,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                                   }
 
                                   // 마커 상세 바텀시트 호출
+                                  /*
                                   _showMarkerInfoBottomSheet(
                                     context,
                                     marker,
@@ -1577,6 +1618,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                                     keyword ?? '',
                                     selectedListId ?? '',
                                   );
+                                   */
                                 },
                                 child: Padding(
                                   padding: EdgeInsets.all(AppDesign.spacing16),
