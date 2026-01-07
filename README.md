@@ -63,10 +63,10 @@
 ---
 
 ## 🛠️ 개발 환경 (Tools)
-
 <p>
   <img src="https://img.shields.io/badge/Android_Studio-3DDC84?style=flat&logo=android-studio&logoColor=white" alt="Android Studio" />
   <img src="https://img.shields.io/badge/Xcode-1575F9?style=flat&logo=xcode&logoColor=white" alt="Xcode" />
+  <img src="https://img.shields.io/badge/TestFlight-000000?style=flat&logo=apple&logoColor=white" alt="TestFlight" />
 </p>
 
 ---
