@@ -9,7 +9,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:location/location.dart' as location;
-import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart' as cluster_manager;
 import 'package:flutter/services.dart';
@@ -1289,8 +1288,8 @@ class MapSampleViewModel extends ChangeNotifier {
           for (var place in uniquePlaces.values) {
             if (addedCount >= 10) break; // 검색결과 10개 이하 갯수 수정하면 그에 따른 검색 결과 갯수 변경
 
-            final title = place['displayName']?['text'] ?? originalQuery;
-            final addr = place['formattedAddress'] ?? '';
+            //final title = place['displayName']?['text'] ?? originalQuery;
+            //final addr = place['formattedAddress'] ?? '';
             final lat = place['location']?['latitude'];
             final lng = place['location']?['longitude'];
             final placeId = place['id'] ?? 'result_$addedCount';
@@ -1300,7 +1299,7 @@ class MapSampleViewModel extends ChangeNotifier {
             final marker = Marker(
               markerId: MarkerId('search_$placeId'),
               position: latLng,
-              infoWindow: InfoWindow(title: title, snippet: addr),
+              infoWindow: InfoWindow.noText,
               icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
             );
 
