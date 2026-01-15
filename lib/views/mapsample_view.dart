@@ -1486,7 +1486,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ChatRecommendationScreen(),
+                          builder: (context) => ChatRecommendationScreen(mapSampleViewModel: viewModel),
                         ),
                       );
                        ScaffoldMessenger.of(context).showSnackBar(
