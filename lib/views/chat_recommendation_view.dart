@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/chat_recommendation_viewmodel.dart';
 import '../design/app_design.dart';
+import '../viewmodels/mapsample_viewmodel.dart';
 
 class ChatRecommendationScreen extends StatefulWidget {
-  const ChatRecommendationScreen({Key? key}) : super(key: key);
+  final MapSampleViewModel? mapSampleViewModel;
+  const ChatRecommendationScreen({Key? key, this.mapSampleViewModel}) : super(key: key);
 
   @override
   State<ChatRecommendationScreen> createState() => _ChatRecommendationScreenState();
@@ -43,7 +45,7 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ChatRecommendationViewModel(),
+      create: (_) => ChatRecommendationViewModel(mapSampleViewModel: widget.mapSampleViewModel),
       child: Consumer<ChatRecommendationViewModel>(
         builder: (context, vm, child) {
           return Scaffold(
@@ -238,6 +240,8 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
               return _ChatMessageBubble(
                 message: msg['text']!,
                 isUser: isUser,
+                messageIndex: index,
+                vm: vm,
               );
             },
           ),
@@ -459,11 +463,16 @@ class _PremiumModeCardState extends State<_PremiumModeCard>
 class _ChatMessageBubble extends StatelessWidget {
   final String message;
   final bool isUser;
+  final int messageIndex;
+  final ChatRecommendationViewModel vm;
 
   const _ChatMessageBubble({
     required this.message,
     required this.isUser,
-  });
+    required this.messageIndex,
+    required this.vm,
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -584,6 +593,123 @@ class _ChatMessageBubble extends StatelessWidget {
                 letterSpacing: 0.2,
               ),
             ),
+          ),
+          if (!isUser && messageIndex == vm.messages.length - 1 && vm.pendingPlaces.isNotEmpty)
+            _buildRecommendedPlacesCards(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendedPlacesCards(BuildContext context) {
+    final places = vm.pendingPlaces;
+
+    if (places.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "추천 장소",
+            style: AppDesign.caption.copyWith(
+              color: AppDesign.travelBlue,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: places.map((place) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: _PlaceCard(
+                    place: place,
+                    onAdd: () {
+                      vm.savePlaceToMap(
+                        place,
+                        context: context,   // ← 이거만 전달
+                      ).then((_) {
+                        // then 안에서 처리할 거 없으면 생략 가능
+                      }).catchError((e) {
+                        // catchError도 이미 함수 안에서 처리했으므로 생략 가능
+                      });
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// 파일 하단이나 적당한 위치에 추가
+class _PlaceCard extends StatelessWidget {
+  final Map<String, dynamic> place;
+  final VoidCallback onAdd;
+
+  const _PlaceCard({
+    required this.place,
+    required this.onAdd,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppDesign.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppDesign.borderColor.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            place['title'] ?? '장소 이름',
+            style: AppDesign.bodyLarge.copyWith(fontWeight: FontWeight.w600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            place['snippet'] ?? place['address'] ?? '',
+            style: AppDesign.caption.copyWith(color: AppDesign.secondaryText),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: onAdd,  // ← 여기서 vm.savePlaceToMap() 호출됨
+                icon: const Icon(Icons.add_location_alt_rounded, size: 18),
+                label: const Text("지도에 추가"),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppDesign.travelBlue,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
           ),
         ],
       ),
