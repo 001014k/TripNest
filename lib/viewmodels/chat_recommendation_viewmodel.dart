@@ -131,6 +131,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
   void startNewSession(String mode) {
     messages.clear();
+    pendingPlaces.clear();
     currentMode = mode;
 
     String welcomeMsg;
@@ -245,6 +246,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
   void reset() {
     messages.clear();
+    pendingPlaces.clear();
     currentMode = '';
     notifyListeners();
   }
