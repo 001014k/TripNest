@@ -213,7 +213,7 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
                   gradient: AppDesign.greenGradient,
                   icon: Icons.calendar_today_rounded,
                   title: '여행 일정 짜기',
-                  subtitle: '날짜별 상세한 여행 계획을 만들어드립니다',
+                  subtitle: '사용자가 가지고 있는 마커들을 이용해 날짜별 상세한 여행 계획을 만들어 드립니다.',
                   accentColor: AppDesign.travelGreen,
                   onTap: () => vm.startNewSession('itinerary'),
                 ),
