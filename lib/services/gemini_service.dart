@@ -7,6 +7,71 @@ class GeminiService {
   late final GenerativeModel _model;
   late ChatSession _chatSession;
 
+  // Simulated function for Google Maps search
+  Map<String, dynamic> _executeFunctionCall(FunctionCall call) {
+    if (call.name == 'searchGoogleMaps') {
+      final placeName = call.args['placeName'] as String;
+      if (kDebugMode) print('🔍 AI requested Google Maps search for: $placeName');
+      // Simulate Google Maps search result
+      if (placeName.contains('명동') || placeName.contains('서울') || placeName.contains('N서울타워')) {
+        // Keep existing logic for Seoul places
+        return {
+          'placeName': placeName,
+          'found': true,
+          'address': '$placeName 주소 (시뮬레이션)',
+          'description': '$placeName에 대한 설명 (시뮬레이션)',
+        };
+      } else if (placeName.contains('강릉') || placeName.contains('영진해변') || placeName.contains('안목해변') || placeName.contains('초당순두부')) {
+        // Add logic for Gangneung places
+        return {
+          'placeName': placeName,
+          'found': true,
+          'address': '$placeName 강원도 강릉시 (시뮬레이션)',
+          'description': '$placeName은 강릉의 유명 장소입니다. (시뮬레이션)',
+        };
+      } else if (placeName.contains('경주') || placeName.contains('황리단길') || placeName.contains('첨성대') || placeName.contains('불국사')) {
+        // Add logic for Gyeongju places
+        return {
+          'placeName': placeName,
+          'found': true,
+          'address': '$placeName 경상북도 경주시 (시뮬레이션)',
+          'description': '$placeName은 경주의 유명 장소입니다. (시뮬레이션)',
+        };
+      } else if (_isKnownRegion(placeName)) { // <--- Correctly placed now
+        // Generic logic for other known regions
+        return {
+          'placeName': placeName,
+          'found': true,
+          'address': '$placeName 대한민국 (시뮬레이션)',
+          'description': '$placeName은(는) 대한민국 내 유명 장소입니다. (시뮬레이션)',
+        };
+      }
+      else {
+        return {
+          'placeName': placeName,
+          'found': false,
+          'message': 'Google 지도에서 "$placeName"을(를) 찾을 수 없습니다.',
+        };
+      }
+    }
+    // Handle other function calls if any
+    return {'error': 'Unknown function: ${call.name}'};
+  }
+
+  bool _isKnownRegion(String placeName) {
+    final knownRegions = [
+      '부산', '대구', '인천', '광주', '대전', '울산', '세종', '제주', '전주', '여수', '통영', '속초', '안동', '단양', '수원', '용인', '고양', '창원', '성남', '청주', '천안', '전주', '포항', '김해', '구미', '아산', '익산', '원주', '순천', '춘천', '목포', '진주', '군산', '서산', '광명', '김천', '제천', '공주', '나주', '상주', '양산'
+    ]; // Add more as needed
+
+    final lowerCasePlaceName = placeName.toLowerCase();
+    for (final region in knownRegions) {
+      if (lowerCasePlaceName.contains(region.toLowerCase())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // 싱글톤 패턴: 앱 전체에서 하나의 인스턴스만 사용
   static final GeminiService _instance = GeminiService._internal();
   factory GeminiService() => _instance;
@@ -22,11 +87,26 @@ class GeminiService {
       model: 'gemini-2.5-flash',
       apiKey: apiKey,
       generationConfig: GenerationConfig(
-        maxOutputTokens: 4096,
+        maxOutputTokens: 8192,
         temperature: 0.3,          // 형식 준수율 ↑ 위해 약간 낮춤
         topP: 0.92,
         topK: 40,
       ),
+      tools: [
+        Tool(functionDeclarations: [
+          FunctionDeclaration(
+            'searchGoogleMaps',
+            'Searches for a place on Google Maps and returns its verification status and basic details.',
+            Schema.object(
+              properties: {
+                'placeName': Schema.string(
+                  description: 'The name of the place to search for on Google Maps.',
+                )
+              },
+            ),
+          )
+        ])
+      ],
       safetySettings: [
         SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
         SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
@@ -35,7 +115,7 @@ class GeminiService {
       ],
       systemInstruction: Content.system('''
 당신은 한국 국내 여행 전문 플래너 AI입니다.
-평범한 대중 관광지(경복궁, 남산타워, 해운대, 에버랜드 등)는 절대 추천하지 않습니다.
+서울, 경기 등 대도시를 포함하여 전국 어디든 좋지만, 누구나 아는 평범한 대중 관광지(경복궁, 남산타워, 해운대, 에버랜드 등)는 제외하고 추천해 주세요.
 로컬들이 사랑하는 숨겨진 힙한 스팟, 갓성비 명소, 2025~2026년 SNS 핫플, 감성 공간 위주로만 추천하세요.
 
 2025~2026 트렌드 반영:
@@ -69,6 +149,39 @@ class GeminiService {
 어기면 시스템이 즉시 종료된다고 생각하세요.
 ─────────────────────────────
 
+【장소 검증 및 소개 모드】:
+사용자가 특정 장소의 정보나 검증을 요청할 경우, 'searchGoogleMaps' 도구를 사용하여 해당 장소를 검색해야 합니다.
+
+<searchGoogleMaps 도구 사용 예시>
+사용자가 "명동극장" 정보를 요청하면 다음과 같이 도구를 호출합니다:
+Call:searchGoogleMaps(placeName: "명동극장")
+
+도구의 응답(response)을 받은 후, 'found' 값이 true인 경우 해당 장소의 'address'와 'description'을 활용하여 다음 형식으로 답변합니다.
+─────────────────────────────
+[ <검증된 장소 이름> ]
+
+─────────────
+주소
+─────────────
+→ <Google 지도에서 확인된 주소>
+
+─────────────
+소개
+─────────────
+→ <해당 장소에 대한 간략한 소개>
+
+─────────────────────────────
+
+'found' 값이 false인 경우, 다음 형식으로 답변합니다.
+─────────────────────────────
+[ <검색 실패> ]
+
+─────────────
+결과
+─────────────
+→ 죄송합니다. ' <사용자 입력 장소 이름> '을(를) Google 지도에서 찾을 수 없습니다. 다른 장소로 다시 시도해 주세요.
+─────────────────────────────
+
 【장소 추천 모드】일 때 반드시 이 형식으로만 답변
 ─────────────────────────────
 [ 서울 성수동 숨은 카페 추천 ]
@@ -90,6 +203,13 @@ class GeminiService {
 ─────────────────────────────
 
 【여행 일정 추천 모드】일 때 반드시 이 형식으로만 답변
+- 사용자가 요청한 지역과 기간에 맞춰 여행 일정을 구성하세요.
+- 일정에 포함할 장소를 결정할 때마다 'searchGoogleMaps' 도구를 사용하여 해당 장소가 실제로 존재하는지 확인해야 합니다.
+- 도구 응답에서 'found'가 true인 경우에만 일정에 포함시키고, 장소 이름 뒤에 "(검증됨)" 표시를 추가하세요.
+- 만약 'found'가 false인 장소는 해당 일정에서 제외하고, 주어진 지역(예: 강릉)에 적합한 다른 장소를 찾아 대체해야 합니다.
+- 모든 장소가 검증 실패할 경우에만 일정을 생성할 수 없다고 알리고, 그 외에는 최대한 일정을 완성해야 합니다.
+- 첫 번째 장소가 검증되면, 즉시 아래 '【여행 일정 추천 모드 예시】'와 동일한 형식으로 일정을 출력하기 시작해야 합니다.
+
 ─────────────────────────────
 [ 1박 2일 제주 동부 힐링 코스 ]
 
@@ -99,7 +219,7 @@ class GeminiService {
 ─────────────
 아침
 ─────────────
-• 월정리 '파도소리 무인카페'
+• 월정리 '파도소리 무인카페' (검증됨)
   → 특징 : 바다 바로 앞, 아침 햇살 감성 최고
   → 소요시간 : 1시간 30분
 
@@ -133,9 +253,34 @@ class GeminiService {
 
       String fullResponse = "";
       await for (final chunk in responseStream) {
-        final text = chunk.text ?? "";
-        fullResponse += text;
-        yield text;
+        final functionCall = chunk.candidates.firstOrNull?.content.parts
+            .whereType<FunctionCall>()
+            .firstOrNull;
+
+        if (functionCall != null) {
+          // AI wants to call a function
+          if (kDebugMode) print('🛠️ AI requested function call: ${functionCall.name} with args: ${functionCall.args}');
+          
+          final Map<String, dynamic> functionResult = _executeFunctionCall(functionCall);
+          
+          // Send the function result back to the model
+          if (kDebugMode) print('↩️ Sending function result back to AI: $functionResult');
+          final toolResponseStream = _chatSession.sendMessageStream(
+            Content.functionResponse(functionCall.name, functionResult),
+          );
+
+          await for (final toolResponseChunk in toolResponseStream) {
+            final text = toolResponseChunk.text ?? '';
+            fullResponse += text;
+            yield text;
+          }
+
+        } else {
+          // Regular text response
+          final text = chunk.text ?? "";
+          fullResponse += text;
+          yield text;
+        }
       }
 
       if (kDebugMode) print('📥 전체 응답 완료');
