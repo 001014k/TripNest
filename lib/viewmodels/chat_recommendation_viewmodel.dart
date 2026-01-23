@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart'; // 위치 정보 사용 시 필요
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -25,51 +26,151 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     print("--- AI's Full Response ---");
     print(fullResponse);
     print("--------------------------");
-    final placeNames = _parsePlaceNamesFromResponse(fullResponse);
-    if (placeNames.isEmpty) return;
+    
+    final parsedPlacesData = _parsePlaceDetailsFromResponse(fullResponse);
+    if (parsedPlacesData.isEmpty) {
+      if (kDebugMode) print('⚠️ No place details parsed from AI response.');
+      return;
+    }
 
     final placesService = PlacesService();
-    final List<Map<String, dynamic>> verifiedPlaces = [];
+    final List<Map<String, dynamic>> verifiedPlacesWithCoords = [];
 
-    for (final name in placeNames) {
-      final placeDetailsList = await placesService.searchPlacesByKeyword(name);
+    for (final parsedPlace in parsedPlacesData) {
+      // Use the name/title from the parsed AI response to search for coordinates
+      final placeTitle = parsedPlace['title'] as String;
+      final placeDetailsList = await placesService.searchPlacesByKeyword(placeTitle);
+
       if (placeDetailsList.isNotEmpty) {
         final placeDetails = placeDetailsList.first;
-        final location = placeDetails['location'];
+        final location = placeDetails['location']; // This contains lat/lng
         if (location != null) {
-          verifiedPlaces.add({
-            'title': placeDetails['displayName']?['text'] ?? name,
-            'snippet': placeDetails['formattedAddress'] ?? '',
-            'address': placeDetails['formattedAddress'],
+          verifiedPlacesWithCoords.add({
+            'title': parsedPlace['title'],
+            'address': parsedPlace['address'],
+            'snippet': parsedPlace['snippet'],
             'lat': location['latitude'],
             'lng': location['longitude'],
-            'keyword': name,
+            'keyword': parsedPlace['title'], // Use title as keyword
           });
+        } else {
+          if (kDebugMode) print('⚠️ Location not found for place: $placeTitle');
+        }
+      } else {
+        if (kDebugMode) print('⚠️ Could not find place details for coordinates for: $placeTitle');
+      }
+    }
+
+    pendingPlaces = verifiedPlacesWithCoords;
+    notifyListeners();
+  }
+
+  List<Map<String, dynamic>> _parsePlaceDetailsFromResponse(String text) {
+    final List<Map<String, dynamic>> places = [];
+    final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+
+    String? currentName;
+    String? currentAddress;
+    List<String> currentDescLines = [];
+
+    // 1. 검증 모드 패턴 (이번 로그처럼 나올 때)
+    final RegExp verifyModeRegex = RegExp(
+      r'\[(.+?)\]\s*'                             // [ 장소 이름 ]
+      r'주소:\s*(.+?)(?:\n|$)'                    // 주소: ...
+      r'(?:소개:\s*(.+?))?'                       // 소개: ...
+      r'(?:특징:\s*(.+?))?',                      // 특징: ...
+      multiLine: true,
+      dotAll: true,
+    );
+
+    final verifyMatches = verifyModeRegex.allMatches(text);
+
+    for (final match in verifyMatches) {
+      final name = match.group(1)?.trim();
+      final address = match.group(2)?.trim();
+      final intro = match.group(3)?.trim() ?? '';
+      final feature = match.group(4)?.trim() ?? '';
+
+      if (name != null && address != null) {
+        final snippet = [intro, feature]
+            .where((s) => s.isNotEmpty)
+            .join(' / ')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
+
+        places.add({
+          'title': name,
+          'address': address,
+          'snippet': snippet.isNotEmpty ? snippet : '인스타 감성 장소',
+        });
+        print('검증 모드 파싱 성공: $name → $address');
+      }
+    }
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+
+      // 장소 이름 감지 (•, *, - 등 다양한 시작 기호 허용 + (검증됨) 포함)
+      if (RegExp(r'^[•\*\-]\s*.+\(검증됨\)').hasMatch(line)) {
+        // 이전 장소 저장
+        if (currentName != null && currentAddress != null) {
+          final desc = currentDescLines.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+          places.add({
+            'title': currentName.replaceAll(RegExp(r'[\uFEFF﻿]'), '').trim(),
+            'address': currentAddress,
+            'snippet': desc.isNotEmpty ? desc : '설명 없음',
+          });
+        }
+
+        // 새 장소 시작
+        currentName = line
+            .replaceAll(RegExp(r'^[•\*\-]\s*'), '')
+            .replaceAll('(검증됨)', '')
+            .trim();
+        currentAddress = null;
+        currentDescLines = [];
+        continue;
+      }
+
+      // 주소 라인 감지 (주소:, 주소 : , >주소 등)
+      if (line.contains('주소') || line.contains('address')) {
+        String addr = line.replaceAll(RegExp(r'^[-→>]*\s*주소\s*[:：]?\s*'), '').trim();
+        // 다음 줄이 주소 이어질 수 있음
+        if (i + 1 < lines.length && !lines[i + 1].contains('설명') && !lines[i + 1].startsWith('•')) {
+          addr += ' ' + lines[i + 1].trim();
+          i++; // 다음 줄 건너뜀
+        }
+        currentAddress = addr.replaceAll(RegExp(r'[\uFEFF﻿]'), '').trim();
+        continue;
+      }
+
+      // 설명 라인 감지
+      if (line.contains('설명') || currentDescLines.isNotEmpty || line.startsWith('->')) {
+        String descPart = line.replaceAll(RegExp(r'^[-→>]*\s*설명\s*[:：]?\s*'), '').trim();
+        if (descPart.isNotEmpty) {
+          currentDescLines.add(descPart);
         }
       }
     }
 
-    pendingPlaces = verifiedPlaces;
-    notifyListeners();
-  }
-
-  List<String> _parsePlaceNamesFromResponse(String text) {
-    final List<String> placeNames = [];
-
-    final RegExp placeNameRegex = RegExp(
-      r'─────────────\n(.+?)\n─────────────',
-      multiLine: true,
-    );
-
-    final matches = placeNameRegex.allMatches(text);
-
-    for (final match in matches) {
-      final name = match.group(1)?.trim();
-      if (name != null) {
-        placeNames.add(name);
-      }
+    // 마지막 장소 저장
+    if (currentName != null && currentAddress != null) {
+      final desc = currentDescLines.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      places.add({
+        'title': currentName.replaceAll(RegExp(r'[\uFEFF﻿]'), '').trim(),
+        'address': currentAddress,
+        'snippet': desc.isNotEmpty ? desc : '설명 없음',
+      });
     }
-    return placeNames;
+
+    print('파싱 결과: ${places.length}개 장소 발견');
+    if (places.isNotEmpty) {
+      print('첫 번째 장소: ${places.first}');
+    } else {
+      print('파싱 실패 - 원본 텍스트:\n$text');
+    }
+
+    return places;
   }
 
   Future<void> savePlaceToMap(
