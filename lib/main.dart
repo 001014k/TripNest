@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertrip/services/directions_service.dart';
 import 'package:fluttertrip/views/profile_view.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:fluttertrip/services/app_group_handler_service.dart';
@@ -8,7 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
 import 'package:fluttertrip/env.dart';
-import 'config.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:fluttertrip/models/cached_photo_url.dart';
 
 // ViewModel imports...
 import 'viewmodels/mapsample_viewmodel.dart';
@@ -27,6 +27,7 @@ import 'viewmodels/shared_link_viewmodel.dart';
 import 'package:fluttertrip/viewmodels/collaborator_viewmodel.dart';
 import 'viewmodels/home_viewmodel.dart';
 import 'viewmodels/marker_list_screen_viewmodel.dart';
+import 'package:fluttertrip/viewmodels/chat_recommendation_viewmodel.dart';
 
 // Service imports...
 import 'services/marker_service.dart';
@@ -35,7 +36,6 @@ import 'services/marker_service.dart';
 import 'views/forgot_password_view.dart';
 import 'views/friend_management_view.dart';
 import 'views/mapsample_view.dart';
-import 'views/BookmarkListTab_view.dart';
 import 'views/signup_view.dart';
 import 'views/splash_screen_view.dart';
 import 'views/user_list_view.dart';
@@ -51,11 +51,16 @@ import 'views/nickname_dialog_view.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
-  final directionsService = DirectionsService(Config.googleMapsApiKey);
   WidgetsFlutterBinding.ensureInitialized();
 
   // intl 로케일 데이터 초기화 추가
   await initializeDateFormatting('ko_KR');
+  // Hive 초기화(flutter 앱에서는 반드시 initFlutter() 사용)
+  await Hive.initFlutter();
+  Hive.registerAdapter(CachedPhotoUrlAdapter());
+
+  // 앱 시작 시 바로 Box 열어두기 → ViewModel에서 openBox 호출 불필요
+  await Hive.openBox<CachedPhotoUrl>('photo_urls');
 
 
   try {
@@ -73,7 +78,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AddMarkersToListViewModel()),
-        ChangeNotifierProvider(create: (_) => MapSampleViewModel(directionsService: directionsService)),
+        ChangeNotifierProvider(create: (_) => MapSampleViewModel()),
         ChangeNotifierProvider(create: (_) => SharedLinkViewModel()),
         ChangeNotifierProvider(create: (_) => DashboardViewModel()),
         ChangeNotifierProvider(create: (_) => ForgotPasswordViewModel()),
@@ -88,6 +93,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => MarkerCreationScreenViewModel()),
         ChangeNotifierProvider(create: (_) => HomeDashboardViewModel()),
         ChangeNotifierProvider(create: (_) => MarkerListViewModel(Supabase.instance.client)),
+        ChangeNotifierProvider(create: (_) => ChatRecommendationViewModel()),
       ],
       child: MyApp(),
     ),
@@ -110,69 +116,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this); // 👈 앱 생명주기 감지
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final context = navigatorKey.currentContext;
-      if (context != null) {
-        // 공유 주소 처리
-        SharedAppGroupHandler.checkAndHandleSharedAddress(context);
-
-        // 위치 권한 요청 및 현재 위치로 이동
-        final viewModel = context.read<MapSampleViewModel>();
-        await viewModel.checkLocationPermissionAndFetch();
-      }
-    });
-
-     // ✅ 딥링크 수신
-    _sub = _appLinks.uriLinkStream.listen((Uri? uri) {
-      if (uri != null) {
-        debugPrint("✅ 딥링크 URI 수신됨: $uri");
-        Supabase.instance.client.auth.getSessionFromUrl(uri);
-      }
-    });
-
-    // ✅ 인증 상태 감지
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
-      if (_alreadyNavigated) return;
-      final event = data.event;
-      final session = data.session;
-
-      if (event == AuthChangeEvent.signedIn && session != null) {
-        _alreadyNavigated = true;
-        final userId = session.user.id;
-        debugPrint("✅ 로그인 완료: $userId");
-
-        final context = navigatorKey.currentContext;
-        if (context == null) return;
-
-        try {
-          // 닉네임 조회
-          final response = await Supabase.instance.client
-              .from('profiles')
-              .select('nickname')
-              .eq('id', userId)
-              .maybeSingle();
-
-          final nickname = response?['nickname'] as String?;
-
-          if (nickname == null || nickname.isEmpty) {
-            debugPrint("⚠ 닉네임이 없음 → 닉네임 설정 페이지로 이동");
-            navigatorKey.currentState
-                ?.pushNamedAndRemoveUntil('/nickname_setup', (route) => false);
-            return;
-          }
-
-          // 닉네임 있음 → 홈으로 이동
-          await context.read<ListViewModel>().loadLists();
-          await context.read<ProfileViewModel>().fetchUserStats(userId);
-          navigatorKey.currentState?.pushNamedAndRemoveUntil('/home', (route) => false);
-        } catch (e) {
-          debugPrint("❌ 닉네임 조회 실패: $e");
-          // 닉네임 조회 실패 시 홈으로 이동 (혹은 로그인 화면으로 복귀)
-          navigatorKey.currentState?.pushNamedAndRemoveUntil('/home', (route) => false);
-        }
-      }
-    });
   }
 
   // ✅ 앱 생명주기 변경 감지: 포그라운드 전환 시 공유 처리
@@ -208,7 +151,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/map': (context) => MapSampleView(),
         '/dashboard': (context) => DashboardView(),
         '/friend_management': (context) => FriendManagementView(),
-        '/page_view': (context) => BookmarklisttabView(),
         '/user_list': (context) => UserListView(),
         '/home': (context) => HomeDashboardView(),
         '/list': (context) => ListPage(),
@@ -218,7 +160,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           final args = ModalRoute.of(context)!.settings.arguments as String;
           return ProfilePage(userId: args);
         },
-        '/nickname_setup': (context) => NicknameSetupPage(),
+        '/nickname_setup': (context) {
+          final userId = ModalRoute.of(context)!.settings.arguments as String;
+          return NicknameSetupPage(userId: userId);
+        },
       },
     );
   }
