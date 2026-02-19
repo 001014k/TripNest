@@ -49,6 +49,7 @@ class _MapSampleViewState extends State<MapSampleView> {
 
   @override
   void dispose() {
+    viewModel.detachMap();
     super.dispose();
   }
 
