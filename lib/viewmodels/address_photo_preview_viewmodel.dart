@@ -41,9 +41,21 @@ class AddressPhotoPreviewViewModel extends ChangeNotifier {
       final box = Hive.box<CachedPhotoUrl>('photo_urls');
       debugPrint('   저장된 키들: ${box.keys.toList()}');
 
+      final cached = box.get(_cacheKey);
+      if (cached != null && cached.isValid) {
+        _photoUrl = cached.photoUrl;
+        _isLoading = false;
+        notifyListeners();
+        debugPrint('✅ 캐시 히트 성공! $_photoUrl');
+        return;
+      }
+      debugPrint('⚠️ 캐시 미스 또는 만료, API 호출 시작');
+
       // API 호출
       String query = address;
       if (title != null && title!.isNotEmpty) query = '$title $address';
+
+      debugPrint('   API Query: "$query"'); // Query 로깅
 
       final uri = Uri.https('places.googleapis.com', '/v1/places:searchText');
       final response = await http.post(
@@ -55,6 +67,9 @@ class AddressPhotoPreviewViewModel extends ChangeNotifier {
         },
         body: jsonEncode({"textQuery": query}),
       );
+
+      debugPrint('   API Response Status: ${response.statusCode}'); // Status Code 로깅
+      debugPrint('   API Response Body: ${response.body}'); // Body 로깅
 
       if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
 
