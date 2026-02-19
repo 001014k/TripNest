@@ -41,16 +41,6 @@ class AddressPhotoPreviewViewModel extends ChangeNotifier {
       final box = Hive.box<CachedPhotoUrl>('photo_urls');
       debugPrint('   저장된 키들: ${box.keys.toList()}');
 
-      final cached = box.get(_cacheKey);
-      if (cached != null && cached.isValid) {
-        _photoUrl = cached.photoUrl;
-        _isLoading = false;
-        notifyListeners();
-        debugPrint('✅ 캐시 히트 성공! $_photoUrl');
-        return;
-      }
-      debugPrint('⚠️ 캐시 미스 또는 만료');
-
       // API 호출
       String query = address;
       if (title != null && title!.isNotEmpty) query = '$title $address';
