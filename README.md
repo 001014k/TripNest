@@ -30,7 +30,7 @@
 
 ### 🚀 지금 TripNest는…
 - **개발 완료 단계** — 최종 폴리싱, 성능 최적화, Gemini AI 통합 마무리 중
-- **2026년 2월 App Store 정식 출시 예정** (현재 TestFlight 베타 배포 중)
+- **2026년 3월 App Store 정식 출시 예정** (현재 TestFlight 베타 배포 중)
 - **Jenkins + Fastlane CI/CD 완전 자동화** — 빌드 → 테스트 → TestFlight 업로드까지 무인 배포 가능
 
 ### ✨ 이런 순간을 위해 만들었어요
