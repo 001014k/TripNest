@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/user_service.dart';
 import '../viewmodels/list_viewmodel.dart';
 import 'marker_info_view.dart';
 import '../viewmodels/collaborator_viewmodel.dart';
 import '../design/app_design.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ListPage extends StatefulWidget {
   const ListPage({super.key});
@@ -491,13 +493,15 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
   void _showCollaborationDialog(BuildContext context, String listId) {
     final collaboratorVM = Provider.of<CollaboratorViewModel>(context, listen: false);
 
+    // 1. 다이얼로그를 띄우기 전에 데이터 로드 시작
+    collaboratorVM.loadListOwner(listId);
+    collaboratorVM.getCollaborators(listId);
+    collaboratorVM.getFriends(listId);
+
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.7),
       builder: (dialogContext) {
-        collaboratorVM.getCollaborators(listId);
-        collaboratorVM.getFriends();
-
         return ChangeNotifierProvider.value(
           value: collaboratorVM,
           child: Consumer<CollaboratorViewModel>(
@@ -573,9 +577,208 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                           padding: const EdgeInsets.all(20),
                           child: vm.isLoading
                               ? _buildCollaborationLoadingState()
-                              : vm.friends.isEmpty
-                              ? _buildNoFriendsState()
-                              : _buildFriendsList(vm, listId, context),
+                              : vm.hasError
+                              ? Center(child: Text(vm.error ?? '오류가 발생했습니다'))
+                              : SingleChildScrollView(  // 내용 많아질 경우 대비
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // 1. 리스트 주인 섹션
+                                if (vm.listOwnerNickname != null) ...[
+                                  Text(
+                                    '리스트 주인',
+                                    style: AppDesign.headingSmall.copyWith(
+                                      color: AppDesign.secondaryText,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppDesign.spacing8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppDesign.spacing16,
+                                      vertical: AppDesign.spacing12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppDesign.secondaryBg.withOpacity(0.6),
+                                      borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                      border: Border.all(color: AppDesign.borderColor),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: AppDesign.travelBlue.withOpacity(0.12),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.person_rounded,
+                                            color: AppDesign.travelBlue,
+                                            size: 20,
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppDesign.spacing16),
+                                        Expanded(
+                                          child: Text(
+                                            vm.listOwnerNickname!,
+                                            style: AppDesign.bodyMedium.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        if (vm.isCurrentUserOwner)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppDesign.travelGreen.withOpacity(0.15),
+                                              borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                                            ),
+                                            child: const Text(
+                                              '나',
+                                              style: TextStyle(
+                                                color: AppDesign.travelGreen,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppDesign.spacing24),
+                                ],
+
+                                // 2. 협업 중인 멤버 섹션
+                                // 2. 협업 중인 멤버 섹션
+                                if (vm.collaborators.isNotEmpty) ...[
+                                  Text(
+                                    '협업 중인 멤버',
+                                    style: AppDesign.headingSmall.copyWith(
+                                      color: AppDesign.secondaryText,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppDesign.spacing8),
+
+                                  ...vm.collaborators.map((member) {
+                                    final currentUserId = supabase.auth.currentUser?.id;
+                                    final isMe = member.userId == currentUserId;
+
+                                    final isEditor = member.role == 'editor';
+                                    final roleColor = isEditor ? AppDesign.travelGreen : AppDesign.travelOrange;
+                                    final roleBg = isEditor
+                                        ? AppDesign.travelGreen.withOpacity(0.15)
+                                        : AppDesign.travelOrange.withOpacity(0.15);
+
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: AppDesign.spacing12),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: AppDesign.spacing16,
+                                          vertical: AppDesign.spacing12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppDesign.secondaryBg.withOpacity(0.6),
+                                          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                          border: Border.all(color: AppDesign.borderColor),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: AppDesign.travelPurple.withOpacity(0.12),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.group_rounded,
+                                                color: AppDesign.travelPurple,
+                                                size: 20,
+                                              ),
+                                            ),
+                                            const SizedBox(width: AppDesign.spacing16),
+                                            Expanded(
+                                              child: Text(
+                                                member.nickname,
+                                                style: AppDesign.bodyMedium.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppDesign.primaryText,
+                                                ),
+                                              ),
+                                            ),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (isMe)
+                                                  Container(
+                                                    margin: const EdgeInsets.only(right: AppDesign.spacing8),
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 4,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: AppDesign.travelGreen.withOpacity(0.15),
+                                                      borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                                                    ),
+                                                    child: const Text(
+                                                      '나',
+                                                      style: TextStyle(
+                                                        color: AppDesign.travelGreen,
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: roleBg,
+                                                    borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                                                  ),
+                                                  child: Text(
+                                                    isEditor ? '편집 가능' : '읽기 전용',
+                                                    style: TextStyle(
+                                                      color: roleColor,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+
+                                  const SizedBox(height: AppDesign.spacing24),
+                                ],
+
+                                // 3. 초대 가능한 친구 섹션
+                                Text(
+                                  '초대 가능한 친구',
+                                  style: AppDesign.headingSmall.copyWith(
+                                    color: AppDesign.secondaryText,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: AppDesign.spacing8),
+
+                                if (vm.friends.isEmpty)
+                                  _buildNoFriendsState()
+                                else
+                                  _buildFriendsList(vm, listId, context),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ],
