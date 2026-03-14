@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:path/path.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../views/mapsample_view.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -70,19 +72,23 @@ class MarkerDetailViewModel extends ChangeNotifier {
     try {
       final data = await supabase
           .from('user_markers')
-          .select('title, address, keyword')
+          .select('title, address, keyword, user_id')  // user_id도 가져와서 확인 가능
           .eq('id', markerId)
-          .eq('user_id', user.id)
+      // .eq('user_id', user.id)  ← 이 조건 완전 제거
           .maybeSingle();
 
-      print('fetchUserMarkerDetail data: $data');  // 여기에 로그 추가
+      print('fetchUserMarkerDetail data: $data');
 
       if (data != null) {
         _title = data['title'] as String? ?? '제목 없음';
         _address = data['address'] as String?;
         _keyword = data['keyword'] as String? ?? '키워드 없음';
+
+        // 추가 로그 (디버깅용)
+        print('마커 소유자: ${data['user_id']}');
+        print('현재 사용자: ${user.id}');
       } else {
-        print('No data found for markerId: $markerId, userId: ${user.id}');
+        print('No data found for markerId: $markerId');
         _address = '주소를 찾을 수 없습니다';
         _keyword = '키워드 없음';
       }
@@ -90,7 +96,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e, stacktrace) {
       print('fetchUserMarkerDetail error: $e');
-      print(stacktrace);  // 에러 스택트레이스도 출력
+      print(stacktrace);
       _address = '주소 오류';
       _keyword = '키워드 오류';
       notifyListeners();
@@ -137,7 +143,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _titleController.dispose();
+    Provider.of<MarkerDetailViewModel>(context as BuildContext, listen: false).dispose();
     super.dispose();
   }
 
