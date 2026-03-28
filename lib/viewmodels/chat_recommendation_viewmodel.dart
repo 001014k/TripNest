@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertrip/views/markercreationscreen_view.dart';
 import 'package:geolocator/geolocator.dart'; // 위치 정보 사용 시 필요
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/gemini_service.dart';
@@ -77,8 +78,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     final RegExp verifyModeRegex = RegExp(
       r'\[(.+?)\]\s*'                             // [ 장소 이름 ]
       r'주소:\s*(.+?)(?:\n|$)'                    // 주소: ...
-      r'(?:소개:\s*(.+?))?'                       // 소개: ...
-      r'(?:특징:\s*(.+?))?',                      // 특징: ...
+      r'(?:설명:\s*(.+?))?',                      // 설명: ...
       multiLine: true,
       dotAll: true,
     );
@@ -86,18 +86,11 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     final verifyMatches = verifyModeRegex.allMatches(text);
 
     for (final match in verifyMatches) {
-      final name = match.group(1)?.trim();
+      final name = match.group(1)?.replaceAll('(검증됨)', '').trim();
       final address = match.group(2)?.trim();
-      final intro = match.group(3)?.trim() ?? '';
-      final feature = match.group(4)?.trim() ?? '';
+      final snippet = match.group(3)?.trim() ?? '';
 
       if (name != null && address != null) {
-        final snippet = [intro, feature]
-            .where((s) => s.isNotEmpty)
-            .join(' / ')
-            .replaceAll(RegExp(r'\s+'), ' ')
-            .trim();
-
         places.add({
           'title': name,
           'address': address,
@@ -145,7 +138,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       }
 
       // 설명 라인 감지
-      if (line.contains('설명') || currentDescLines.isNotEmpty || line.startsWith('->')) {
+      if (line.contains('설명') || currentDescLines.isNotEmpty || line.startsWith('->') || line.startsWith('→')) {
         String descPart = line.replaceAll(RegExp(r'^[-→>]*\s*설명\s*[:：]?\s*'), '').trim();
         if (descPart.isNotEmpty) {
           currentDescLines.add(descPart);
@@ -178,39 +171,24 @@ class ChatRecommendationViewModel extends ChangeNotifier {
         required BuildContext context,
       }) async {
     try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) {
-        throw Exception("로그인이 필요합니다");
-      }
-
-      final response = await supabase.from('user_markers').insert({
-        'user_id': userId,
-        'title': place['title'],
-        'address': place['address'] ?? '',
-        'lat': place['lat'],
-        'lng': place['lng'],
-        'snippet': place['snippet'] ?? '',
-        'keyword': place['keyword'] ?? place['title'],
-      }).select('id').single();
-
-      final newMarkerId = (response as Map<String, dynamic>)['id'];
-
-      if (mapSampleViewModel != null) {
-        await mapSampleViewModel!.loadMarkers();
-      }
-
       if (context.mounted) {
+        final double lat = (place['lat'] as num).toDouble();
+        final double lng = (place['lng'] as num).toDouble();
+
+        // 마커 생성 창으로 이동
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => MarkerCreationScreen(
+            initialTitle: place['name'] ?? place['title'] ?? '',
+            initialAddress: place['address'] ?? '',
+            initialLatLng: LatLng(lat, lng),
+          ),
+          ),
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("${place['title']}이(가) 지도에 추가되었습니다."),
             duration: const Duration(seconds: 2),
-          ),
-        );
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MapSampleView(initialMarkerId: MarkerId(newMarkerId.toString())),
           ),
         );
       }
@@ -219,14 +197,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       notifyListeners();
 
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("저장 실패: ${e.toString()}"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+      if(kDebugMode) print('화면 이동 중 오류 발생: $e');
     }
   }
 
