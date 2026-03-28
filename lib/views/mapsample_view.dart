@@ -25,7 +25,6 @@ class MapSampleView extends StatefulWidget {
 }
 
 class _MapSampleViewState extends State<MapSampleView> {
-  late MapSampleViewModel viewModel;
   final ZoomDrawerController zoomDrawerController = ZoomDrawerController();
   GoogleMapController? _controller; // late를 추가하면 오류가 뜨고 삭제하면 해당 위치에 대한 결과가 뜸
   Map<MarkerId, String> _markerKeywords = {};
@@ -44,12 +43,131 @@ class _MapSampleViewState extends State<MapSampleView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    viewModel = context.read<MapSampleViewModel>();
+
+    final viewModel = context.read<MapSampleViewModel>();
+
+    // 검색 마커 클릭 처리
+    viewModel.onSearchMarkerTapped = (Marker marker) async {
+      print("✅ [Search Marker Tap] 클릭됨 → ${marker.markerId.value}");
+
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MarkerCreationScreen(
+            initialLatLng: marker.position,
+            initialTitle: marker.infoWindow.title,
+            initialAddress: marker.infoWindow.snippet,
+          ),
+        ),
+      );
+
+      if (result != null && result is Map<String, dynamic>) {
+        viewModel.addMarker(
+          title: result['title'],
+          snippet: result['snippet'],
+          position: marker.position,
+          keyword: result['keyword'],
+          address: result['address'] ?? '',
+          listId: result['listId'],
+          onTapCallback: (id) => viewModel.onMarkerTapped(id),
+        );
+
+        viewModel.clearSearchResults();
+        viewModel.notifyListeners();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('마커가 저장되었습니다'),
+            backgroundColor: AppDesign.travelGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+            ),
+          ),
+        );
+      }
+    };
+
+    // onSearchCompleted를 이렇게 변경하세요
+    viewModel.onSearchCompleted = (List<Marker> searchMarkers) async {
+      if (searchMarkers.isEmpty) return;
+
+      print("✅ 검색 완료 - ${searchMarkers.length}개 마커 → 카메라 이동 시도");
+
+      final positions = searchMarkers.map((m) => m.position).toList();
+      if (positions.isEmpty) return;
+
+      LatLng southwest = positions.reduce((a, b) => LatLng(
+        a.latitude < b.latitude ? a.latitude : b.latitude,
+        a.longitude < b.longitude ? a.longitude : b.longitude,
+      ));
+
+      LatLng northeast = positions.reduce((a, b) => LatLng(
+        a.latitude > b.latitude ? a.latitude : b.latitude,
+        a.longitude > b.longitude ? a.longitude : b.longitude,
+      ));
+
+      final bounds = LatLngBounds(southwest: southwest, northeast: northeast);
+
+      // controller가 준비될 때까지 기다리는 함수
+      Future<void> moveCamera() async {
+        if (_controller != null) {
+          try {
+            await _controller!.animateCamera(
+              CameraUpdate.newLatLngBounds(bounds, 120.0),
+            );
+            print("✅ 카메라 이동 성공!");
+            return;
+          } catch (e) {
+            print("❌ animateCamera 실패: $e");
+          }
+        }
+
+        // controller가 아직 null이면 GoogleMap이 완전히 빌드될 때까지 대기
+        print("⏳ controller null → GoogleMap 빌드 대기");
+
+        // GoogleMap이 onMapCreated 될 때까지 최대 1.5초 대기
+        int attempts = 0;
+        while (_controller == null && attempts < 15) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          attempts++;
+        }
+
+        if (_controller != null) {
+          try {
+            await _controller!.animateCamera(
+              CameraUpdate.newLatLngBounds(bounds, 120.0),
+            );
+            print("✅ 대기 후 카메라 이동 성공!");
+          } catch (e) {
+            print("❌ 대기 후에도 이동 실패: $e");
+          }
+        } else {
+          print("❌ 최종 실패: controller가 초기화되지 않음");
+
+          // 최후의 수단: 첫 번째 마커 위치로 이동
+          if (searchMarkers.isNotEmpty) {
+            _controller?.animateCamera(
+              CameraUpdate.newLatLngZoom(searchMarkers.first.position, 14.0),
+            );
+          }
+        }
+      }
+
+      // 이동 실행
+      moveCamera();
+    };
   }
 
   @override
   void dispose() {
-    viewModel.detachMap();
+    // detachMap 호출
+    context.read<MapSampleViewModel>().detachMap();
+
+    // 콜백 정리 (안전하게)
+    context.read<MapSampleViewModel>().onSearchMarkerTapped = null;
+    context.read<MapSampleViewModel>().onSearchCompleted = null;
+
     super.dispose();
   }
 
@@ -170,21 +288,6 @@ class _MapSampleViewState extends State<MapSampleView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppDesign.spacing20,
-                      vertical: AppDesign.spacing12,
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: Text(
-                    '취소',
-                    style: AppDesign.bodyMedium.copyWith(
-                      color: AppDesign.secondaryText,
-                    ),
-                  ),
-                ),
                 SizedBox(width: AppDesign.spacing8),
                 Container(
                   decoration: BoxDecoration(
@@ -212,6 +315,21 @@ class _MapSampleViewState extends State<MapSampleView> {
                         color: AppDesign.whiteText,
                         fontWeight: FontWeight.w600,
                       ),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppDesign.spacing20,
+                      vertical: AppDesign.spacing12,
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
+                    '취소',
+                    style: AppDesign.bodyMedium.copyWith(
+                      color: AppDesign.secondaryText,
                     ),
                   ),
                 ),
@@ -1074,7 +1192,7 @@ class _MapSampleViewState extends State<MapSampleView> {
 
   // 뒤로가기 / 홈 이동 시 안전 처리
   void _onBackPressed() {
-    viewModel.detachMap(); // 안전 detach
+    context.read<MapSampleViewModel>().detachMap(); // 안전 detach
     Navigator.pushNamedAndRemoveUntil(
       context,
       '/home',
@@ -1104,7 +1222,11 @@ class _MapSampleViewState extends State<MapSampleView> {
                   if (_isMapInitialized) return;
                   _isMapInitialized = true;
 
-                  viewModel.controller = controller;
+                  // View 로컬 컨트롤러에 할당
+                  setState(() {
+                    _controller = controller;
+                  });
+                  viewModel.controller = controller; //viewmodel에도 전달
                   await viewModel.loadMarkers();
                   await viewModel.applyMarkersToCluster(controller);
                   controller.setMapStyle(viewModel.mapStyle);
@@ -1487,7 +1609,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ChatRecommendationScreen(mapSampleViewModel: viewModel),
+                          builder: (context) => ChatRecommendationScreen(mapSampleViewModel: context.read<MapSampleViewModel>()),
                         ),
                       );
                        ScaffoldMessenger.of(context).showSnackBar(
@@ -1510,7 +1632,7 @@ class _MapSampleViewState extends State<MapSampleView> {
             ),
           ),
           // 검색 결과 바텀시트 - 리디자인
-          if (viewModel.searchResults.isNotEmpty) ...[
+          if (context.read<MapSampleViewModel>().searchResults.isNotEmpty) ...[
             DraggableScrollableSheet(
               initialChildSize: 0.4,
               minChildSize: 0.0,
@@ -1550,7 +1672,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                             Text('검색 결과', style: AppDesign.headingSmall),
                             Spacer(),
                             Text(
-                              '${viewModel.searchResults.length}개',
+                              '${context.read<MapSampleViewModel>().searchResults.length}개',
                               style: AppDesign.caption.copyWith(
                                 color: AppDesign.travelBlue,
                                 fontWeight: FontWeight.w600,
@@ -1565,12 +1687,12 @@ class _MapSampleViewState extends State<MapSampleView> {
                         padding: EdgeInsets.symmetric(horizontal: AppDesign.spacing16),
                         shrinkWrap: true,
                         physics: NeverScrollableScrollPhysics(),
-                        itemCount: viewModel.searchResults.length,
+                        itemCount: context.read<MapSampleViewModel>().searchResults.length,
                         separatorBuilder: (context, index) => SizedBox(height: AppDesign.spacing8),
                         itemBuilder: (context, index) {
-                          final marker = viewModel.searchResults[index];
+                          final marker = context.read<MapSampleViewModel>().searchResults[index];
                           final keyword = _markerKeywords[marker.markerId];
-                          final icon = viewModel.keywordIcons[keyword];
+                          final icon = context.read<MapSampleViewModel>().keywordIcons[keyword];
 
                           return Container(
                             decoration: BoxDecoration(
