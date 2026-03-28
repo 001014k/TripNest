@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'dart:ui';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,8 @@ import '../viewmodels/add_markers_to_list_viewmodel.dart';
 import 'package:geolocator/geolocator.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
+  void Function(Marker)? onSearchMarkerTapped;
+  void Function(List<Marker> searchMarkers)? onSearchCompleted;
 
   Marker? temporaryMarker; // 임시 마커 저장용
 
@@ -162,6 +165,28 @@ class MapSampleViewModel extends ChangeNotifier {
     _clusterManager = null;
     _controller = null;
     super.dispose();
+  }
+
+  Future<void> _forceClusterUpdate() async {
+    if (_isDisposed || _controller == null || _clusterManager == null) return;
+
+    debugPrint('Forcing cluster update...');
+
+    int retry = 0;
+    const maxRetry = 5;
+    while (retry < maxRetry) {
+      try {
+        await _controller!.getVisibleRegion(); // Check if channel is ready
+        _clusterManager!.updateMap();
+        notifyListeners(); // Notify UI to rebuild with new markers
+        debugPrint('Force cluster update successful.');
+        break;
+      } catch (e) {
+        retry++;
+        debugPrint('Force cluster update failed, retry $retry/$maxRetry: $e');
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+    }
   }
 
 
@@ -411,9 +436,11 @@ class MapSampleViewModel extends ChangeNotifier {
         position: LatLng(lat, lng),
         infoWindow: InfoWindow(
           title: data['title'],
-          snippet: data['address']?.toString().isNotEmpty == true
+          snippet: data['address']
+              ?.toString()
+              .isNotEmpty == true
               ? data['address']
-              : '주소 정보 없음',   // 또는 data['snippet'] 써도 됨
+              : '주소 정보 없음', // 또는 data['snippet'] 써도 됨
         ),
         icon: markerIcon,
         onTap: () {
@@ -491,8 +518,7 @@ class MapSampleViewModel extends ChangeNotifier {
         .eq('list_id', listId)
         .order('sort_order', ascending: true) // 정렬 보장
         .limit(100)
-        .withConverter<List<Map<String, dynamic>>>((data) =>
-    data as List<Map<String, dynamic>>);
+        .withConverter<List<Map<String, dynamic>>>((data) => data as List<Map<String, dynamic>>);
 
     print('DB에서 불러온 마커 ID 및 순서:');
     for (final item in response) {
@@ -770,7 +796,6 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   }
 
-
   Future<Marker> Function(cluster_manager.Cluster<Place>) get _markerBuilder =>
           (cluster) async {
         return Marker(
@@ -785,9 +810,17 @@ class MapSampleViewModel extends ChangeNotifier {
           onTap: () async {
             if (cluster.isMultiple) {
               if (_controller != null) {
-                _controller!.animateCamera(
-                  CameraUpdate.newLatLngZoom(cluster.location, 15),
+                final currentZoom = await _controller!.getZoomLevel();
+
+                double nextZoom = currentZoom + 2; // Force a 2-level jump
+                if (nextZoom > 21) nextZoom = 21; // Cap at max zoom
+
+                await _controller!.animateCamera(
+                  CameraUpdate.newLatLngZoom(cluster.location, nextZoom),
                 );
+
+                await Future.delayed(const Duration(milliseconds: 300));
+                await _forceClusterUpdate();
               }
             } else {
               onSinglePlaceTap(cluster.items.first);
@@ -860,7 +893,7 @@ class MapSampleViewModel extends ChangeNotifier {
         _filteredPlaces,
         _updateMarkers,
         markerBuilder: _markerBuilder,
-        levels: [1, 5, 10, 15, 20],
+        levels: [1, 4, 7, 9, 11, 13, 15, 16, 17, 18, 20],
         extraPercent: 0.2,
       );
 
@@ -1118,11 +1151,13 @@ class MapSampleViewModel extends ChangeNotifier {
 
   Future<Map<String, String>> fetchMarkerDetail(String markerId) async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return {
+    if (user == null) {
+      return {
       'title': '제목 없음',
       'address': '주소 없음',
       'keyword': '키워드 없음',
     };
+    }
 
     try {
       final data = await Supabase.instance.client
@@ -1152,27 +1187,6 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> onMarkerTapped(MarkerId markerId) async {
-    final marker = _markers.firstWhere(
-          (m) => m.markerId == markerId,
-      orElse: () => throw Exception('Marker not found for ID: $markerId'),
-    );
-
-    if (_controller == null) {
-      print("GoogleMapController has not been initialized yet.");
-      return;
-    }
-
-    await _controller!.animateCamera(
-      CameraUpdate.newLatLngZoom(marker.position, 18.0),
-    );
-
-    _selectedMarker = marker;
-    notifyListeners();
-
-    onMarkerTappedCallback?.call(marker);
-  }
-
   void updateSearchResults(String query) {
     query = query.trim();
 
@@ -1195,6 +1209,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
     notifyListeners();
   }
+
   // 실시간 지도 중심 위치 저장용 변수 추가
   CameraPosition _currentCameraPosition = const CameraPosition(
     target: LatLng(37.5665, 126.9780), // 초기값: 서울 (fallback)
@@ -1205,24 +1220,26 @@ class MapSampleViewModel extends ChangeNotifier {
 
 
   Future<void> onSearchSubmitted(String query) async {
-    if (query.trim().isEmpty) {
+    query = query.trim();
+    if (query.isEmpty) {
       _searchResults = [];
       temporaryMarker = null;
       notifyListeners();
       return;
     }
 
-    final originalQuery = query.trim();
+    final originalQuery = query;
 
-    // 기존 사용자 마커 부분 검색 유지
+    // 기존 사용자 마커 필터링
     final filteredMarkers = _markers.where((m) {
       final title = m.infoWindow.title?.toLowerCase() ?? '';
       return title.contains(originalQuery.toLowerCase());
     }).toList();
+
     _searchResults = {for (var m in filteredMarkers) m.markerId: m}.values.toList();
 
     try {
-      // 현재 화면 중심 좌표 (사용자가 이동한 위치 기준!)
+      // Places API 호출
       double centerLat = _currentCameraPosition.target.latitude;
       double centerLng = _currentCameraPosition.target.longitude;
 
@@ -1242,43 +1259,31 @@ class MapSampleViewModel extends ChangeNotifier {
         "locationBias": {
           "circle": {
             "center": {"latitude": centerLat, "longitude": centerLng},
-            "radius": 5000.0, // 전 세계
+            "radius": 5000.0,
           }
         }
       });
-
-      print("🔍 Places API 호출 시작: '$originalQuery' | 중심: ($centerLat, $centerLng)");
 
       final placesResponse = await http.post(
         placesUrl,
         headers: {
           'Content-Type': 'application/json',
-          'X-Goog-FieldMask':
-          'places.id,places.displayName,places.formattedAddress,places.location',
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location',
         },
         body: requestBody,
       );
-
-      print("ℹ️ Places API 응답 코드: ${placesResponse.statusCode}");
 
       if (placesResponse.statusCode == 200) {
         final data = json.decode(placesResponse.body);
         final list = (data['places'] as List?) ?? [];
 
-        print("ℹ️ Places API 결과 수: ${list.length}개");
-
         if (list.isNotEmpty) {
-          // 중복 제거 및 마커 생성 (기존 코드 그대로)
           final Map<String, Map<String, dynamic>> uniquePlaces = {};
-
           for (var place in list) {
             final latStr = place['location']?['latitude']?.toStringAsFixed(6);
             final lngStr = place['location']?['longitude']?.toStringAsFixed(6);
             if (latStr != null && lngStr != null) {
-              final key = '$latStr,$lngStr';
-              if (!uniquePlaces.containsKey(key)) {
-                uniquePlaces[key] = place;
-              }
+              uniquePlaces.putIfAbsent('$latStr,$lngStr', () => place);
             }
           }
 
@@ -1286,79 +1291,78 @@ class MapSampleViewModel extends ChangeNotifier {
           int addedCount = 0;
 
           for (var place in uniquePlaces.values) {
-            if (addedCount >= 10) break; // 검색결과 10개 이하 갯수 수정하면 그에 따른 검색 결과 갯수 변경
+            if (addedCount >= 10) break;
 
-            //final title = place['displayName']?['text'] ?? originalQuery;
-            //final addr = place['formattedAddress'] ?? '';
-            final lat = place['location']?['latitude'];
-            final lng = place['location']?['longitude'];
+            final lat = place['location']?['latitude'] as double?;
+            final lng = place['location']?['longitude'] as double?;
+            if (lat == null || lng == null) continue;
+
+            final latLng = LatLng(lat, lng);
             final placeId = place['id'] ?? 'result_$addedCount';
-
-            final latLng = LatLng(lat!, lng!);
 
             final marker = Marker(
               markerId: MarkerId('search_$placeId'),
               position: latLng,
-              infoWindow: InfoWindow.noText,
+              infoWindow: InfoWindow(
+                title: place['displayName']?['text'] ?? originalQuery,
+                snippet: place['formattedAddress'] ?? '',
+              ),
               icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+              onTap: () => onMarkerTapped(MarkerId('search_$placeId')),
             );
 
             newSearchMarkers.add(marker);
             addedCount++;
-
-            if (addedCount == 1) {
-              temporaryMarker = marker.copyWith(infoWindowParam: InfoWindow.noText);
-              _controller?.animateCamera(
-                CameraUpdate.newCameraPosition(
-                  CameraPosition(target: latLng, zoom: 8),
-                ),
-              );
-            }
-          }
-
-          // 모든 마커를 화면에 딱 맞게 자동 줌
-          if (newSearchMarkers.isNotEmpty) {
-            final List<LatLng> markerPositions = newSearchMarkers.map((m) => m.position).toList();
-
-            LatLng southwest = markerPositions.reduce((a, b) => LatLng(
-              a.latitude < b.latitude ? a.latitude : b.latitude,
-              a.longitude < b.longitude ? a.longitude : b.longitude,
-            ));
-            LatLng northeast = markerPositions.reduce((a, b) => LatLng(
-              a.latitude > b.latitude ? a.latitude : b.latitude,
-              a.longitude > b.longitude ? a.longitude : b.longitude,
-            ));
-
-            final LatLngBounds bounds = LatLngBounds(southwest: southwest, northeast: northeast);
-
-            temporaryMarker = newSearchMarkers.first.copyWith(infoWindowParam: InfoWindow.noText);
-
-            _controller?.animateCamera(
-              CameraUpdate.newLatLngBounds(bounds, 100.0),
-              // 100.0 -> 마커가 홤녀 끝에서 100px 떨어짐(추천)
-              // 50.0 -> 더 꽉 채움
-              // 150.0 -> 너 넓은 여유
-            );
           }
 
           _searchResults = [..._searchResults, ...newSearchMarkers];
-          print("✅ 검색 성공: $addedCount개 결과 표시");
+
+          // 검색 완료 신호 보내기 (카메라 이동용)
+          onSearchCompleted?.call(_searchResults);
+
           notifyListeners();
           return;
-        } else {
-          print("ℹ️ '$originalQuery'에 해당하는 결과가 없습니다.");
         }
-      } else {
-        print("❌ Places API HTTP 오류: ${placesResponse.statusCode} ${placesResponse.body}");
       }
-    } catch (e, stack) {
-      print("❌ Places API 호출 중 예외 발생: $e");
-      print(stack);
+    } catch (e) {
+      debugPrint("Places 검색 오류: $e");
     }
 
-    // Geocoding fallback 완전 제거 → 카테고리 검색에선 불필요
-    // 결과 없으면 그냥 "결과 없음"으로 자연스럽게 처리
-    _searchResults = [..._searchResults]; // 기존 사용자 마커만 유지
     notifyListeners();
+  }
+
+  Future<void> onMarkerTapped(MarkerId markerId) async {
+    // 1. 검색 결과에 없으면 기존 사용자 마커에서 확인
+    Marker? marker= _searchResults.firstWhereOrNull(
+          (m) => m.markerId == markerId,
+    );
+
+    // 1. 검색 결과 마커인지 확인
+    marker ??= _allMarkers.cast<Marker>().firstWhereOrNull(
+          (m) => m.markerId == markerId,
+    );
+
+
+
+    if (marker == null) {
+      debugPrint("클릭된 마커를 찾을 수 없음: ${markerId.value}");
+      return;
+    }
+
+    // 카메라 이동 (클릭한 마커 중심)
+    await _controller?.animateCamera(
+      CameraUpdate.newLatLngZoom(marker.position, 18.0),
+    );
+
+    _selectedMarker = marker;
+    notifyListeners();
+
+    if (marker.markerId.value.startsWith('search_')) {
+      debugPrint("검색 마커 클릭됨: ${markerId.value} -> 생성 화면 이동");
+
+      onSearchMarkerTapped?.call(marker);
+    } else {
+      onMarkerTappedCallback?.call(marker);
+    }
   }
 }
