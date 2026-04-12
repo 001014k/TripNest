@@ -1,30 +1,35 @@
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../env.dart';
+import '../design/app_design.dart';
 import '../viewmodels/markerdetail_viewmodel.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../design/app_design.dart';
 import 'mapsample_view.dart';
 
+// ─────────────────────────────────────────
+// 메인 뷰
+// ─────────────────────────────────────────
 class MarkerDetailView extends StatefulWidget {
   final Marker marker;
   final String keyword;
 
-  MarkerDetailView({
+  const MarkerDetailView({
     required this.marker,
     required this.keyword,
+    super.key,
   });
 
   @override
-  _MarkerDetailPageState createState() => _MarkerDetailPageState();
+  State<MarkerDetailView> createState() => _MarkerDetailViewState();
 }
 
-class _MarkerDetailPageState extends State<MarkerDetailView> {
-  late PageController _pageController;
+class _MarkerDetailViewState extends State<MarkerDetailView> {
+  late final PageController _pageController;
   int _currentPage = 0;
 
   @override
@@ -32,9 +37,8 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
     super.initState();
     _pageController = PageController();
     _pageController.addListener(() {
-      setState(() {
-        _currentPage = _pageController.page?.round() ?? 0;
-      });
+      final p = _pageController.page?.round() ?? 0;
+      if (p != _currentPage) setState(() => _currentPage = p);
     });
   }
 
@@ -44,111 +48,16 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
     super.dispose();
   }
 
-  void _showBottomSheet(BuildContext context, MarkerDetailViewModel viewmodel) {
+  // ── 길찾기 바텀시트 ──────────────────────
+  void _showNavigationSheet(BuildContext ctx, MarkerDetailViewModel vm) {
     showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      backgroundColor: Colors.white,
-      builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 바텀시트 핸들
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppDesign.borderColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: AppDesign.primaryGradient,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.directions, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    '길찾기 앱 선택',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppDesign.primaryText,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _mapButtonWithImage('구글맵', 'assets/GoogleMap.png', () => viewmodel.openGoogleMaps(context)),
-              const SizedBox(height: 12),
-              _mapButtonWithImage('카카오맵', 'assets/kakaomap.png', () => viewmodel.openKakaoMap(context)),
-              const SizedBox(height: 12),
-              _mapButtonWithImage('네이버맵', 'assets/NaverMap.png', () => viewmodel.openNaverMap(context)),
-              const SizedBox(height: 12),
-              _mapButtonWithImage('티맵', 'assets/Tmap.png', () => viewmodel.openTmap(context)),
-            ],
-          ),
-        );
-      },
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _NavigationSheet(vm: vm),
     );
   }
 
-  Widget _mapButtonWithImage(String title, String assetPath, VoidCallback onTap) {
-    return Container(
-      height: 56,
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        border: Border.all(color: AppDesign.borderColor, width: 1.5),
-        boxShadow: AppDesign.softShadow,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppDesign.lightGray,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.all(6),
-                  child: Image.asset(assetPath, fit: BoxFit.contain),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  title,
-                  style: AppDesign.bodyLarge.copyWith(
-                    color: AppDesign.primaryText,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                const Icon(Icons.arrow_forward_ios, size: 16, color: AppDesign.subtleText),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
+  // ── 빌드 ────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
@@ -158,359 +67,678 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
         return vm;
       },
       child: Consumer<MarkerDetailViewModel>(
-        builder: (context, viewmodel, _) {
-          return Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Container(
-              decoration: const BoxDecoration(gradient: AppDesign.backgroundGradient),
-              child: SafeArea(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppDesign.spacing24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildPremiumAppBar(context, viewmodel),
-                      const SizedBox(height: AppDesign.spacing24),
-                      _buildPremiumMarkerImage(viewmodel),
-                      const SizedBox(height: AppDesign.spacing32),
-                      _buildMarkerInfoCard(viewmodel),
-                      const SizedBox(height: AppDesign.spacing24),
-                      if (viewmodel.address != null)
-                      const SizedBox(height: AppDesign.spacing24),
-                      _buildReviewCards(viewmodel),
-                      const SizedBox(height: AppDesign.spacing32),
-                      _buildActionButtons(context, viewmodel),
-                      const SizedBox(height: AppDesign.spacing24),
-                    ],
+        builder: (ctx, vm, _) => AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle.light,
+          child: Scaffold(
+            backgroundColor: AppDesign.bg,
+            extendBodyBehindAppBar: true,
+            body: Stack(
+              children: [
+                // ── 스크롤 영역 ──
+                CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    _HeroSliver(
+                      vm: vm,
+                      pageController: _pageController,
+                      currentPage: _currentPage,
+                      onBack: () => Navigator.of(ctx).pop(),
+                      onMore: () => _showMoreMenu(ctx, vm),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          _StatRow(vm: vm),
+                          const SizedBox(height: 12),
+                          _InfoCard(vm: vm),
+                          const SizedBox(height: 12),
+                          _ReviewSection(vm: vm),
+                          if (vm.memo != null && vm.memo!.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            _MemoCard(memo: vm.memo!),
+                          ],
+                          const SizedBox(height: 104), // bottom bar 여백
+                        ]),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ── 하단 고정 바 ──
+                Positioned(
+                  bottom: 0, left: 0, right: 0,
+                  child: _BottomBar(
+                    onNavigate: () => _showNavigationSheet(ctx, vm),
+                    onMap: () => Navigator.push(
+                      ctx,
+                      MaterialPageRoute(
+                        builder: (_) => MapSampleView(
+                          initialMarkerId: vm.marker.markerId,
+                        ),
+                      ),
+                    ),
+                    onShare: () => vm.saveMarker(ctx),
                   ),
                 ),
-              ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── 더보기 메뉴 ─────────────────────────
+  void _showMoreMenu(BuildContext ctx, MarkerDetailViewModel vm) {
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MoreMenuSheet(
+        onEdit: () {
+          Navigator.pop(ctx);
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            const SnackBar(content: Text('수정 기능은 곧 추가될 예정입니다')),
           );
+        },
+        onDelete: () async {
+          Navigator.pop(ctx);
+          final ok = await _confirmDelete(ctx);
+          if (ok == true && ctx.mounted) {
+            try {
+              await vm.deleteMarker(ctx);
+            } catch (e) {
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  SnackBar(
+                    content: Text('삭제 실패: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          }
         },
       ),
     );
   }
 
-  Widget _buildPremiumAppBar(BuildContext context, MarkerDetailViewModel viewmodel) {
-    return Row(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: AppDesign.cardBg,
-            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-            boxShadow: AppDesign.softShadow,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-              onTap: () => Navigator.of(context).pop(),
-              child: const Icon(
-                Icons.arrow_back_ios_new,
-                color: AppDesign.primaryText,
-                size: 20,
-              ),
-            ),
-          ),
+  Future<bool?> _confirmDelete(BuildContext ctx) => showDialog<bool>(
+    context: ctx,
+    builder: (d) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('마커 삭제'),
+      content: const Text('정말 이 마커를 삭제하시겠습니까?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(d, false),
+          child: const Text('취소'),
         ),
-        const Spacer(),
-        // 개선된 메뉴 버튼
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: AppDesign.cardBg,
-            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-            boxShadow: AppDesign.softShadow,
-          ),
-          child: PopupMenuButton<String>(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            offset: const Offset(0, 56),
-            icon: const Icon(Icons.more_vert, color: AppDesign.primaryText),
-            onSelected: (value) async {
-              if (value == '삭제') {
-                final shouldDelete = await showDialog<bool>(
-                  context: context,
-                  builder: (dialogContext) => AlertDialog(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    title: const Text('마커 삭제'),
-                    content: const Text('정말 이 마커를 삭제하시겠습니까?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogContext, false),
-                        child: const Text('취소'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogContext, true),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        child: const Text('삭제'),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (shouldDelete == true && mounted) {
-                  try {
-                    await viewmodel.deleteMarker(context);
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('삭제 실패: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                }
-              } else if (value == '수정') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('수정 기능은 곧 추가될 예정입니다')),
-                );
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: '수정',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit, size: 20, color: AppDesign.travelBlue),
-                    SizedBox(width: 12),
-                    Text('수정'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: '삭제',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, size: 20, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('삭제', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        TextButton(
+          onPressed: () => Navigator.pop(d, true),
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          child: const Text('삭제'),
         ),
       ],
+    ),
+  );
+}
+
+// ─────────────────────────────────────────
+// 히어로 슬리버 (이미지 + 정보 오버레이)
+// ─────────────────────────────────────────
+class _HeroSliver extends StatelessWidget {
+  const _HeroSliver({
+    required this.vm,
+    required this.pageController,
+    required this.currentPage,
+    required this.onBack,
+    required this.onMore,
+  });
+
+  final MarkerDetailViewModel vm;
+  final PageController pageController;
+  final int currentPage;
+  final VoidCallback onBack;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverAppBar(
+      expandedHeight: 300,
+      pinned: false,
+      stretch: true,
+      automaticallyImplyLeading: false,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: FlexibleSpaceBar(
+        stretchModes: const [StretchMode.zoomBackground],
+        background: _HeroContent(
+          vm: vm,
+          pageController: pageController,
+          currentPage: currentPage,
+          onBack: onBack,
+          onMore: onMore,
+        ),
+      ),
     );
   }
+}
 
-  Widget _buildMarkerInfoCard(MarkerDetailViewModel vm) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.softShadow,
-      ),
-      padding: const EdgeInsets.all(AppDesign.spacing24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: AppDesign.primaryGradient,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: AppDesign.glowShadow,
+class _HeroContent extends StatelessWidget {
+  const _HeroContent({
+    required this.vm,
+    required this.pageController,
+    required this.currentPage,
+    required this.onBack,
+    required this.onMore,
+  });
+
+  final MarkerDetailViewModel vm;
+  final PageController pageController;
+  final int currentPage;
+  final VoidCallback onBack;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<String>>(
+      future: _fetchPhotos(vm.address ?? '', vm.title),
+      builder: (ctx, snap) {
+        final photos = snap.data ?? [];
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // 배경 이미지 PageView (스와이프 문제 해결)
+            photos.isEmpty
+                ? Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
                 ),
-                child: const Icon(Icons.place, color: Colors.white, size: 28),
               ),
-              const SizedBox(width: AppDesign.spacing16),
-              Expanded(
+            )
+                : PageView.builder(
+              controller: pageController,
+              itemCount: photos.length,
+              physics: const BouncingScrollPhysics(),  // 필수
+              onPageChanged: (index) {
+                // 필요 시 setState 대신 vm.notifyListeners() 사용 가능
+              },
+              itemBuilder: (_, i) => CachedNetworkImage(
+                imageUrl: photos[i],
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(color: const Color(0xFF4F46E5)),
+                errorWidget: (_, __, ___) => Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // 그라디언트 오버레이 (터치 방해 제거)
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x26000000), Color(0x00000000), Color(0x8C000000)],
+                  stops: [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+
+            // 상단 버튼들
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 16,
+              right: 16,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _GlassButton(
+                    onTap: onBack,
+                    child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                  ),
+                  _GlassButton(
+                    onTap: onMore,
+                    child: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
+                  ),
+                ],
+              ),
+            ),
+
+            // 페이지 카운터
+            if (photos.length > 1)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 12,
+                right: 64,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${currentPage + 1} / ${photos.length}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                  ),
+                ),
+              ),
+
+            // 페이지 도트
+            if (photos.length > 1)
+              Positioned(
+                bottom: 72,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(photos.length, (i) {
+                    final active = i == currentPage;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: active ? 18 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: active ? Colors.white : Colors.white54,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+            // 하단 정보 오버레이
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      vm.title ?? '제목 없음',
-                      style: AppDesign.headingMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppDesign.travelPurple.withOpacity(0.1),
+                        color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.label, size: 14, color: AppDesign.travelPurple),
-                          const SizedBox(width: 6),
+                          const Icon(Icons.label, size: 12, color: Colors.white),
+                          const SizedBox(width: 4),
                           Text(
-                            vm.keyword ?? '키워드 없음',
-                            style: AppDesign.bodyMedium.copyWith(
-                              color: AppDesign.travelPurple,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            vm.keyword ?? '카테고리',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
                           ),
                         ],
                       ),
                     ),
+                    Text(
+                      vm.title ?? '이름 없음',
+                      style: AppDesign.title22,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    if (vm.address != null)
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 13, color: Colors.white70),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              vm.address!,
+                              style: const TextStyle(fontSize: 13, color: Colors.white70),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
-            ],
-          ),
-          if (vm.address != null) ...[
-            const SizedBox(height: AppDesign.spacing20),
-            const Divider(color: AppDesign.borderColor),
-            const SizedBox(height: AppDesign.spacing16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppDesign.travelBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.location_on, color: AppDesign.travelBlue, size: 20),
-                ),
-                const SizedBox(width: AppDesign.spacing12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '위치',
-                        style: AppDesign.caption.copyWith(
-                          color: AppDesign.subtleText,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        vm.address!,
-                        style: AppDesign.bodyLarge.copyWith(
-                          color: AppDesign.primaryText,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<List<String>> _fetchPhotos(String address, String? title) async {
+    if (address.isEmpty) return [];
+    final query = (title != null && title.isNotEmpty)
+        ? '$title $address'
+        : address;
+    try {
+      final res = await http.post(
+        Uri.https('places.googleapis.com', '/v1/places:searchText'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': Env.googleMapsApiKey,
+          'X-Goog-FieldMask': 'places.id,places.photos',
+        },
+        body: jsonEncode({'textQuery': query}),
+      );
+      if (res.statusCode != 200) return [];
+      final data = jsonDecode(res.body);
+      final places = data['places'] as List<dynamic>?;
+      if (places == null || places.isEmpty) return [];
+      final urls = <String>[];
+      for (final photo in places[0]['photos'] ?? []) {
+        urls.add(
+          'https://places.googleapis.com/v1/${photo['name']}/media'
+              '?key=${Env.googleMapsApiKey}&maxWidthPx=800',
+        );
+        if (urls.length >= 6) break;
+      }
+      return urls;
+    } catch (_) {
+      return [];
+    }
+  }
+}
+
+// ─────────────────────────────────────────
+// 통계 행 (영업시간 · 평점 · 거리)
+// ─────────────────────────────────────────
+class _StatRow extends StatelessWidget {
+  const _StatRow({required this.vm});
+  final MarkerDetailViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _StatCard(
+          label: '영업시간',
+          value: vm.businessHours ?? '–',
+          sub: vm.isOpen == true ? '영업 중' : vm.isOpen == false ? '영업 종료' : null,
+          subColor: vm.isOpen == true ? AppDesign.success : AppDesign.label3,
+        ),
+        const SizedBox(width: 10),
+        _StatCard(
+          label: '평점',
+          value: vm.rating != null ? '★ ${vm.rating}' : '–',
+          sub: vm.reviewCount != null ? '리뷰 ${vm.reviewCount}개' : null,
+        ),
+        const SizedBox(width: 10),
+        _StatCard(
+          label: '거리',
+          value: vm.distance ?? '–',
+          sub: vm.walkTime,
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.label,
+    required this.value,
+    this.sub,
+    this.subColor,
+  });
+
+  final String label;
+  final String value;
+  final String? sub;
+  final Color? subColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          color: AppDesign.cardBg,
+          borderRadius: const BorderRadius.all(AppDesign.r14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(label, style: AppDesign.caption11),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w600,
+                color: AppDesign.label1,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (sub != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                sub!,
+                style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w500,
+                  color: subColor ?? AppDesign.label3,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// 정보 카드 (주소 · 전화)
+// ─────────────────────────────────────────
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.vm});
+  final MarkerDetailViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppDesign.cardBg,
+        borderRadius: const BorderRadius.all(AppDesign.r16),
+      ),
+      child: Column(
+        children: [
+          if (vm.address != null)
+            _InfoRow(
+              icon: Icons.location_on_rounded,
+              iconColor: const Color(0xFF4F46E5),
+              iconBg: const Color(0xFFEEF2FF),
+              label: '주소',
+              value: vm.address!,
+              onTap: null,
+              showChevron: false,
+            ),
+          if (vm.address != null && vm.phone != null)
+            const Divider(height: 0, indent: 60, color: AppDesign.separator),
+          if (vm.phone != null)
+            _InfoRow(
+              icon: Icons.phone_rounded,
+              iconColor: const Color(0xFF22C55E),
+              iconBg: const Color(0xFFF0FDF4),
+              label: '전화번호',
+              value: vm.phone!,
+              valueColor: AppDesign.primary,
+              onTap: () => launchUrl(Uri.parse('tel:${vm.phone}')),
+              showChevron: true,
+            ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildReviewCards(MarkerDetailViewModel vm) {
-    final reviewLinks = vm.reviewLinks;
-    if (reviewLinks.isEmpty) return const SizedBox();
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.label,
+    required this.value,
+    this.valueColor,
+    required this.onTap,
+    required this.showChevron,
+  });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final VoidCallback? onTap;
+  final bool showChevron;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: const BorderRadius.all(AppDesign.r16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 40, height: 40,
               decoration: BoxDecoration(
-                gradient: AppDesign.sunsetGradient,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.rate_review, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Text("리뷰 미리보기", style: AppDesign.headingSmall),
-            const Spacer(),
-            // 스크롤 힌트
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppDesign.travelBlue.withOpacity(0.1),
+                color: iconBg,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(label, style: AppDesign.caption11),
+                  const SizedBox(height: 2),
                   Text(
-                    '스와이프',
-                    style: AppDesign.caption.copyWith(
-                      color: AppDesign.travelBlue,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 10,
-                    color: AppDesign.travelBlue,
+                    value,
+                    style: AppDesign.body15.copyWith(color: valueColor),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
+            if (showChevron)
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppDesign.separator, size: 20),
           ],
         ),
-        const SizedBox(height: AppDesign.spacing16),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// 리뷰 섹션 (가로 스크롤 칩)
+// ─────────────────────────────────────────
+class _ReviewSection extends StatelessWidget {
+  const _ReviewSection({required this.vm});
+  final MarkerDetailViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final links = vm.reviewLinks;
+    if (links.isEmpty) return const SizedBox();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('리뷰 보기', style: AppDesign.caption11),
+        ),
         SizedBox(
-          height: 120,
+          height: 68,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            itemCount: reviewLinks.length,
             physics: const BouncingScrollPhysics(),
-            separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing12),
-            itemBuilder: (context, index) {
-              final review = reviewLinks[index];
+            itemCount: links.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (ctx, i) {
+              final r = links[i];
+              final url = r['url'] as String?;
+              final name = r['platform'] as String?;
+
+              if (url == null || name == null) return const SizedBox.shrink();
+
+              // 플랫폼별 임시 아이콘 매핑
+              IconData iconData;
+              Color iconColor;
+
+              switch (name) {
+                case '네이버':
+                  iconData = Icons.search_rounded;        // 네이버 검색 느낌
+                  iconColor = const Color(0xFF03C75A);    // 네이버 그린
+                  break;
+                case '카카오맵':
+                  iconData = Icons.map_rounded;
+                  iconColor = const Color(0xFFFFCD00);    // 카카오 노랑
+                  break;
+                case '구글':
+                  iconData = Icons.language_rounded;      // 구글 느낌
+                  iconColor = const Color(0xFF4285F4);    // 구글 블루
+                  break;
+                case '인스타그램':
+                  iconData = Icons.camera_alt_rounded;
+                  iconColor = const Color(0xFFE4405F);    // 인스타 핑크
+                  break;
+                default:
+                  iconData = Icons.map_outlined;
+                  iconColor = AppDesign.primary;
+              }
 
               return GestureDetector(
                 onTap: () async {
-                  final url = Uri.parse(review['url']!);
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  final uri = Uri.parse(url);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
                   }
                 },
                 child: Container(
-                  width: 160,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: AppDesign.cardBg,
-                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                    border: Border.all(color: AppDesign.borderColor, width: 1.5),
-                    boxShadow: AppDesign.softShadow,
+                    borderRadius: const BorderRadius.all(AppDesign.r40),
+                    border: Border.all(color: AppDesign.separator, width: 0.5),
                   ),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        width: 26,
+                        height: 26,
                         decoration: BoxDecoration(
-                          color: AppDesign.lightGray,
-                          borderRadius: BorderRadius.circular(12),
+                          color: iconColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Image.asset(review['icon']!, height: 32, width: 32),
+                        child: Icon(iconData, size: 18, color: iconColor),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(width: 10),
                       Text(
-                        review['platform']!,
-                        style: AppDesign.bodyMedium.copyWith(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: AppDesign.primaryText,
+                          color: AppDesign.label1,
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
@@ -522,32 +750,90 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
       ],
     );
   }
+}
 
-  Widget _buildActionButtons(BuildContext context, MarkerDetailViewModel vm) {
+// ─────────────────────────────────────────
+// 메모 카드
+// ─────────────────────────────────────────
+class _MemoCard extends StatelessWidget {
+  const _MemoCard({required this.memo});
+  final String memo;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 메인 액션 버튼 (길찾기)
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('메모', style: AppDesign.caption11),
+        ),
         Container(
-          height: 56,
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: AppDesign.primaryGradient,
-            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-            boxShadow: AppDesign.glowShadow,
+            color: AppDesign.cardBg,
+            borderRadius: const BorderRadius.all(AppDesign.r16),
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-              onTap: () => _showBottomSheet(context, vm),
-              child: Center(
-                child: Row(
+          child: Text(
+            memo,
+            style: const TextStyle(
+              fontSize: 14, color: AppDesign.label2, height: 1.6,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// 하단 고정 바
+// ─────────────────────────────────────────
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.onNavigate,
+    required this.onMap,
+    required this.onShare,
+  });
+
+  final VoidCallback onNavigate;
+  final VoidCallback onMap;
+  final VoidCallback onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).padding.bottom;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppDesign.bg.withOpacity(0.92),
+        border: const Border(
+          top: BorderSide(color: Color(0x14000000), width: 0.5),
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottom),
+      child: Row(
+        children: [
+          // 메인 길찾기 버튼
+          Expanded(
+            child: GestureDetector(
+              onTap: onNavigate,
+              child: Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: AppDesign.primary,
+                  borderRadius: const BorderRadius.all(AppDesign.r14),
+                ),
+                child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.directions, color: Colors.white, size: 24),
-                    const SizedBox(width: AppDesign.spacing12),
+                    Icon(Icons.directions_rounded,
+                        color: Colors.white, size: 20),
+                    SizedBox(width: 8),
                     Text(
                       '길찾기',
-                      style: AppDesign.headingSmall.copyWith(
+                      style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
@@ -556,329 +842,265 @@ class _MarkerDetailPageState extends State<MarkerDetailView> {
               ),
             ),
           ),
+          const SizedBox(width: 10),
+          // 지도 버튼
+          _IconBtn(icon: Icons.map_outlined, onTap: onMap),
+          const SizedBox(width: 10),
+          // 공유 버튼
+          _IconBtn(icon: Icons.share_outlined, onTap: onShare),
+        ],
+      ),
+    );
+  }
+}
+
+class _IconBtn extends StatelessWidget {
+  const _IconBtn({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50, height: 50,
+        decoration: BoxDecoration(
+          color: AppDesign.cardBg,
+          borderRadius: const BorderRadius.all(AppDesign.r14),
+          border: Border.all(color: AppDesign.separator, width: 0.5),
         ),
-        const SizedBox(height: AppDesign.spacing12),
-        // 보조 액션 버튼 (지도에서 보기)
-        Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: AppDesign.cardBg,
-            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-            border: Border.all(color: AppDesign.travelBlue, width: 2),
-            boxShadow: AppDesign.softShadow,
+        child: Icon(icon, color: AppDesign.primary, size: 22),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// 글래스 버튼 (히어로 상단)
+// ─────────────────────────────────────────
+class _GlassButton extends StatelessWidget {
+  const _GlassButton({required this.child, required this.onTap});
+  final Widget child;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36, height: 36,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.25),
+          shape: BoxShape.circle,
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// 더보기 바텀시트
+// ─────────────────────────────────────────
+class _MoreMenuSheet extends StatelessWidget {
+  const _MoreMenuSheet({required this.onEdit, required this.onDelete});
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      decoration: BoxDecoration(
+        color: AppDesign.cardBg,
+        borderRadius: const BorderRadius.all(AppDesign.r16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SheetItem(
+            icon: Icons.edit_outlined,
+            label: '수정',
+            color: AppDesign.primary,
+            onTap: onEdit,
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MapSampleView(
-                      initialMarkerId: vm.marker.markerId,
-                    ),
-                  ),
-                );
-              },
-              child: Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.map, color: AppDesign.travelBlue, size: 22),
-                    const SizedBox(width: AppDesign.spacing10),
-                    Text(
-                      '지도에서 보기',
-                      style: AppDesign.bodyLarge.copyWith(
-                        color: AppDesign.travelBlue,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+          const Divider(height: 0, color: AppDesign.separator),
+          _SheetItem(
+            icon: Icons.delete_outline_rounded,
+            label: '삭제',
+            color: Colors.red,
+            onTap: onDelete,
+          ),
+          const SizedBox(height: 8),
+          Container(height: 0.5, color: AppDesign.separator),
+          _SheetItem(
+            icon: Icons.close,
+            label: '취소',
+            color: AppDesign.label3,
+            onTap: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetItem extends StatelessWidget {
+  const _SheetItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: const BorderRadius.all(AppDesign.r16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w500, color: color,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// 길찾기 앱 선택 바텀시트
+// ─────────────────────────────────────────
+class _NavigationSheet extends StatelessWidget {
+  const _NavigationSheet({required this.vm});
+  final MarkerDetailViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final apps = [
+      _NavApp('구글맵', 'assets/GoogleMap.png', () => vm.openGoogleMaps(context)),
+      _NavApp('카카오맵', 'assets/kakaomap.png', () => vm.openKakaoMap(context)),
+      _NavApp('네이버맵', 'assets/NaverMap.png', () => vm.openNaverMap(context)),
+      _NavApp('티맵',    'assets/Tmap.png',      () => vm.openTmap(context)),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      decoration: BoxDecoration(
+        color: AppDesign.cardBg,
+        borderRadius: const BorderRadius.all(AppDesign.r16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 핸들
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: AppDesign.separator,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.directions_rounded,
+                      color: AppDesign.primary, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  '길찾기 앱 선택',
+                  style: TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.w600,
+                    color: AppDesign.label1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...apps.map((app) => _NavAppRow(app: app)),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavApp {
+  const _NavApp(this.name, this.asset, this.onTap);
+  final String name;
+  final String asset;
+  final VoidCallback onTap;
+}
+
+class _NavAppRow extends StatelessWidget {
+  const _NavAppRow({required this.app});
+  final _NavApp app;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Divider(height: 0, indent: 68, color: AppDesign.separator),
+        InkWell(
+          onTap: () {
+            Navigator.pop(context);
+            app.onTap();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F2F7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Image.asset(app.asset, fit: BoxFit.contain),
+                ),
+                const SizedBox(width: 14),
+                Text(
+                  app.name,
+                  style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w500,
+                    color: AppDesign.label1,
+                  ),
+                ),
+                const Spacer(),
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppDesign.separator, size: 20),
+              ],
             ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPremiumMarkerImage(MarkerDetailViewModel viewmodel) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-      child: Container(
-        height: 360,
-        width: double.infinity,
-        child: FutureBuilder<List<String>>(
-          future: _fetchMultiplePhotos(viewmodel.address ?? '', viewmodel.title),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return _buildPhotoPlaceholder(viewmodel);
-            }
-
-            final photoUrls = snapshot.data!.take(6).toList();
-
-            return Stack(
-              children: [
-                PageView.builder(
-                  controller: _pageController,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: photoUrls.length,
-                  itemBuilder: (context, index) {
-                    final url = photoUrls[index];
-
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        precacheImage(CachedNetworkImageProvider(url), context);
-                      }
-                    });
-
-                    return CachedNetworkImage(
-                      key: ValueKey(url),
-                      imageUrl: url,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: 360,
-                      placeholder: (_, __) => Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppDesign.travelBlue.withOpacity(0.3),
-                              AppDesign.travelPurple.withOpacity(0.3),
-                            ],
-                          ),
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 3,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '이미지 로딩 중...',
-                                style: AppDesign.bodyMedium.copyWith(
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.grey[300]!,
-                              Colors.grey[200]!,
-                            ],
-                          ),
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.broken_image, color: Colors.grey[400], size: 60),
-                              const SizedBox(height: 8),
-                              Text(
-                                '이미지를 불러올 수 없습니다',
-                                style: AppDesign.bodyMedium.copyWith(
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      fadeInDuration: const Duration(milliseconds: 300),
-                      fadeOutDuration: const Duration(milliseconds: 200),
-                    );
-                  },
-                ),
-
-
-
-                if (photoUrls.length > 1)
-                  Positioned(
-                    top: 20,
-                    right: 20,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${_currentPage + 1}/${photoUrls.length}',
-                        style: AppDesign.bodyMedium.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                if (photoUrls.length > 1)
-                  Positioned(
-                    bottom: 20,
-                    left: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(photoUrls.length, (index) {
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: index == _currentPage ? 28 : 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: index == _currentPage
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Future<List<String>> _fetchMultiplePhotos(String address, String? title) async {
-    if (address.isEmpty) return [];
-
-    String query = title != null && title.isNotEmpty ? '$title $address' : address;
-
-    try {
-      final response = await http.post(
-        Uri.https('places.googleapis.com', '/v1/places:searchText'),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': Env.googleMapsApiKey,
-          'X-Goog-FieldMask': 'places.id,places.photos',
-        },
-        body: jsonEncode({"textQuery": query}),
-      );
-
-      if (response.statusCode != 200) return [];
-
-      final data = jsonDecode(response.body);
-      final places = data['places'] as List<dynamic>?;
-
-      if (places == null || places.isEmpty) return [];
-
-      List<String> urls = [];
-      for (var photo in places[0]['photos'] ?? []) {
-        final name = photo['name'];
-        final url = 'https://places.googleapis.com/v1/$name/media'
-            '?key=${Env.googleMapsApiKey}&maxWidthPx=800';
-        urls.add(url);
-        if (urls.length >= 6) break;
-      }
-
-      return urls;
-    } catch (e) {
-      debugPrint('다중 사진 로드 실패: $e');
-      return [];
-    }
-  }
-
-  Widget _buildPhotoPlaceholder(MarkerDetailViewModel vm) {
-    return Container(
-      height: 360,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppDesign.travelBlue.withOpacity(0.7),
-            AppDesign.travelPurple.withOpacity(0.7),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-      ),
-      child: Stack(
-        children: [
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.photo_camera_back,
-                    size: 60,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  '사진을 찾을 수 없습니다',
-                  style: AppDesign.headingMedium.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '하지만 여전히 멋진 장소예요!',
-                  style: AppDesign.bodyMedium.copyWith(
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 50, 24, 32),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.85),
-                    Colors.black.withOpacity(0.4),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
