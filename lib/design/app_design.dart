@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
 
-// ================================
-// 개선된 디자인 시스템 - 여행 테마
-// ================================
+/// 여행 테마 디자인 시스템
 class AppDesign {
-  // 생동감 있는 컬러 팔레트
+  // =============================================================
+  // 1. 색상 팔레트
+  // =============================================================
+
+  // 배경색
   static const Color primaryBg = Color(0xFFF8FAFC);
   static const Color secondaryBg = Color(0xFFF1F5F9);
   static const Color cardBg = Colors.white;
+  static const Color bg = Color(0xFFF2F2F7);
 
-  // 브랜드 컬러 - 여행의 설렘을 표현
+  // 브랜드 컬러
+  static const Color primary = Color(0xFF4F46E5);       // 인디고 (메인)
+  static const Color primaryDark = Color(0xFF4338CA);
   static const Color travelBlue = Color(0xFF3B82F6);
   static const Color travelGreen = Color(0xFF10B981);
   static const Color travelOrange = Color(0xFFF59E0B);
   static const Color travelPurple = Color(0xFF8B5CF6);
+
+  // 그라데이션용
   static const Color sunsetGradientStart = Color(0xFFFF6B6B);
   static const Color sunsetGradientEnd = Color(0xFFFFE066);
 
@@ -21,13 +28,33 @@ class AppDesign {
   static const Color primaryText = Color(0xFF1E293B);
   static const Color secondaryText = Color(0xFF64748B);
   static const Color subtleText = Color(0xFF94A3B8);
-  static const Color whiteText = Color(0xFFFFFFFF);
+  static const Color whiteText = Colors.white;
 
-  // 기본 컬러
+  // 기타 컬러
   static const Color borderColor = Color(0xFFE2E8F0);
   static const Color lightGray = Color(0xFFF8FAFC);
+  static const Color success = Color(0xFF34C759);
+  static const Color label1 = Color(0xFF1C1C1E);
+  static const Color label2 = Color(0xFF3C3C43);
+  static const Color label3 = Color(0xFF8E8E93);
+  static const Color separator = Color(0xFFE5E5EA);
 
-  // 간격 시스템
+  // =============================================================
+  // 2. Radius (모서리 둥글기)
+  // =============================================================
+  static const Radius r12 = Radius.circular(12);
+  static const Radius r14 = Radius.circular(14);
+  static const Radius r16 = Radius.circular(16);
+  static const Radius r40 = Radius.circular(40);
+
+  static const double radiusSmall = 12;
+  static const double radiusMedium = 16;
+  static const double radiusLarge = 24;
+  static const double radiusXL = 32;
+
+  // =============================================================
+  // 3. 간격 (Spacing)
+  // =============================================================
   static const double spacing4 = 4;
   static const double spacing6 = 6;
   static const double spacing8 = 8;
@@ -40,13 +67,10 @@ class AppDesign {
   static const double spacing40 = 40;
   static const double spacing80 = 80;
 
-  // 보더 반지름 - 더 현대적인 느낌
-  static const double radiusSmall = 12;
-  static const double radiusMedium = 16;
-  static const double radiusLarge = 24;
-  static const double radiusXL = 32;
+  // =============================================================
+  // 4. 텍스트 스타일
+  // =============================================================
 
-  // 개선된 타이포그래피
   static const TextStyle headingXL = TextStyle(
     fontSize: 32,
     fontWeight: FontWeight.w900,
@@ -98,7 +122,30 @@ class AppDesign {
     height: 1.4,
   );
 
-  // 프리미엄 그림자 효과
+  // 자주 쓰이는 스타일 (getter로 편의 제공)
+  static TextStyle get title22 => const TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    height: 1.25,
+  );
+
+  static TextStyle get body15 => const TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: label1,
+  );
+
+  static TextStyle get caption11 => const TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    color: label3,
+    letterSpacing: 0.3,
+  );
+
+  // =============================================================
+  // 5. 그림자 (Shadow)
+  // =============================================================
   static final List<BoxShadow> softShadow = [
     BoxShadow(
       color: Colors.black.withOpacity(0.08),
@@ -136,7 +183,9 @@ class AppDesign {
     ),
   ];
 
-  // 그라디언트 정의
+  // =============================================================
+  // 6. 그라디언트
+  // =============================================================
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
