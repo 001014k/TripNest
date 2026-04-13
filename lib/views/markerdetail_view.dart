@@ -242,14 +242,15 @@ class _HeroContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<String>>(
-      future: _fetchPhotos(vm.address ?? '', vm.title),
+      future: vm.fetchPhotos(vm.address ?? '', vm.title),
       builder: (ctx, snap) {
         final photos = snap.data ?? [];
 
+        // ── 수정된 _HeroContent build 메서드 내 Stack ──
         return Stack(
           fit: StackFit.expand,
           children: [
-            // 배경 이미지 PageView (스와이프 문제 해결)
+            // 1. PageView (가장 아래, 제스처 우선)
             photos.isEmpty
                 ? Container(
               decoration: const BoxDecoration(
@@ -263,10 +264,7 @@ class _HeroContent extends StatelessWidget {
                 : PageView.builder(
               controller: pageController,
               itemCount: photos.length,
-              physics: const BouncingScrollPhysics(),  // 필수
-              onPageChanged: (index) {
-                // 필요 시 setState 대신 vm.notifyListeners() 사용 가능
-              },
+              physics: const ClampingScrollPhysics(), // ← BouncingScrollPhysics에서 변경
               itemBuilder: (_, i) => CachedNetworkImage(
                 imageUrl: photos[i],
                 fit: BoxFit.cover,
@@ -281,19 +279,21 @@ class _HeroContent extends StatelessWidget {
               ),
             ),
 
-            // 그라디언트 오버레이 (터치 방해 제거)
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x26000000), Color(0x00000000), Color(0x8C000000)],
-                  stops: [0.0, 0.4, 1.0],
+            // 2. 그라디언트 오버레이 — IgnorePointer로 터치 완전 차단
+            IgnorePointer(
+              child: const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x26000000), Color(0x00000000), Color(0x8C000000)],
+                    stops: [0.0, 0.4, 1.0],
+                  ),
                 ),
               ),
             ),
 
-            // 상단 버튼들
+            // 3. 상단 버튼 — 버튼 영역만 터치 허용
             Positioned(
               top: MediaQuery.of(context).padding.top + 8,
               left: 16,
@@ -305,108 +305,111 @@ class _HeroContent extends StatelessWidget {
                     onTap: onBack,
                     child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
                   ),
-                  _GlassButton(
-                    onTap: onMore,
-                    child: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
+                  Row(
+                    children: [
+                      if (photos.length > 1)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${currentPage + 1} / ${photos.length}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                          ),
+                        ),
+                      const SizedBox(width: 8),
+                      _GlassButton(
+                        onTap: onMore,
+                        child: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-            // 페이지 카운터
-            if (photos.length > 1)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 12,
-                right: 64,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${currentPage + 1} / ${photos.length}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
-                  ),
-                ),
-              ),
-
-            // 페이지 도트
+            // 4. 페이지 도트 — IgnorePointer
             if (photos.length > 1)
               Positioned(
                 bottom: 72,
                 left: 0,
                 right: 0,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(photos.length, (i) {
-                    final active = i == currentPage;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: active ? 18 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: active ? Colors.white : Colors.white54,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    );
-                  }),
+                child: IgnorePointer(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(photos.length, (i) {
+                      final active = i == currentPage;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: active ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: active ? Colors.white : Colors.white54,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      );
+                    }),
+                  ),
                 ),
               ),
 
-            // 하단 정보 오버레이
+            // 5. 하단 제목/주소 오버레이 — IgnorePointer
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.label, size: 12, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            vm.keyword ?? '카테고리',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      vm.title ?? '이름 없음',
-                      style: AppDesign.title22,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    if (vm.address != null)
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on, size: 13, color: Colors.white70),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              vm.address!,
-                              style: const TextStyle(fontSize: 13, color: Colors.white70),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+              child: IgnorePointer(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.label, size: 12, color: Colors.white),
+                            const SizedBox(width: 4),
+                            Text(
+                              vm.keyword ?? '카테고리',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                  ],
+                      Text(
+                        vm.title ?? '이름 없음',
+                        style: AppDesign.title22,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      if (vm.address != null)
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, size: 13, color: Colors.white70),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                vm.address!,
+                                style: const TextStyle(fontSize: 13, color: Colors.white70),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -414,39 +417,6 @@ class _HeroContent extends StatelessWidget {
         );
       },
     );
-  }
-
-  Future<List<String>> _fetchPhotos(String address, String? title) async {
-    if (address.isEmpty) return [];
-    final query = (title != null && title.isNotEmpty)
-        ? '$title $address'
-        : address;
-    try {
-      final res = await http.post(
-        Uri.https('places.googleapis.com', '/v1/places:searchText'),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': Env.googleMapsApiKey,
-          'X-Goog-FieldMask': 'places.id,places.photos',
-        },
-        body: jsonEncode({'textQuery': query}),
-      );
-      if (res.statusCode != 200) return [];
-      final data = jsonDecode(res.body);
-      final places = data['places'] as List<dynamic>?;
-      if (places == null || places.isEmpty) return [];
-      final urls = <String>[];
-      for (final photo in places[0]['photos'] ?? []) {
-        urls.add(
-          'https://places.googleapis.com/v1/${photo['name']}/media'
-              '?key=${Env.googleMapsApiKey}&maxWidthPx=800',
-        );
-        if (urls.length >= 6) break;
-      }
-      return urls;
-    } catch (_) {
-      return [];
-    }
   }
 }
 
