@@ -21,6 +21,10 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
   @override
   void initState() {
     super.initState();
+    // 화면 진입 시 최근 추천 내역 로드
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ChatRecommendationViewModel>().loadRecentRecommendations();
+    });
     _initializeAnimations();
   }
 
@@ -58,11 +62,14 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
                   children: [
                     _buildAppBar(context, vm),
                     Expanded(
-                      child: FadeTransition(
-                        opacity: _fadeAnimation,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 400),
+                        transitionBuilder: (Widget child, Animation<double> animation) {
+                          return FadeTransition(opacity: animation, child: child);
+                        },
                         child: vm.messages.isEmpty
-                            ? _buildModeSelectionScreen(context, vm)
-                            : _buildChatScreen(context, vm),
+                            ? _buildModeSelectionScreen(context, vm) // Stage 1
+                            : _buildChatScreen(context, vm),         // Stage 2
                       ),
                     ),
                   ],
@@ -79,8 +86,9 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween, // 양 끝으로 배치
         children: [
+          // 왼쪽 영역: 뒤로가기 + 타이틀
           Row(
             children: [
               _FeatureCard(
@@ -88,8 +96,11 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
                 color: AppDesign.cardBg,
                 onTap: () {
                   if (vm.messages.isNotEmpty) {
-                    _showResetDialog(context, vm);
+                    // 채팅 중이라면 초기화하고 '목록/모드 선택' 상태로 돌아감
+                    vm.resetChat();
+                    // 여기서 Navigator.pop을 안 하면 지도 화면으로 안 나가고 채팅창 내에서 초기화만 됨
                   } else {
+                    // 이미 초기 상태라면 지도 화면으로 나감
                     Navigator.pop(context);
                   }
                 },
@@ -128,6 +139,19 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
               ),
             ],
           ),
+
+          // 오른쪽 영역: 액션 버튼 (초기화)
+          if (vm.messages.isNotEmpty) // 메시지가 있을 때만 노출
+            _FeatureCard(
+              padding: const EdgeInsets.all(10),
+              color: AppDesign.cardBg,
+              onTap: () => _showResetDialog(context, vm), // 초기화 다이얼로그 호출
+              child: const Icon(
+                Icons.refresh_rounded, // 또는 delete_outline_rounded
+                color: AppDesign.secondaryText,
+                size: 20,
+              ),
+            ),
         ],
       ),
     );
@@ -194,30 +218,23 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _WelcomeHeader(),
-                const SizedBox(height: AppDesign.spacing32),
-                _PremiumModeCard(
-                  gradient: AppDesign.primaryGradient,
-                  icon: Icons.place_rounded,
-                  title: '장소 추천 받기',
-                  subtitle: '특정 테마나 지역의 멋진 명소를 추천해드립니다',
-                  accentColor: AppDesign.travelBlue,
-                  onTap: () => vm.startNewSession('place'),
-                ),
+                _HeroCard(),
+                const SizedBox(height: AppDesign.spacing24),
+                _QuickStartGrid(onSelect: (preset) {
+                  vm.startNewSession('place');
+                  vm.sendMessage(preset);
+                }),
                 const SizedBox(height: AppDesign.spacing20),
-                _PremiumModeCard(
-                  gradient: AppDesign.greenGradient,
-                  icon: Icons.calendar_today_rounded,
-                  title: '여행 일정 짜기',
-                  subtitle: '사용자가 가지고 있는 마커들을 이용해 날짜별 상세한 여행 계획을 만들어 드립니다.',
-                  accentColor: AppDesign.travelGreen,
-                  onTap: () => vm.startNewSession('itinerary'),
+                _RecentChipsRow(),
+                const SizedBox(height: AppDesign.spacing20),
+                _PremiumInputArea(
+                  controller: _controller,
+                  onSend: () => _sendMessage(context, vm),
                 ),
-                const SizedBox(height: AppDesign.spacing40),
               ],
             ),
           ),
@@ -268,61 +285,325 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
 // ================================
 // 웰컴 헤더
 // ================================
-class _WelcomeHeader extends StatelessWidget {
+class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppDesign.sunsetGradient,
+        color: AppDesign.primaryText, // 다크 배경
         borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-            color: AppDesign.sunsetGradientStart.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+        boxShadow: AppDesign.elevatedShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // AI 활성 badge — dot + 텍스트
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: AppDesign.travelBlue,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'AI 추천 활성',
+                style: AppDesign.caption.copyWith(
+                  color: AppDesign.travelBlue,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDesign.spacing12),
+          Text(
+            '어디로 떠나고\n싶으세요?',
+            style: AppDesign.headingMedium.copyWith(
+              color: Colors.white,
+              height: 1.25,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: AppDesign.spacing8),
+          Text(
+            '아래 주제를 선택하거나 직접 질문해보세요',
+            style: AppDesign.caption.copyWith(
+              color: Colors.white.withOpacity(0.6),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: AppDesign.spacing16),
+          // 키워드 chip 행
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: ['카페 투어', '자연 힐링', '야경 명소', '숨은 맛집'].map((tag) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.15),
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  tag,
+                  style: AppDesign.caption.copyWith(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 11,
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
+    );
+  }
+}
+
+class _QuickStartGrid extends StatelessWidget {
+  final Function(String preset) onSelect;
+
+  const _QuickStartGrid({required this.onSelect});
+
+  static const _items = [
+    {
+      'title': '근처 명소',
+      'sub': '지금 위치 주변\n인기 장소 추천',
+      'preset': '내 주변 인기 명소를 추천해줘',
+      'icon': Icons.place_rounded,
+      'gradient': [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+    },
+    {
+      'title': '테마 여행',
+      'sub': '힐링·맛집·카페\n테마별 코스',
+      'preset': '테마별 여행 코스를 추천해줘',
+      'icon': Icons.explore_rounded,
+      'gradient': [Color(0xFF10B981), Color(0xFF059669)],
+    },
+    {
+      'title': '스테이 & 무드',
+      'sub': '감성 숙소와\n취향 저격 공간',
+      'preset': '인스타 감성의 독채 숙소와 사진 찍기 좋은 장소를 추천해줘',
+      'icon': Icons.wb_sunny_rounded,
+      'gradient': [Color(0xFFFF6B6B), Color(0xFFFFE066)],
+    },
+    {
+      'title': '함께하는 여행',
+      'sub': '친구·가족과\n함께할 코스',
+      'preset': '친구들과 함께할 수 있는 여행 코스를 추천해줘',
+      'icon': Icons.people_rounded,
+      'gradient': [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '빠른 시작',
+          style: AppDesign.caption.copyWith(
+            color: AppDesign.secondaryText,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: AppDesign.spacing12),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.35,
+          children: _items.map((item) {
+            return _QuickStartCard(item: item, onTap: () {
+              onSelect(item['preset'] as String);
+            });
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickStartCard extends StatefulWidget {
+  final Map<String, dynamic> item;
+  final VoidCallback onTap;
+
+  const _QuickStartCard({required this.item, required this.onTap});
+
+  @override
+  State<_QuickStartCard> createState() => _QuickStartCardState();
+}
+
+class _QuickStartCardState extends State<_QuickStartCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gradientColors = widget.item['gradient'] as List<Color>;
+
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) { _controller.reverse(); widget.onTap(); },
+      onTapCancel: () => _controller.reverse(),
+      child: AnimatedBuilder(
+        animation: _scale,
+        builder: (context, _) => Transform.scale(
+          scale: _scale.value,
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppDesign.cardBg,
+              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+              border: Border.all(color: AppDesign.borderColor, width: 0.5),
+              boxShadow: AppDesign.softShadow,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '완벽한 여행을\n계획해보세요',
-                  style: AppDesign.headingMedium.copyWith(
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: gradientColors,
+                    ),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    widget.item['icon'] as IconData,
                     color: Colors.white,
-                    height: 1.3,
+                    size: 16,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const Spacer(),
                 Text(
-                  'AI가 당신만을 위한 특별한\n여행 추천을 준비했어요',
+                  widget.item['title'] as String,
                   style: AppDesign.bodyMedium.copyWith(
-                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.item['sub'] as String,
+                  style: AppDesign.caption.copyWith(
+                    color: AppDesign.subtleText,
                     height: 1.4,
+                    fontSize: 11,
                   ),
                 ),
               ],
             ),
           ),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(
-              Icons.auto_awesome,
-              color: Colors.white,
-              size: 36,
-            ),
-          ),
-        ],
+        ),
       ),
+    );
+  }
+}
+
+class _RecentChipsRow extends StatelessWidget {
+  const _RecentChipsRow({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<ChatRecommendationViewModel>();
+    final recentItems = vm.recentRecommendations;
+
+    if (recentItems.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '최근 추천',
+          style: AppDesign.caption.copyWith(
+            color: AppDesign.secondaryText,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: AppDesign.spacing8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: recentItems.map((item) {
+            final String label = item['title'] ?? '추천 기록';
+
+            return GestureDetector(
+              onTap: () {
+                // 💡 수정 완료: API 호출 없이 DB 데이터를 즉시 로드합니다.
+                vm.loadRecentRecommendation(item);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppDesign.cardBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppDesign.borderColor, width: 0.5),
+                  boxShadow: AppDesign.softShadow.take(1).toList(),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppDesign.travelBlue,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: AppDesign.caption.copyWith(
+                        color: AppDesign.secondaryText,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }
