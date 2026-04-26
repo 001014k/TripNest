@@ -212,12 +212,13 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
     );
   }
 
+  // _buildModeSelectionScreen 메서드 수정
   Widget _buildModeSelectionScreen(BuildContext context, ChatRecommendationViewModel vm) {
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,14 +231,15 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
                 }),
                 const SizedBox(height: AppDesign.spacing20),
                 _RecentChipsRow(),
-                const SizedBox(height: AppDesign.spacing20),
-                _PremiumInputArea(
-                  controller: _controller,
-                  onSend: () => _sendMessage(context, vm),
-                ),
+                // 기존에 여기 있던 _PremiumInputArea를 삭제
               ],
             ),
           ),
+        ),
+        // 입력창을 Expanded 외부(Column 하단)에 배치하여 고정
+        _PremiumInputArea(
+          controller: _controller,
+          onSend: () => _sendMessage(context, vm),
         ),
       ],
     );
@@ -331,37 +333,11 @@ class _HeroCard extends StatelessWidget {
           ),
           const SizedBox(height: AppDesign.spacing8),
           Text(
-            '아래 주제를 선택하거나 직접 질문해보세요',
+            '아래 빠른 시작 부분에서 프리셋을 선택하거나\n대화를 시작해보세요',
             style: AppDesign.caption.copyWith(
               color: Colors.white.withOpacity(0.6),
               height: 1.5,
             ),
-          ),
-          const SizedBox(height: AppDesign.spacing16),
-          // 키워드 chip 행
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: ['카페 투어', '자연 힐링', '야경 명소', '숨은 맛집'].map((tag) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.15),
-                    width: 0.5,
-                  ),
-                ),
-                child: Text(
-                  tag,
-                  style: AppDesign.caption.copyWith(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 11,
-                  ),
-                ),
-              );
-            }).toList(),
           ),
         ],
       ),
