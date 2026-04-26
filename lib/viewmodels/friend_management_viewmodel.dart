@@ -1,10 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 
 class FriendManagementViewModel extends ChangeNotifier {
   final supabase = Supabase.instance.client;
-
+  Set<String> onlineUserIds = {};
+  RealtimeChannel? _presenceChannel;
   String get currentUserId => supabase.auth.currentUser?.id ?? '';
+
+  void subscribeToPresence() {
+    if (_presenceChannel != null) return;
+
+    _presenceChannel = supabase.channel('online-users');
+
+    // 1. onPresenceSync를 사용하여 상태 변경 감지
+    _presenceChannel!.onPresenceSync((payload) {
+      final states = _presenceChannel!.presenceState();
+      final onlineIds = <String>{};
+
+      // 2. List<RealtimePresenceState>를 순회하며 user_id 추출
+      for (var state in states) {
+        for (var presence in state.presences) {
+          final userId = presence.payload['user_id']?.toString();
+          if (userId != null) onlineIds.add(userId);
+        }
+      }
+
+      onlineUserIds = onlineIds;
+      notifyListeners();
+    }).subscribe((status, [error]) async {
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        // 3. 본인 상태 추적 시작
+        await _presenceChannel!.track({'user_id': currentUserId});
+      }
+    });
+  }
+
+  void unsubscribePresence() {
+    _presenceChannel?.unsubscribe();
+    _presenceChannel = null;
+  }
 
   // 친구 요청 보내기
   Future<void> sendFriendRequest(BuildContext context, String nickname) async {
@@ -157,19 +192,17 @@ class FriendManagementViewModel extends ChangeNotifier {
 
     List<Map<String, dynamic>> friendsList = [];
 
-    for (var f in friends1) {
+    void addFriend(String id, String nickname) {
       friendsList.add({
-        'id': f['user2_id'],
-        'nickname': f['profiles']['nickname'],
+        'id': id,
+        'nickname': nickname,
+        'is_online': onlineUserIds.contains(id), // 실시간 상태 확인
       });
     }
 
-    for (var f in friends2) {
-      friendsList.add({
-        'id': f['user1_id'],
-        'nickname': f['profiles']['nickname'],
-      });
-    }
+    for (var f in friends1) addFriend(f['user2_id'], f['profiles']['nickname']);
+    for (var f in friends2) addFriend(f['user1_id'], f['profiles']['nickname']);
+
     return friendsList;
   }
 }
