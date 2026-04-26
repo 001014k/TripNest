@@ -81,8 +81,8 @@ class _FriendManagementViewState extends State<FriendManagementView>
                     controller: _tabController,
                     physics: const BouncingScrollPhysics(),
                     children: [
-                      _buildFriendRequestsTab(),
                       _buildFriendsListTab(),
+                      _buildFriendRequestsTab(),
                     ],
                   ),
                 ),
@@ -292,9 +292,9 @@ class _FriendManagementViewState extends State<FriendManagementView>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.mail_outline, size: 18),
+                const Icon(Icons.people_outline, size: 18),
                 const SizedBox(width: AppDesign.spacing8),
-                const Text('친구 요청'),
+                const Text('친구 목록'),
               ],
             ),
           ),
@@ -302,9 +302,9 @@ class _FriendManagementViewState extends State<FriendManagementView>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.people_outline, size: 18),
+                const Icon(Icons.mail_outline, size: 18),
                 const SizedBox(width: AppDesign.spacing8),
-                const Text('친구 목록'),
+                const Text('친구 요청'),
               ],
             ),
           ),
