@@ -26,6 +26,17 @@ class _FriendManagementViewState extends State<FriendManagementView>
     _initializeAnimations();
     _tabController = TabController(length: 2, vsync: this);
     _refreshData();
+    _viewModel.subscribeToPresence(); // 구독 시작
+    _viewModel.addListener(_onViewModelChanged); // 상태 변경 감지
+  }
+
+  void _onViewModelChanged() {
+    if (mounted) {
+      setState(() {
+        // onlineUserIds가 업데이트되면 친구 목록 Future를 다시 설정하여 UI 갱신
+        _friendsListFuture = _viewModel.getFriendsList();
+      });
+    }
   }
 
   void _initializeAnimations() {
@@ -48,6 +59,8 @@ class _FriendManagementViewState extends State<FriendManagementView>
 
   @override
   void dispose() {
+    _viewModel.removeListener(_onViewModelChanged);
+    _viewModel.unsubscribePresence(); // 구독 해제
     _fadeAnimationController.dispose();
     _tabController.dispose();
     super.dispose();
