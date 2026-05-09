@@ -15,6 +15,7 @@ class ChatRecommendationScreen extends StatefulWidget {
 class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
     with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -26,6 +27,17 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
       context.read<ChatRecommendationViewModel>().loadRecentRecommendations();
     });
     _initializeAnimations();
+  }
+
+  // AI 응답 후 자동 스크롤
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   void _initializeAnimations() {
@@ -41,6 +53,7 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _fadeController.dispose();
     _controller.dispose();
     super.dispose();
@@ -250,6 +263,7 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
       children: [
         Expanded(
           child: ListView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.all(24),
             physics: const BouncingScrollPhysics(),
             itemCount: vm.messages.length,
@@ -280,6 +294,9 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
       _controller.clear();
       vm.sendMessage(text);
       FocusScope.of(context).unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom();
+      });
     }
   }
 }
@@ -858,8 +875,27 @@ class _ChatMessageBubble extends StatelessWidget {
               ),
             ),
           ),
+          // === AI 응답 완료 시 추천 카드 + 자동 스크롤 ===
           if (!isUser && messageIndex == vm.messages.length - 1 && vm.pendingPlaces.isNotEmpty)
-            _buildRecommendedPlacesCards(context),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildRecommendedPlacesCards(context),
+
+                // 자동 스크롤
+                Builder(
+                  builder: (context) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (context.mounted) {
+                        final state = context.findAncestorStateOfType<_ChatRecommendationScreenState>();
+                        state?._scrollToBottom();
+                      }
+                    });
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
         ],
       ),
     );
