@@ -225,10 +225,10 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
               children: [
                 _HeroCard(),
                 const SizedBox(height: AppDesign.spacing24),
-                _QuickStartGrid(onSelect: (preset) {
+                _QuickStartGrid(onSelect: (preset, {bool isNearby = false}) {
                   vm.startNewSession('place');
-                  vm.sendMessage(preset);
-                }),
+                  vm.sendMessage(preset, isNearbySearch: isNearby);
+                },),
                 const SizedBox(height: AppDesign.spacing20),
                 _RecentChipsRow(),
                 // 기존에 여기 있던 _PremiumInputArea를 삭제
@@ -346,9 +346,8 @@ class _HeroCard extends StatelessWidget {
 }
 
 class _QuickStartGrid extends StatelessWidget {
-  final Function(String preset) onSelect;
-
-  const _QuickStartGrid({required this.onSelect});
+  final Function(String preset, {bool isNearby}) onSelect;
+  const _QuickStartGrid({Key? key, required this.onSelect}) : super(key: key);
 
   static const _items = [
     {
@@ -356,6 +355,7 @@ class _QuickStartGrid extends StatelessWidget {
       'sub': '지금 위치 주변\n인기 장소 추천',
       'preset': '내 주변 인기 명소를 추천해줘',
       'icon': Icons.place_rounded,
+      'isNearby': true,
       'gradient': [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
     },
     {
@@ -363,6 +363,7 @@ class _QuickStartGrid extends StatelessWidget {
       'sub': '힐링·맛집·카페\n테마별 코스',
       'preset': '테마별 여행 코스를 추천해줘',
       'icon': Icons.explore_rounded,
+      'isNearby': false,
       'gradient': [Color(0xFF10B981), Color(0xFF059669)],
     },
     {
@@ -370,6 +371,7 @@ class _QuickStartGrid extends StatelessWidget {
       'sub': '감성 숙소와\n취향 저격 공간',
       'preset': '인스타 감성의 독채 숙소와 사진 찍기 좋은 장소를 추천해줘',
       'icon': Icons.wb_sunny_rounded,
+      'isNearby': false,
       'gradient': [Color(0xFFFF6B6B), Color(0xFFFFE066)],
     },
     {
@@ -377,6 +379,7 @@ class _QuickStartGrid extends StatelessWidget {
       'sub': '친구·가족과\n함께할 코스',
       'preset': '친구들과 함께할 수 있는 여행 코스를 추천해줘',
       'icon': Icons.people_rounded,
+      'isNearby': false,
       'gradient': [Color(0xFF8B5CF6), Color(0xFFEC4899)],
     },
   ];
@@ -403,9 +406,13 @@ class _QuickStartGrid extends StatelessWidget {
           crossAxisSpacing: 12,
           childAspectRatio: 1.35,
           children: _items.map((item) {
-            return _QuickStartCard(item: item, onTap: () {
-              onSelect(item['preset'] as String);
-            });
+            return _QuickStartCard(
+              item: item,
+              onTap: () {
+                final bool isNearby = item['isNearby'] as bool? ?? false;
+                onSelect(item['preset'] as String, isNearby: isNearby);
+              },
+            );
           }).toList(),
         ),
       ],

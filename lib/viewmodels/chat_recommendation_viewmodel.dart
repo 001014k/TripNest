@@ -403,25 +403,33 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     }
   }
 
-  // 현재 위치 정보 가져오기 (선택적)
   Future<String> _getCurrentLocationContext() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return '';
+      if (!serviceEnabled) {
+        return '사용자 현재 위치 (위치 서비스 꺼짐)';
+      }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) return '';
+        if (permission == LocationPermission.denied) {
+          return '사용자 현재 위치 (권한 거부됨)';
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        return '사용자 현재 위치 (권한 영구 거부됨)';
       }
 
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
+        desiredAccuracy: LocationAccuracy.high,   // medium → high로 변경
+        timeLimit: const Duration(seconds: 10),
       );
 
-      return "현재 위치: 위도 ${position.latitude}, 경도 ${position.longitude}";
+      return "현재 위치: 위도 ${position.latitude.toStringAsFixed(6)}, 경도 ${position.longitude.toStringAsFixed(6)} (서울 기준 약 ${position.latitude.toStringAsFixed(2)}°N, ${position.longitude.toStringAsFixed(2)}°E)";
     } catch (e) {
-      return '';
+      if (kDebugMode) print('위치 정보 획득 실패: $e');
+      return '사용자 현재 위치 (정보를 가져올 수 없음)';
     }
   }
 
