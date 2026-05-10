@@ -147,26 +147,26 @@ class _DashboardHeader extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppDesign.travelBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppDesign.travelBlue.withOpacity(0.2),
-                      width: 1,
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: AppDesign.travelBlue,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    '오늘의 여행',
-                    style: AppDesign.caption.copyWith(
-                      color: AppDesign.travelBlue,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(width: 6),
+                    Text(
+                      '오늘의 여행',
+                      style: AppDesign.caption.copyWith(
+                        color: AppDesign.travelBlue,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
                 const SizedBox(height: AppDesign.spacing12),
                 const Text('어디로 떠날까요?', style: AppDesign.headingXL),
@@ -656,23 +656,21 @@ class SectionHeader extends StatelessWidget {
             Text(title, style: AppDesign.headingMedium),
           ],
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppDesign.primaryText,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: AppDesign.softShadow,
-          ),
-          child: InkWell(
-            onTap: onViewAll,
-            borderRadius: BorderRadius.circular(20),
-            child: Text(
-              '전체 보기',
-              style: AppDesign.bodyMedium.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+        GestureDetector(
+          onTap: onViewAll,
+          child: Row(
+            children: [
+              Text(
+                '전체 보기',
+                style: AppDesign.caption.copyWith(
+                  color: AppDesign.travelBlue,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
               ),
-            ),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right, size: 16, color: AppDesign.travelBlue),
+            ],
           ),
         ),
       ],
@@ -1121,7 +1119,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
     });
   }
 
-  /// sharedLinks가 늦게 세팅되어도 안전하게 preview 데이터 로드
+  // sharedLinks가 늦게 세팅되어도 안전하게 preview 데이터 로드
   void _ensurePreviewDataLoaded() {
     if (widget.sharedLinks.isNotEmpty) {
       _loadAllPreviewData();
