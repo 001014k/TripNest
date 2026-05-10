@@ -984,7 +984,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
                 const SizedBox(height: AppDesign.spacing8),
                 _buildMarkerDescription(marker, previewData),
                 const Spacer(),
-                _buildMarkerFooter(),
+                _buildMarkerFooter(marker),
               ],
             ),
           ),
@@ -1046,21 +1046,34 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     );
   }
 
-  Widget _buildMarkerFooter() {
+  Widget _buildMarkerFooter(MarkerModel marker) {
+    final keyword = (marker.keyword ?? '').trim();
+
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: AppDesign.travelBlue.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(
-            '저장됨',
-            style: AppDesign.caption.copyWith(
-              color: AppDesign.travelBlue,
-              fontWeight: FontWeight.w600,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.label,
+                size: 12,
+                color: AppDesign.travelBlue,   // white → travelBlue으로 변경 추천
+              ),
+              const SizedBox(width: 4),
+              Text(
+                keyword.isNotEmpty ? keyword : '저장됨',
+                style: AppDesign.caption.copyWith(
+                  color: AppDesign.travelBlue,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
         const Spacer(),
