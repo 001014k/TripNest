@@ -431,23 +431,37 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StatCard(
-          label: '영업시간',
-          value: vm.businessHours ?? '–',
-          sub: vm.isOpen == true ? '영업 중' : vm.isOpen == false ? '영업 종료' : null,
-          subColor: vm.isOpen == true ? AppDesign.success : AppDesign.label3,
+        // 영업시간 - 적당히 넓게
+        Expanded(
+          flex: 19,
+          child: _StatCard(
+            label: '영업시간',
+            value: vm.businessHours ?? '–',
+            sub: vm.isOpen == true ? '영업 중' : vm.isOpen == false ? '영업 종료' : null,
+            subColor: vm.isOpen == true ? AppDesign.success : AppDesign.label3,
+          ),
         ),
-        const SizedBox(width: 10),
-        _StatCard(
-          label: '평점',
-          value: vm.rating != null ? '★ ${vm.rating}' : '–',
-          sub: vm.reviewCount != null ? '리뷰 ${vm.reviewCount}개' : null,
+        const SizedBox(width: 5),
+
+        // 평점
+        Expanded(
+          flex: 10,
+          child: _StatCard(
+            label: '평점',
+            value: vm.rating != null ? '★ ${vm.rating}' : '–',
+            sub: vm.reviewCount != null ? '리뷰 ${vm.reviewCount}개' : null,
+          ),
         ),
-        const SizedBox(width: 10),
-        _StatCard(
-          label: '거리',
-          value: vm.distance ?? '–',
-          sub: vm.walkTime,
+        const SizedBox(width: 8),
+
+        // 거리 - 줄바꿈 방지
+        Expanded(
+          flex: 11,
+          child: _StatCard(
+            label: '거리',
+            value: vm.distance ?? '–',
+            sub: vm.walkTime,
+          ),
         ),
       ],
     );
@@ -469,39 +483,40 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        decoration: BoxDecoration(
-          color: AppDesign.cardBg,
-          borderRadius: const BorderRadius.all(AppDesign.r14),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(label, style: AppDesign.caption11),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      decoration: BoxDecoration(
+        color: AppDesign.cardBg,
+        borderRadius: const BorderRadius.all(AppDesign.r14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: AppDesign.caption11),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppDesign.label1,
+              height: 1.4,
+            ),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (sub != null) ...[
             const SizedBox(height: 4),
             Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600,
-                color: AppDesign.label1,
+              sub!,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: subColor ?? AppDesign.label3,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-            if (sub != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                sub!,
-                style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w500,
-                  color: subColor ?? AppDesign.label3,
-                ),
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }

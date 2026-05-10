@@ -171,7 +171,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
         : address;
 
     try {
-      // Step 1: Text Search로 place 후보 찾기
+      // Step 1: Text Search (기존 유지)
       final searchRes = await http.post(
         Uri.https('places.googleapis.com', '/v1/places:searchText'),
         headers: {
@@ -186,14 +186,12 @@ class MarkerDetailViewModel extends ChangeNotifier {
 
       final searchData = jsonDecode(searchRes.body);
       final places = searchData['places'] as List<dynamic>?;
-
       if (places == null || places.isEmpty) return;
 
       final placeId = places[0]['id'] as String?;
-
       if (placeId == null) return;
 
-      // Step 2: Place Details로 상세 정보 가져오기
+      // Step 2: Place Details - 영업시간 필드 추가 요청
       final detailsRes = await http.get(
         Uri.https('places.googleapis.com', '/v1/places/$placeId', {
           'fields': 'currentOpeningHours,regularOpeningHours,rating,userRatingCount,internationalPhoneNumber,nationalPhoneNumber,formattedAddress',
@@ -205,43 +203,105 @@ class MarkerDetailViewModel extends ChangeNotifier {
 
       final detailsData = jsonDecode(detailsRes.body);
 
-      // business_hours (영업시간 문자열로 변환)
-      final openingHours = detailsData['currentOpeningHours'] ??
-          detailsData['regularOpeningHours'];
-      if (openingHours != null) {
-        final periods = openingHours['periods'] as List<dynamic>? ?? [];
-        _businessHours = periods.isNotEmpty
-            ? '${periods[0]['open']['time']} - ${periods[0]['close']?['time'] ??
-            '22:00'}'
-            : '영업시간 정보 없음';
-      } else {
-        _businessHours = '영업시간 정보 없음';
+      // ==================== 영업시간 개선 로직 (오늘 요일만 표시) ====================
+      final currentHours = detailsData['currentOpeningHours'];
+      final regularHours = detailsData['regularOpeningHours'];
+
+      String todayHours = '영업시간 정보 없음';
+
+      final now = DateTime.now();
+      final todayIndex = now.weekday - 1; // 0=월요일 ~ 6=일요일
+
+      if (currentHours != null) {
+        _isOpen = currentHours['openNow'] as bool?;
+
+        final weekdayDescriptions = currentHours['weekdayDescriptions'] as List<dynamic>?;
+        if (weekdayDescriptions != null && weekdayDescriptions.isNotEmpty) {
+          if (todayIndex >= 0 && todayIndex < weekdayDescriptions.length) {
+            todayHours = _formatBusinessHours(weekdayDescriptions[todayIndex] as String);
+          }
+        } else {
+          todayHours = _formatTodayPeriod(currentHours['periods'] as List?);
+        }
+      }
+      else if (regularHours != null) {
+        final weekdayDescriptions = regularHours['weekdayDescriptions'] as List<dynamic>?;
+        if (weekdayDescriptions != null && weekdayDescriptions.isNotEmpty) {
+          if (todayIndex >= 0 && todayIndex < weekdayDescriptions.length) {
+            todayHours = _formatBusinessHours(weekdayDescriptions[todayIndex] as String);
+          }
+        } else {
+          todayHours = _formatTodayPeriod(regularHours['periods'] as List?);
+        }
+        _isOpen = regularHours['openNow'] as bool?;
       }
 
-      // is_open (현재 영업 중 여부)
-      _isOpen = openingHours?['openNow'] as bool?;
-
-      // rating
+      _businessHours = todayHours;
+      // rating, review, phone (기존 유지)
       _rating = (detailsData['rating'] as num?)?.toDouble();
-
-      // review_count
       _reviewCount = detailsData['userRatingCount'] as int?;
-
-      // phone
       _phone = detailsData['internationalPhoneNumber'] as String? ??
           detailsData['nationalPhoneNumber'] as String?;
 
-      print(
-          'Google Places 데이터 로드 완료: rating=$_rating, phone=$_phone, isOpen=$_isOpen');
+      print('Google Places 영업시간 로드: $_businessHours | isOpen: $_isOpen');
     } catch (e) {
       print('Google Places API error: $e');
-      // 실패 시 기본값 유지 (null)
-      _businessHours = null;
+      _businessHours = '영업시간 정보 없음';
       _isOpen = null;
       _rating = null;
       _reviewCount = null;
       _phone = null;
     }
+  }
+
+// 오늘 요일의 영업시간만 포맷팅하는 헬퍼
+  String _formatTodayPeriod(List<dynamic>? periods) {
+    if (periods == null || periods.isEmpty) {
+      return '영업시간 정보 없음';
+    }
+
+    final now = DateTime.now();
+    final todayDart = now.weekday;           // 1=월 ~ 7=일
+    final todayGoogle = todayDart - 1;       // 0=월 ~ 6=일
+
+    for (var period in periods) {
+      final openDay = period['open']?['day'] as int?;   // Google 기준 0~6
+      if (openDay == todayGoogle) {
+        final openTime = period['open']?['time'] ?? '';
+        final closeTime = period['close']?['time'] ?? '';
+        if (openTime.isNotEmpty) {
+          return closeTime.isNotEmpty
+              ? '$openTime - $closeTime'
+              : '$openTime ~';
+        }
+      }
+    }
+    return '영업시간 정보 없음';
+  }
+
+  // 영업시간을 "Sunday:\n2:00 PM - 1:00 AM" 형태로 강제 포맷팅
+  String _formatBusinessHours(String rawText) {
+    if (rawText.isEmpty) return '영업시간 정보 없음';
+
+    // 이미 "Sunday: ..." 형태인 경우
+    if (rawText.contains(':')) {
+      final parts = rawText.split(':');
+      if (parts.length >= 2) {
+        final day = parts[0].trim();
+        final time = parts.sublist(1).join(':').trim();
+        return '$day:\n$time';
+      }
+    }
+
+    // 요일 이름 추가
+    const dayNames = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+      'Friday', 'Saturday', 'Sunday'
+    ];
+
+    final todayName = dayNames[DateTime.now().weekday - 1];
+
+    return '$todayName:\n$rawText';
   }
 
   Future<void> deleteMarker(BuildContext context) async {
