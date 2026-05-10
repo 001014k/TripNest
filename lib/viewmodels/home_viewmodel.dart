@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/marker_model.dart';
 import '../models/shared_link_model.dart';  // SharedLinkModel 임포트
 import '../services/marker_service.dart';
-import '../services/shared_link_service.dart';  // 공유 링크를 가져올 서비스 (예시)
+import '../services/shared_link_service.dart';
 
 class HomeDashboardViewModel extends ChangeNotifier {
   final List<MarkerModel> _recentMarkers = [];
@@ -14,7 +14,7 @@ class HomeDashboardViewModel extends ChangeNotifier {
   Future<void> loadRecentMarkers() async {
     final rawMarkers = await MarkerService().getRecentMarkers(limit: 3);
     _recentMarkers.clear();
-    _recentMarkers.addAll(rawMarkers.map((e) => MarkerModel.fromMap(e)));
+    _recentMarkers.addAll(rawMarkers.map((e) => MarkerModel.fromMap(e)).toList());
     notifyListeners();
   }
 
