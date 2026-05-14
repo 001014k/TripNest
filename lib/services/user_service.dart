@@ -8,19 +8,55 @@ final supabase = Supabase.instance.client;
 class UserService {
   /// 사용자 통계 정보 반환 (user_markers, lists, bookmarks)
   Future<Map<String, int>> getUserStats(String userId) async {
-    final markers = await supabase
-        .from('user_markers')
-        .select('id')
-        .eq('user_id', userId);
-    final lists = await supabase
-        .from('lists')
-        .select('id')
-        .eq('user_id', userId);
+    try {
+      final supabase = Supabase.instance.client;
 
-    return {
-      'markers': (markers as List).length,
-      'lists': (lists as List).length,
-    };
+      // 병렬 조회
+      final results = await Future.wait([
+        // 마커 수
+        supabase
+            .from('user_markers')
+            .select('id')
+            .eq('user_id', userId)
+            .isFilter('deleted_at', null),
+
+        // 리스트 수
+        supabase
+            .from('lists')
+            .select('id')
+            .eq('user_id', userId)
+            .isFilter('deleted_at', null),
+
+        // 친구 수 (양방향)
+        supabase
+            .from('friends')
+            .select('id')
+            .or('user1_id.eq.$userId,user2_id.eq.$userId'),
+
+        // 공유 링크 수
+        supabase
+            .from('shared_links')
+            .select('id')
+            .eq('user_id', userId)
+            .isFilter('deleted_at', null),
+      ]);
+
+      return {
+        'markers': results[0].length,
+        'lists': results[1].length,
+        'friends': results[2].length,
+        'shared_links': results[3].length,
+      };
+    } catch (e, stack) {
+      print('getUserStats 오류: $e');
+      print(stack);
+      return {
+        'markers': 0,
+        'lists': 0,
+        'friends': 0,
+        'shared_links': 0,
+      };
+    }
   }
 
   /// 현재 사용자 리스트 가져오기

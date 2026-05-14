@@ -307,7 +307,6 @@ class _ProfilePageState extends State<ProfilePage> {
 // ================================
 class _ProfileHero extends StatelessWidget {
   final ProfileViewModel viewModel;
-
   const _ProfileHero({required this.viewModel});
 
   @override
@@ -424,9 +423,15 @@ class _ProfileHero extends StatelessWidget {
                       label: '리스트',
                     ),
                     _VerticalDivider(),
-                    const _HeroStat(num: '3', label: '친구'),
+                    _HeroStat(
+                      num: '${viewModel.stats?['friends'] ?? 0}',
+                      label: '친구',
+                    ),
                     _VerticalDivider(),
-                    const _HeroStat(num: '12', label: '링크'),
+                    _HeroStat(
+                      num: '${viewModel.stats?['shared_links'] ?? 0}',
+                      label: '링크',
+                    ),
                   ],
                 ),
               ),
