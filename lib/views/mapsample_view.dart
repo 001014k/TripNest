@@ -1228,6 +1228,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                   });
                   viewModel.controller = controller; //viewmodel에도 전달
                   await viewModel.loadMarkers();
+                  await viewModel.fetchAllAccessibleMarkers();
                   await viewModel.applyMarkersToCluster(controller);
                   controller.setMapStyle(viewModel.mapStyle);
 

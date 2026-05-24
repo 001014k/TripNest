@@ -116,6 +116,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
   List<Marker> bookmarkedMarkers = [];
   final supabase = Supabase.instance.client;
+  final SupabaseClient _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _userLists = [];
 
   List<Map<String, dynamic>> get userLists => _userLists;
@@ -165,6 +166,58 @@ class MapSampleViewModel extends ChangeNotifier {
     _clusterManager = null;
     _controller = null;
     super.dispose();
+  }
+
+  Future<void> fetchAllAccessibleMarkers() async {
+    final currentUserId = _supabase.auth.currentUser!.id;
+
+    // 1. 참여 중인 리스트 ID 가져오기
+    final memberResponse = await _supabase
+        .from('list_members')
+        .select('list_id')
+        .eq('user_id', currentUserId);
+
+    final listIds = (memberResponse as List<dynamic>)
+        .map((e) => e['list_id'] as String)
+        .toList();
+
+    // 2. 접근 가능한 marker_id 추출
+    final bookmarkedMarkerIds = await _supabase
+        .from('list_bookmarks')
+        .select('marker_id')
+        .inFilter('list_id', listIds);
+
+    final List<String> accessibleMarkerIds = (bookmarkedMarkerIds as List<dynamic>)
+        .map((e) => e['marker_id'] as String)
+        .toList();
+
+    // 3. 쿼리 수정: or 연산자 내부에 괄호와 콤마를 정확히 배치
+    // id.in.(...) 형식으로 명시
+    final String idList = accessibleMarkerIds.isEmpty
+        ? '00000000-0000-0000-0000-000000000000'
+        : accessibleMarkerIds.join(',');
+
+    final response = await _supabase
+        .from('user_markers')
+        .select('*, list_bookmarks(*)')
+        .or('user_id.eq.$currentUserId,id.in.($idList)')
+        .isFilter('deleted_at', null);
+
+    // 4. 데이터 매핑
+    final List<dynamic> data = response as List<dynamic>;
+    final List<MarkerModel> markerModels = data
+        .map((item) => MarkerModel.fromMap(item as Map<String, dynamic>))
+        .toList();
+
+    _allMarkers = markerModels.map((model) {
+      return Marker(
+        markerId: MarkerId(model.id),
+        position: LatLng(model.lat, model.lng),
+        infoWindow: InfoWindow(title: model.title),
+      );
+    }).toSet();
+
+    notifyListeners();
   }
 
   Future<void> _forceClusterUpdate() async {
@@ -513,8 +566,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
     final response = await Supabase.instance.client
         .from('list_bookmarks')
-        .select(
-        'id, marker_id, title, snippet, lat, lng, keyword, sort_order') // sort_order도 같이 받아서 출력해보기
+        .select('id, marker_id, title, snippet, lat, lng, keyword, sort_order') // sort_order도 같이 받아서 출력해보기
         .eq('list_id', listId)
         .order('sort_order', ascending: true) // 정렬 보장
         .limit(100)
@@ -1341,8 +1393,6 @@ class MapSampleViewModel extends ChangeNotifier {
     marker ??= _allMarkers.cast<Marker>().firstWhereOrNull(
           (m) => m.markerId == markerId,
     );
-
-
 
     if (marker == null) {
       debugPrint("클릭된 마커를 찾을 수 없음: ${markerId.value}");
