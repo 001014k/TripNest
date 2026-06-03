@@ -82,7 +82,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: _WelcomeCard(),
+                        child: _MoodBanner(),
                       ),
                     ),
 
@@ -159,7 +159,7 @@ class _DashboardHeader extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '오늘의 여행',
+                      '트래블 노트',
                       style: AppDesign.caption.copyWith(
                         color: AppDesign.travelBlue,
                         fontWeight: FontWeight.w600,
@@ -182,6 +182,7 @@ class _DashboardHeader extends StatelessWidget {
             _buildProfileAvatar(context),
           ],
         ),
+        const SizedBox(height: AppDesign.spacing24),
       ],
     );
   }
@@ -214,61 +215,102 @@ class _DashboardHeader extends StatelessWidget {
 }
 
 // ================================
-// 웰컴 카드 컴포넌트
+// 무드 배너 — 비인터랙티브
+// GestureDetector 없음, 탭 불가, 분위기 전달 전용
 // ================================
-class _WelcomeCard extends StatelessWidget {
+class _MoodBanner extends StatelessWidget {
+  const _MoodBanner();
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(top: AppDesign.spacing32),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppDesign.sunsetGradient,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+        ),
         borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-            color: AppDesign.sunsetGradientStart.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '새로운 여행을\n시작해보세요',
-                  style: AppDesign.headingMedium.copyWith(
-                    color: Colors.white,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: AppDesign.spacing8),
-                Text(
-                  '전 세계 숨겨진 보석들을 발견하고\n잊을 수 없는 추억을 만들어보세요',
-                  style: AppDesign.bodyMedium.copyWith(
-                    color: Colors.white.withOpacity(0.9),
-                    height: 1.4,
-                  ),
-                ),
-              ],
+          // 데코 원형 — 순수 시각 장식
+          Positioned(
+            right: -16,
+            top: -16,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.07),
+                shape: BoxShape.circle,
+              ),
             ),
           ),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
+          Positioned(
+            right: 20,
+            bottom: -24,
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
             ),
-            child: const Icon(
-              Icons.explore_outlined,
-              color: Colors.white,
-              size: 36,
-            ),
+          ),
+          // 콘텐츠
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.explore_outlined,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: AppDesign.spacing16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '오늘의 여행',
+                      style: AppDesign.caption.copyWith(
+                        color: Colors.white.withOpacity(0.7),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '세계 어디든,\n당신의 이야기로',
+                      style: AppDesign.headingSmall.copyWith(
+                        color: Colors.white,
+                        fontSize: 16,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '숨겨진 보석을 발견해보세요',
+                      style: AppDesign.caption.copyWith(
+                        color: Colors.white.withOpacity(0.75),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -321,7 +363,7 @@ class _MainFeaturesGridState extends State<_MainFeaturesGrid> with SingleTickerP
               child: _FeatureGridItem(
                 icon: _buildAnimatedIcon(Icons.map_outlined),
                 title: '지도 탐색',
-                subtitle: '새로운 장소\n발견하기',
+                subtitle: '새로운 장소 발견하기',
                 gradient: AppDesign.primaryGradient,
                 onTap: () => Navigator.pushNamed(context, '/map'),
               ),
@@ -331,7 +373,7 @@ class _MainFeaturesGridState extends State<_MainFeaturesGrid> with SingleTickerP
               child: _FeatureGridItem(
                 icon: _buildAnimatedIcon(Icons.bookmark_outline),
                 title: '여행 리스트',
-                subtitle: '나만의\n여행 노트',
+                subtitle: '나만의 여행 노트',
                 gradient: AppDesign.greenGradient,
                 onTap: () => Navigator.pushNamed(context, '/list'),
               ),
