@@ -330,7 +330,7 @@ class _MainFeaturesGridState extends State<_MainFeaturesGrid> with SingleTickerP
             Expanded(
               child: _FeatureGridItem(
                 icon: _buildAnimatedIcon(Icons.bookmark_outline),
-                title: '저장 목록',
+                title: '여행 리스트',
                 subtitle: '나만의\n여행 노트',
                 gradient: AppDesign.greenGradient,
                 onTap: () => Navigator.pushNamed(context, '/list'),
@@ -1048,40 +1048,73 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
 
   Widget _buildMarkerFooter(MarkerModel marker) {
     final keyword = (marker.keyword ?? '').trim();
+    final query = (marker.title != null && marker.title!.isNotEmpty)
+        ? '${marker.title} ${marker.address}'
+        : marker.address;
+
+    final viewModel = context.read<HomeDashboardViewModel>();
+    final rating = viewModel.getRating(query);
 
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppDesign.travelBlue.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+        if (keyword.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppDesign.travelBlue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.label,
+                  size: 12,
+                  color: AppDesign.travelBlue,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  keyword,
+                  style: AppDesign.caption.copyWith(
+                    color: AppDesign.travelBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Row(
+          const Spacer(),
+
+        if (rating != null && rating > 0)
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.label,
-                size: 12,
-                color: AppDesign.travelBlue,   // white → travelBlue으로 변경 추천
-              ),
-              const SizedBox(width: 4),
+              ...List.generate(5, (index) {
+                return Icon(
+                  index < rating.floor() ? Icons.star : (index < rating ? Icons.star_half : Icons.star_border),
+                  size: 14,
+                  color: AppDesign.travelOrange,
+                );
+              }),
+              const SizedBox(width: 6),
               Text(
-                keyword.isNotEmpty ? keyword : '저장됨',
+                rating.toStringAsFixed(1),
                 style: AppDesign.caption.copyWith(
-                  color: AppDesign.travelBlue,
-                  fontWeight: FontWeight.w600,
+                  color: AppDesign.primaryText,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
+          )
+        else
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
-        ),
-        const Spacer(),
-        Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: AppDesign.subtleText,
-        ),
+
+        const SizedBox(width: 12),
+        Icon(Icons.arrow_forward_ios, size: 16, color: AppDesign.subtleText),
       ],
     );
   }
