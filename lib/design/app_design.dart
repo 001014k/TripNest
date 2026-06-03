@@ -65,6 +65,7 @@ class AppDesign {
   static const double spacing24 = 24;
   static const double spacing32 = 32;
   static const double spacing40 = 40;
+  static const double spacing48 = 48;
   static const double spacing80 = 80;
 
   // =============================================================
@@ -113,6 +114,13 @@ class AppDesign {
     fontWeight: FontWeight.w500,
     color: primaryText,
     height: 1.5,
+  );
+
+  static const TextStyle bodySmall = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: secondaryText,
+    height: 1.4,
   );
 
   static const TextStyle caption = TextStyle(
