@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import '../design/app_design.dart';
+import 'security_settings_view.dart';
 
 class ProfilePage extends StatefulWidget {
   final String userId;
@@ -25,8 +26,8 @@ class _ProfilePageState extends State<ProfilePage> {
             body: viewModel.isLoading
                 ? _buildLoadingState()
                 : viewModel.errorMessage != null
-                ? _buildErrorState(viewModel.errorMessage!)
-                : _buildContent(context, viewModel),
+                    ? _buildErrorState(viewModel.errorMessage!)
+                    : _buildContent(context, viewModel),
           );
         },
       ),
@@ -111,7 +112,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         iconColor: AppDesign.travelBlue,
                         iconBg: const Color(0xFFEFF6FF),
                         label: '개인정보',
-                        subtitle: '개인정보 보호 설정',
+                        subtitle: '개인정보 처리 방침',
                         onTap: () =>
                             Navigator.pushNamed(context, '/privacy_settings'),
                       ),
@@ -129,8 +130,15 @@ class _ProfilePageState extends State<ProfilePage> {
                         iconColor: AppDesign.travelPurple,
                         iconBg: const Color(0xFFF5F3FF),
                         label: '보안',
-                        subtitle: '비밀번호 및 인증 관리',
-                        onTap: () {},
+                        subtitle: '연결된 로그인 계정 확인',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SecuritySettingsView(),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -198,7 +206,7 @@ class _ProfilePageState extends State<ProfilePage> {
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/login_option',
-            (route) => false,
+        (route) => false,
       );
     } catch (e) {
       debugPrint('로그아웃 실패: $e');
@@ -231,9 +239,9 @@ class _ProfilePageState extends State<ProfilePage> {
         title: Text('계정 영구 삭제', style: AppDesign.headingMedium),
         content: const Text(
           '정말로 계정을 삭제하시겠습니까?\n\n'
-              '• 모든 마커, 리스트, 알림이 사라집니다\n'
-              '• 친구 관계도 자동 해제됩니다\n'
-              '• 이 작업은 되돌릴 수 없습니다',
+          '• 모든 마커, 리스트, 알림이 사라집니다\n'
+          '• 친구 관계도 자동 해제됩니다\n'
+          '• 이 작업은 되돌릴 수 없습니다',
           style: AppDesign.bodyLarge,
         ),
         actions: [
@@ -281,7 +289,7 @@ class _ProfilePageState extends State<ProfilePage> {
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/login_option',
-            (route) => false,
+        (route) => false,
         arguments: {'showDeletedMessage': true},
       );
       return;
