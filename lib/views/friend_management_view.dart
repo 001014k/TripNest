@@ -1,3 +1,4 @@
+import 'package:provider/provider.dart';
 import '../viewmodels/friend_management_viewmodel.dart';
 import 'package:flutter/material.dart';
 import '../design/app_design.dart'; // AppDesign 임포트 추가
@@ -11,10 +12,11 @@ class FriendManagementView extends StatefulWidget {
 
 class _FriendManagementViewState extends State<FriendManagementView>
     with TickerProviderStateMixin {
-  final FriendManagementViewModel _viewModel = FriendManagementViewModel();
+  FriendManagementViewModel? _viewModel;
 
-  late Future<List<Map<String, dynamic>>> _receivedRequestsFuture;
-  late Future<List<Map<String, dynamic>>> _friendsListFuture;
+  // late 변수들은 선언 시점에 바로 빈 Future로 초기화하여 에러 방지
+  Future<List<Map<String, dynamic>>> _receivedRequestsFuture = Future.value([]);
+  Future<List<Map<String, dynamic>>> _friendsListFuture = Future.value([]);
 
   late AnimationController _fadeAnimationController;
   late Animation<double> _fadeAnimation;
@@ -26,17 +28,34 @@ class _FriendManagementViewState extends State<FriendManagementView>
     _initializeAnimations();
     _tabController = TabController(length: 2, vsync: this);
     _refreshData();
-    _viewModel.subscribeToPresence(); // 구독 시작
-    _viewModel.addListener(_onViewModelChanged); // 상태 변경 감지
+    _viewModel = Provider.of<FriendManagementViewModel>(context, listen: false);
+    _viewModel!.addListener(_handleViewModelUpdate);
+    // 2. 초기화 순서: 인스턴스 확보 후 리스너 등록 및 데이터 호출
+    final vm = Provider.of<FriendManagementViewModel>(context, listen: false);
+    _viewModel = vm;
+    vm.addListener(_handleViewModelUpdate);
+
+    _refreshData();
   }
 
-  void _onViewModelChanged() {
-    if (mounted) {
-      setState(() {
-        // onlineUserIds가 업데이트되면 친구 목록 Future를 다시 설정하여 UI 갱신
-        _friendsListFuture = _viewModel.getFriendsList();
-      });
-    }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+      _viewModel = Provider.of<FriendManagementViewModel>(context);
+      _viewModel?.addListener(_handleViewModelUpdate);
+
+      // 초기 데이터 로드
+      _refreshData();
+
+  }
+
+  @override
+  void dispose() {
+    // 4. null 체크 후 리스너 해제
+    _viewModel?.removeListener(_handleViewModelUpdate);
+    _fadeAnimationController.dispose();
+    _tabController.dispose();
+    super.dispose();
   }
 
   void _initializeAnimations() {
@@ -51,19 +70,18 @@ class _FriendManagementViewState extends State<FriendManagementView>
   }
 
   void _refreshData() {
+    if (_viewModel == null) return;
+
     setState(() {
-      _receivedRequestsFuture = _viewModel.getReceivedFriendRequests();
-      _friendsListFuture = _viewModel.getFriendsList();
+      _receivedRequestsFuture = _viewModel?.getReceivedFriendRequests() ?? Future.value([]);
+      _friendsListFuture = _viewModel?.getFriendsList() ?? Future.value([]);
     });
   }
 
-  @override
-  void dispose() {
-    _viewModel.removeListener(_onViewModelChanged);
-    _viewModel.unsubscribePresence(); // 구독 해제
-    _fadeAnimationController.dispose();
-    _tabController.dispose();
-    super.dispose();
+  void _handleViewModelUpdate() {
+    if (mounted) {
+      _refreshData();
+    }
   }
 
   @override
@@ -417,7 +435,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
                   icon: Icons.check_rounded,
                   color: AppDesign.travelGreen,
                   onTap: () async {
-                    await _viewModel.acceptFriendRequest(context, requesterId);
+                    await _viewModel?.acceptFriendRequest(context, requesterId);
                     _refreshData();
                   },
                 ),
@@ -426,7 +444,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
                   icon: Icons.close_rounded,
                   color: Colors.red.shade400,
                   onTap: () async {
-                    await _viewModel.declineFriendRequest(context, requesterId);
+                    await _viewModel?.declineFriendRequest(context, requesterId);
                     _refreshData();
                   },
                 ),
@@ -611,7 +629,9 @@ class _FriendManagementViewState extends State<FriendManagementView>
                   ),
                   color: AppDesign.cardBg,
                   onSelected: (value) {
-                    // 메뉴 선택 처리
+                    if (value == '삭제') {
+                      _showDeleteConfirmDialog(context, friend['id'], nickname);
+                    }
                   },
                   itemBuilder: (context) => [
                     PopupMenuItem(
@@ -633,31 +653,37 @@ class _FriendManagementViewState extends State<FriendManagementView>
                         ],
                       ),
                     ),
-                    PopupMenuItem(
-                      value: '차단',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.block_rounded,
-                            color: Colors.orange.shade400,
-                            size: 18,
-                          ),
-                          const SizedBox(width: AppDesign.spacing12),
-                          Text(
-                            '친구 차단',
-                            style: AppDesign.bodyMedium.copyWith(
-                              color: Colors.orange.shade400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmDialog(BuildContext context, String friendId, String nickname) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDesign.radiusXL)),
+        title: const Text('친구 삭제'),
+        content: Text('$nickname 님을 친구 목록에서 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              context.read<FriendManagementViewModel>().removeFriend(context, friendId);
+
+              Navigator.pop(context); // 다이얼로그 닫기
+            },
+            child: const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+        ],
       ),
     );
   }
@@ -971,7 +997,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
                             onTap: () async {
                               String nickname = dialogController.text.trim();
                               if (nickname.isNotEmpty) {
-                                await _viewModel.sendFriendRequest(context, nickname);
+                                await _viewModel?.sendFriendRequest(context, nickname);
                                 Navigator.of(context).pop();
                                 _refreshData();
                               } else {
