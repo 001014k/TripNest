@@ -63,7 +63,7 @@ class AddressPhotoPreviewViewModel extends ChangeNotifier {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': Env.googleMapsApiKey,
-          'X-Goog-FieldMask': 'places.photos',
+          'X-Goog-FieldMask': 'places.photos,places.displayName,places.id',
         },
         body: jsonEncode({"textQuery": query}),
       );
