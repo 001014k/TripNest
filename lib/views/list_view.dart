@@ -5,7 +5,6 @@ import '../viewmodels/list_viewmodel.dart';
 import 'marker_info_view.dart';
 import '../viewmodels/collaborator_viewmodel.dart';
 import '../design/app_design.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ListPage extends StatefulWidget {
   const ListPage({super.key});
@@ -492,7 +491,7 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
 
   void _showCollaborationDialog(BuildContext context, String listId) {
     final collaboratorVM = Provider.of<CollaboratorViewModel>(context, listen: false);
-
+    final messenger = ScaffoldMessenger.of(context);
     // 1. 다이얼로그를 띄우기 전에 데이터 로드 시작
     collaboratorVM.loadListOwner(listId);
     collaboratorVM.getCollaborators(listId);
@@ -653,7 +652,6 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                                 ],
 
                                 // 2. 협업 중인 멤버 섹션
-                                // 2. 협업 중인 멤버 섹션
                                 if (vm.collaborators.isNotEmpty) ...[
                                   Text(
                                     '협업 중인 멤버',
@@ -667,7 +665,7 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                                   ...vm.collaborators.map((member) {
                                     final currentUserId = supabase.auth.currentUser?.id;
                                     final isMe = member.userId == currentUserId;
-
+                                    final isOwner = vm.isCurrentUserOwner;
                                     final isEditor = member.role == 'editor';
                                     final roleColor = isEditor ? AppDesign.travelGreen : AppDesign.travelOrange;
                                     final roleBg = isEditor
@@ -733,24 +731,58 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                                                       ),
                                                     ),
                                                   ),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 4,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: roleBg,
-                                                    borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                                                  ),
-                                                  child: Text(
-                                                    isEditor ? '편집 가능' : '읽기 전용',
-                                                    style: TextStyle(
-                                                      color: roleColor,
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w600,
+
+                                                // ===== 제거 버튼 (리스트 주인만 볼 수 있음) =====
+                                                if (isOwner && !isMe)
+                                                  IconButton(
+                                                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 22),
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(),
+                                                    onPressed: () async {
+                                                      // 1. ScaffoldMessenger 참조를 변수에 저장
+                                                      final messenger = ScaffoldMessenger.of(context);
+                                                      final confirm = await _showRemoveConfirmDialog(context, member.nickname);
+
+                                                      if (confirm == true) {
+                                                        final success = await vm.removeCollaborator(listId, member.userId);
+                                                        if (success) {
+                                                          // 2. 저장된 변수 사용
+                                                          messenger.showSnackBar(
+                                                            SnackBar(
+                                                              content: Text('${member.nickname}님을 제거했습니다'),
+                                                              backgroundColor: AppDesign.travelGreen,
+                                                            ),
+                                                          );
+                                                        } else {
+                                                          messenger.showSnackBar(
+                                                            SnackBar(
+                                                              content: Text(vm.errorMessage ?? '제거에 실패했습니다'),
+                                                              backgroundColor: Colors.red,
+                                                            ),
+                                                          );
+                                                        }
+                                                      }
+                                                    },
+                                                  )
+                                                else
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 4,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: roleBg,
+                                                      borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                                                    ),
+                                                    child: Text(
+                                                      isEditor ? '편집 가능' : '읽기 전용',
+                                                      style: TextStyle(
+                                                        color: roleColor,
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
                                               ],
                                             ),
                                           ],
@@ -775,7 +807,7 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                                 if (vm.friends.isEmpty)
                                   _buildNoFriendsState()
                                 else
-                                  _buildFriendsList(vm, listId, context),
+                                  _buildFriendsList(vm, listId, messenger),
                               ],
                             ),
                           ),
@@ -847,7 +879,7 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildFriendsList(CollaboratorViewModel vm, String listId, BuildContext context) {
+  Widget _buildFriendsList(CollaboratorViewModel vm, String listId, ScaffoldMessengerState messenger) {
     return ListView.separated(
       shrinkWrap: true,
       itemCount: vm.friends.length,
@@ -937,9 +969,12 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
                         onTap: () async {
+                          final confirm = await _showInviteConfirmDialog(context, nickname);
+                          if (confirm != true) return;
+
                           final success = await vm.addCollaborator(listId, nickname);
                           if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text('$nickname님을 초대했습니다'),
                                 backgroundColor: AppDesign.travelGreen,
@@ -947,7 +982,7 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                             );
                             await vm.getCollaborators(listId);
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(vm.errorMessage ?? '초대에 실패했습니다'),
                                 backgroundColor: Colors.red,
@@ -985,7 +1020,116 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
     );
   }
 
+  Future<bool?> _showInviteConfirmDialog(BuildContext context, String nickname) {
+        return showDialog<bool>(
+          context: context,
+          barrierColor: Colors.black.withOpacity(0.7),
+          builder: (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppDesign.cardBg,
+                borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+                boxShadow: AppDesign.elevatedShadow,
+              ),
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: AppDesign.greenGradient,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Icon(
+                      Icons.person_add,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                  const SizedBox(height: AppDesign.spacing20),
+                  Text(
+                    '$nickname님을 초대하시겠습니까?',
+                    style: AppDesign.headingMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppDesign.spacing8),
+                  Text(
+                    '초대하면 이 친구가 리스트를 함께 편집할 수 있습니다.',
+                    style: AppDesign.bodyMedium.copyWith(
+                      color: AppDesign.secondaryText,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppDesign.spacing24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            gradient: AppDesign.greenGradient,
+                            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                            boxShadow: AppDesign.softShadow,
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                              onTap: () => Navigator.of(context).pop(true),
+                              child: const Center(
+                                child: Text(
+                                  '초대',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppDesign.spacing12),
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: AppDesign.lightGray,
+                            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                              onTap: () => Navigator.of(context).pop(false),
+                              child: Center(
+                                child: Text(
+                                  '취소',
+                                  style: AppDesign.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
   void _showListOptions(BuildContext context, String listId, ListViewModel viewModel) {
+    final pageContext = context;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1042,7 +1186,7 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                   subtitle: '친구들과 함께 여행을 계획해보세요',
                   onTap: () {
                     Navigator.pop(context);
-                    _showCollaborationDialog(context, listId);
+                    _showCollaborationDialog(pageContext, listId);
                   },
                 ),
 
@@ -1069,6 +1213,95 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
           ),
         );
       },
+    );
+  }
+
+  Future<bool?> _showRemoveConfirmDialog(BuildContext context, String nickname) {
+    return showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.7),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppDesign.cardBg,
+            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+            boxShadow: AppDesign.elevatedShadow,
+          ),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(Icons.person_remove, color: Colors.red, size: 40),
+              ),
+              const SizedBox(height: AppDesign.spacing20),
+              Text(
+                '$nickname님을 제거하시겠습니까?',
+                style: AppDesign.headingMedium.copyWith(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppDesign.spacing8),
+              Text(
+                '해당 사용자는 더 이상 이 리스트에 접근할 수 없습니다.',
+                style: AppDesign.bodyMedium.copyWith(
+                  color: AppDesign.secondaryText,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppDesign.spacing24),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                          onTap: () => Navigator.of(context).pop(true),
+                          child: const Center(
+                            child: Text('제거', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppDesign.spacing12),
+                  Expanded(
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppDesign.lightGray,
+                        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                          onTap: () => Navigator.of(context).pop(false),
+                          child: const Center(child: Text('취소', style: TextStyle(fontWeight: FontWeight.w600))),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
