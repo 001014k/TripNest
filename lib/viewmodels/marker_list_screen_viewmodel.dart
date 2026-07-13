@@ -21,7 +21,8 @@ class MarkerListViewModel extends ChangeNotifier {
 
       final data = await supabase
           .from('user_markers')
-          .select('id, title, address, keyword, created_at')
+          .select(
+              'id, title, address, keyword, created_at, lat, lng, marker_image_path')
           .eq('user_id', user.id)
           .order('created_at', ascending: false);
 
