@@ -472,11 +472,12 @@ class _StatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 116,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 17,
             child: GestureDetector(
               onTap: () => _showFullBusinessHours(context, vm),
               child: _StatCard(
@@ -492,11 +493,9 @@ class _StatRow extends StatelessWidget {
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: SizedBox(
-            height: 116,
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 8,
             child: GestureDetector(
               onTap: () => vm.openGoogleReview(context),
               child: _StatCard(
@@ -506,19 +505,17 @@ class _StatRow extends StatelessWidget {
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: SizedBox(
-            height: 116,
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 11,
             child: _StatCard(
               label: '거리',
               value: vm.distance ?? '–',
               sub: vm.walkTime,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
