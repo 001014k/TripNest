@@ -93,7 +93,7 @@ class _MarkerDetailViewState extends State<MarkerDetailView> {
                           const SizedBox(height: 12),
                           _InfoCard(vm: vm),
                           const SizedBox(height: 12),
-                          _ReviewSection(vm: vm),
+                          //_ReviewSection(vm: vm),
                           if (vm.memo != null && vm.memo!.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             _MemoCard(memo: vm.memo!),
@@ -431,30 +431,36 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // 영업시간 - 적당히 넓게
+        // 영업시간 (클릭 가능)
         Expanded(
           flex: 19,
-          child: _StatCard(
-            label: '영업시간',
-            value: vm.businessHours ?? '–',
-            sub: vm.isOpen == true ? '영업 중' : vm.isOpen == false ? '영업 종료' : null,
-            subColor: vm.isOpen == true ? AppDesign.success : AppDesign.label3,
+          child: GestureDetector(
+            onTap: () => _showFullBusinessHours(context, vm),
+            child: _StatCard(
+              label: '영업시간',
+              value: vm.businessHours ?? '–',
+              sub: vm.isOpen == true ? '영업 중' : vm.isOpen == false ? '영업 종료' : null,
+              subColor: vm.isOpen == true ? AppDesign.success : AppDesign.label3,
+            ),
           ),
         ),
         const SizedBox(width: 5),
 
-        // 평점
+        // 평점 (구글 리뷰로 이동)
         Expanded(
           flex: 10,
-          child: _StatCard(
-            label: '평점',
-            value: vm.rating != null ? '★ ${vm.rating}' : '–',
-            sub: vm.reviewCount != null ? '리뷰 ${vm.reviewCount}개' : null,
+          child: GestureDetector(
+            onTap: () => vm.openGoogleReview(context),
+            child: _StatCard(
+              label: '평점',
+              value: vm.rating != null ? '★ ${vm.rating}' : '–',
+              sub: vm.reviewCount != null ? '리뷰 ${vm.reviewCount}개' : null,
+            ),
           ),
         ),
         const SizedBox(width: 8),
 
-        // 거리 - 줄바꿈 방지
+        // 거리
         Expanded(
           flex: 11,
           child: _StatCard(
@@ -464,6 +470,21 @@ class _StatRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _showFullBusinessHours(BuildContext context, MarkerDetailViewModel vm) {
+    if (vm.businessHours == null || vm.businessHours == '영업시간 정보 없음') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('영업시간 정보가 없습니다')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FullBusinessHoursSheet(vm: vm),
     );
   }
 }
@@ -632,107 +653,92 @@ class _InfoRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-// 리뷰 섹션 (가로 스크롤 칩)
+// 전체 영업시간 BottomSheet (월~일)
 // ─────────────────────────────────────────
-class _ReviewSection extends StatelessWidget {
-  const _ReviewSection({required this.vm});
+class _FullBusinessHoursSheet extends StatelessWidget {
+  const _FullBusinessHoursSheet({required this.vm});
   final MarkerDetailViewModel vm;
 
   @override
   Widget build(BuildContext context) {
-    final links = vm.reviewLinks;
-    if (links.isEmpty) return const SizedBox();
+    return Container(
+      // 하단 마진 및 좌우 여백 시스템화
+      margin: const EdgeInsets.fromLTRB(
+        AppDesign.spacing16,
+        0,
+        AppDesign.spacing16,
+        AppDesign.spacing32,
+      ),
+      decoration: BoxDecoration(
+        color: AppDesign.cardBg,
+        borderRadius: const BorderRadius.all(AppDesign.r16),
+        boxShadow: AppDesign.softShadow, // 컴포넌트의 입체감을 위해 부드러운 그림자 추가
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 타이틀 영역
+          const Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppDesign.spacing20,
+              AppDesign.spacing24,
+              AppDesign.spacing20,
+              AppDesign.spacing16,
+            ),
+            child: Text(
+              '영업시간',
+              style: AppDesign.headingSmall, // fontSize 18, FontWeight.w600, label1 계열 매칭
+            ),
+          ),
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text('리뷰 보기', style: AppDesign.caption11),
-        ),
-        SizedBox(
-          height: 68,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: links.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (ctx, i) {
-              final r = links[i];
-              final url = r['url'] as String?;
-              final name = r['platform'] as String?;
-
-              if (url == null || name == null) return const SizedBox.shrink();
-
-              // 플랫폼별 임시 아이콘 매핑
-              IconData iconData;
-              Color iconColor;
-
-              switch (name) {
-                case '네이버':
-                  iconData = Icons.search_rounded;        // 네이버 검색 느낌
-                  iconColor = const Color(0xFF03C75A);    // 네이버 그린
-                  break;
-                case '카카오맵':
-                  iconData = Icons.map_rounded;
-                  iconColor = const Color(0xFFFFCD00);    // 카카오 노랑
-                  break;
-                case '구글':
-                  iconData = Icons.language_rounded;      // 구글 느낌
-                  iconColor = const Color(0xFF4285F4);    // 구글 블루
-                  break;
-                case '인스타그램':
-                  iconData = Icons.camera_alt_rounded;
-                  iconColor = const Color(0xFFE4405F);    // 인스타 핑크
-                  break;
-                default:
-                  iconData = Icons.map_outlined;
-                  iconColor = AppDesign.primary;
-              }
-
-              return GestureDetector(
-                onTap: () async {
-                  final uri = Uri.parse(url);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppDesign.cardBg,
-                    borderRadius: const BorderRadius.all(AppDesign.r40),
-                    border: Border.all(color: AppDesign.separator, width: 0.5),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: iconColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(iconData, size: 18, color: iconColor),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppDesign.label1,
-                        ),
-                      ),
-                    ],
+          // 영업시간 리스트 영역
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDesign.spacing20,
+              0,
+              AppDesign.spacing20,
+              AppDesign.spacing24,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: vm.weeklyHours.map((day) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppDesign.spacing8),
+                child: Text(
+                  day,
+                  style: AppDesign.body15.copyWith(
+                    height: 1.5, // 가독성을 위한 행간 유지
                   ),
                 ),
-              );
-            },
+              )).toList(),
+            ),
           ),
-        ),
-      ],
+
+          // 구분선 시스템 컬러 적용
+          const Divider(
+            height: 1,
+            color: AppDesign.separator,
+          ),
+
+          // 닫기 버튼 영역
+          InkWell(
+            onTap: () => Navigator.pop(context),
+            // 터치 영역 확장을 고려한 padding 시스템화
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppDesign.spacing16),
+              child: Center(
+                child: Text(
+                  '닫기',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppDesign.label3,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
