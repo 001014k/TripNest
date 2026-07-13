@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import 'package:path/path.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../env.dart';
 import '../views/mapsample_view.dart';
@@ -27,6 +25,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
   String? _distance;
   String? _walkTime;
   String? _phone;
+  List<String> _weeklyHours = [];
 
   // 생성자 추가
   MarkerDetailViewModel(this._marker);
@@ -55,6 +54,8 @@ class MarkerDetailViewModel extends ChangeNotifier {
 
   String? get phone => _phone;
 
+  List<String> get weeklyHours => _weeklyHours;
+
   late TextEditingController _titleController;
   bool isLoadingImages = false;
   bool isBookmarked = false;
@@ -64,18 +65,31 @@ class MarkerDetailViewModel extends ChangeNotifier {
   // 리뷰 플랫폼 리스트 반환 (길찾기와 분리)
   List<Map<String, String>> get reviewLinks {
     final title = _marker.infoWindow.title ?? _title ?? '';
-    final encoded = Uri.encodeComponent(title);
+    final address = _marker.infoWindow.snippet ?? _address ?? ''; // 주소 필드 사용
+
+    // 검색어 조합 (이름 + 주소)
+    final searchQuery = title.isNotEmpty && address.isNotEmpty
+        ? '$title $address'
+        : title;  // 주소가 없으면 title만 사용
+
+    final encoded = Uri.encodeComponent(searchQuery);
 
     return [
       {
         'platform': '네이버',
-        'url': 'https://search.naver.com/search.naver?query=$encoded'
+        'url': //'https://pcmap.place.naver.com/search/all/$encoded/review/visitor',  // 후기 탭 우선
+        // 또는 더 일반적으로:
+        'https://search.naver.com/search.naver?query=$encoded&where=pcmap&sm=tab_hty'
       },
-      {'platform': '카카오맵', 'url': 'https://map.kakao.com/link/search/$encoded'},
-      {'platform': '구글', 'url': 'https://www.google.com/search?q=$encoded'},
+      {
+        'platform': '구글',
+        'url': 'https://www.google.com/search?q=$encoded+리뷰',  // "장소이름 리뷰"로 검색
+        // 또는
+        // 'https://www.google.com/maps/search/?api=1&query=$encoded'
+      },
       {
         'platform': '인스타그램',
-        'url': 'https://www.instagram.com/explore/tags/$encoded/'
+        'url': 'https://www.instagram.com/explore/tags/${Uri.encodeComponent(title.replaceAll(" ", ""))}/',
       },
     ];
   }
@@ -237,6 +251,8 @@ class MarkerDetailViewModel extends ChangeNotifier {
       }
 
       _businessHours = todayHours;
+      // 전체 주간 영업시간 저장
+      _weeklyHours = _parseWeeklyHours(regularHours ?? currentHours);
       // rating, review, phone (기존 유지)
       _rating = (detailsData['rating'] as num?)?.toDouble();
       _reviewCount = detailsData['userRatingCount'] as int?;
@@ -280,28 +296,87 @@ class MarkerDetailViewModel extends ChangeNotifier {
   }
 
   // 영업시간을 "Sunday:\n2:00 PM - 1:00 AM" 형태로 강제 포맷팅
+  // 영업시간 한글 요일로 포맷팅
   String _formatBusinessHours(String rawText) {
     if (rawText.isEmpty) return '영업시간 정보 없음';
 
-    // 이미 "Sunday: ..." 형태인 경우
+    // 이미 "Monday: ..." 형태인 경우 한글 요일로 변환
     if (rawText.contains(':')) {
       final parts = rawText.split(':');
       if (parts.length >= 2) {
-        final day = parts[0].trim();
+        String dayEn = parts[0].trim();
         final time = parts.sublist(1).join(':').trim();
-        return '$day:\n$time';
+
+        // 영어 요일 → 한글 변환
+        const dayMap = {
+          'Monday': '월요일',
+          'Tuesday': '화요일',
+          'Wednesday': '수요일',
+          'Thursday': '목요일',
+          'Friday': '금요일',
+          'Saturday': '토요일',
+          'Sunday': '일요일',
+        };
+
+        final dayKo = dayMap[dayEn] ?? dayEn;
+        return '$dayKo: $time';
       }
     }
 
-    // 요일 이름 추가
-    const dayNames = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-      'Friday', 'Saturday', 'Sunday'
-    ];
-
+    // 오늘 요일 한글로 직접 추가
+    const dayNames = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
     final todayName = dayNames[DateTime.now().weekday - 1];
 
-    return '$todayName:\n$rawText';
+    return '$todayName: $rawText';
+  }
+
+  // 전체 주간 영업시간 파싱 (월~일)
+  List<String> _parseWeeklyHours(dynamic hoursData) {
+    if (hoursData == null) {
+      return List.filled(7, '영업시간 정보 없음');
+    }
+
+    List<String> result = List.filled(7, '휴무 또는 정보 없음');
+    const dayNames = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
+
+    final weekdayDescriptions = hoursData['weekdayDescriptions'] as List<dynamic>?;
+
+    if (weekdayDescriptions != null && weekdayDescriptions.isNotEmpty) {
+      for (int i = 0; i < weekdayDescriptions.length && i < 7; i++) {
+        String text = weekdayDescriptions[i] as String;
+        // Google 형식 "Monday: 9:00 AM – 10:00 PM" → "월요일: 오전 9:00~오후 10:00" 변환
+        if (text.contains(':')) {
+          final parts = text.split(':');
+          final timePart = parts.sublist(1).join(':').trim();
+          result[i] = '${dayNames[i]}  $timePart';
+        } else {
+          result[i] = '${dayNames[i]}  $text';
+        }
+      }
+      return result;
+    }
+
+    // periods 방식 처리
+    final periods = hoursData['periods'] as List<dynamic>?;
+    if (periods != null) {
+      for (var period in periods) {
+        final openDay = period['open']?['day'] as int?;
+        if (openDay != null && openDay >= 0 && openDay < 7) {
+          final openTime = (period['open']?['time'] ?? '').toString();
+          final closeTime = (period['close']?['time'] ?? '').toString();
+
+          String timeStr = '휴무';
+          if (openTime.isNotEmpty) {
+            timeStr = closeTime.isNotEmpty
+                ? '$openTime ~ $closeTime'
+                : '$openTime ~';
+          }
+          result[openDay] = '${dayNames[openDay]}  $timeStr';
+        }
+      }
+    }
+
+    return result;
   }
 
   Future<void> deleteMarker(BuildContext context) async {
@@ -409,12 +484,27 @@ class MarkerDetailViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  @override
-  void dispose() {
-    Provider
-        .of<MarkerDetailViewModel>(context as BuildContext, listen: false)
-        .dispose();
-    super.dispose();
+  // 클래스 하단에 추가 (openReviewPage 메서드)
+  void openGoogleReview(BuildContext context) async {
+    final title = _title ?? _marker.infoWindow.title ?? '';
+    final address = _address ?? _marker.infoWindow.snippet ?? '';
+
+    final searchQuery = title.isNotEmpty && address.isNotEmpty
+        ? '$title $address'
+        : title;
+
+    final encoded = Uri.encodeComponent(searchQuery);
+    final googleReviewUrl = 'https://www.google.com/search?q=$encoded+리뷰';
+
+    final uri = Uri.parse(googleReviewUrl);
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('링크를 열 수 없습니다')),
+      );
+    }
   }
 
 // ==================== 길찾기 메서드 개선 버전 ====================
