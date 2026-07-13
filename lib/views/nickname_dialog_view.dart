@@ -67,37 +67,21 @@ class NicknameSetupPage extends StatelessWidget {
 
   Widget _buildProgressHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDesign.spacing24,
-        vertical: AppDesign.spacing16,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '마지막 단계',
-                style: AppDesign.bodyMedium.copyWith(
-                  color: AppDesign.secondaryText,
-                ),
-              ),
-              Text(
-                '1/1',
-                style: AppDesign.bodyMedium.copyWith(
-                  color: AppDesign.travelBlue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text('닉네임 설정', style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText)),
+              Text('2/2', style: AppDesign.bodyMedium.copyWith(color: AppDesign.travelBlue, fontWeight: FontWeight.bold)),
             ],
           ),
-          const SizedBox(height: AppDesign.spacing8),
+          const SizedBox(height: 8),
           LinearProgressIndicator(
-            value: 1.0,
+            value: 1.0, // 100% 완료 표시
             backgroundColor: AppDesign.borderColor,
-            valueColor:
-                const AlwaysStoppedAnimation<Color>(AppDesign.travelBlue),
-            minHeight: 4,
+            valueColor: const AlwaysStoppedAnimation<Color>(AppDesign.travelBlue),
           ),
         ],
       ),
