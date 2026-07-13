@@ -205,4 +205,50 @@ class FriendManagementViewModel extends ChangeNotifier {
 
     return friendsList;
   }
+
+  // 친구 삭제 메서드
+  Future<void> removeFriend(BuildContext context, String friendId) async {
+    try {
+      final currentUserId = this.currentUserId;
+
+      // 1. 친구 관계 삭제 (friends 테이블)
+      await supabase
+          .from('friends')
+          .delete()
+          .or('and(user1_id.eq.$currentUserId,user2_id.eq.$friendId),and(user1_id.eq.$friendId,user2_id.eq.$currentUserId)');
+
+      // 2. 여행 리스트 멤버 삭제 (list_members 테이블)
+      // 내가 생성한 리스트들(lists 테이블의 owner) 중에서
+      // 삭제할 친구(friendId)가 멤버로(list_members 테이블) 등록된 경우 삭제
+
+      // 2-1. 내가 생성한 리스트들의 ID 가져오기
+      final myListRes = await supabase
+          .from('lists')
+          .select('id')
+          .eq('user_id', currentUserId);
+
+      final myListIds = (myListRes as List).map((e) => e['id'] as String).toList();
+
+      // 2-2. 해당 리스트들 중에서 삭제할 친구가 멤버인 행 삭제
+      if (myListIds.isNotEmpty) {
+        await supabase
+            .from('list_members')
+            .delete()
+            .eq('user_id', friendId)
+            .inFilter('list_id', myListIds);
+      }
+
+      // 3. 알림 및 UI 업데이트
+      notifyListeners();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('친구 삭제 및 관련 여행 협업 관계가 해제되었습니다.')),
+      );
+
+    } catch (e) {
+      print('친구 삭제 오류: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류가 발생했습니다: $e')),
+      );
+    }
+  }
 }
