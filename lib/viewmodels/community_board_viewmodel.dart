@@ -26,15 +26,33 @@ class CommunityBoardViewModel extends ChangeNotifier {
       final response = await _client
           .from('travel_posts')
           .select(
-              'id, title, content, destination, author_id, created_at, marker_id, place_title, place_address, place_category, place_lat, place_lng, place_image_path, profiles(nickname)')
+          '''
+          id, 
+          title, 
+          content, 
+          destination, 
+          author_id, 
+          created_at, 
+          marker_id, 
+          place_title, 
+          place_address, 
+          place_category, 
+          place_lat, 
+          place_lng, 
+          place_image_path,
+          profiles!travel_posts_author_id_fkey(nickname)   // ← 여기 수정
+          '''
+      )
           .order('created_at', ascending: false);
+
       _posts
         ..clear()
         ..addAll(
           (response as List).map(
-              (data) => CommunityPost.fromMap(data as Map<String, dynamic>)),
+                  (data) => CommunityPost.fromMap(data as Map<String, dynamic>)),
         );
-    } catch (_) {
+    } catch (e) {
+      print('❌ loadPosts 에러: $e');
       errorMessage = '게시물을 불러오지 못했습니다.';
     } finally {
       isLoading = false;
