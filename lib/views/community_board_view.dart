@@ -6,6 +6,7 @@ import '../design/app_design.dart';
 import '../models/community_post_model.dart';
 import '../viewmodels/community_board_viewmodel.dart';
 import '../widgets/dashed_border.dart';
+import 'community_post_detail_view.dart';
 
 class CommunityBoardView extends StatelessWidget {
   const CommunityBoardView({super.key});
@@ -76,6 +77,13 @@ class _CommunityBoardBody extends StatelessWidget {
               }
 
               if (viewModel.errorMessage != null && viewModel.posts.isEmpty) {
+                // ===== 디버깅 로그 추가 =====
+                print('🚨 Error Screen Shown');
+                print('   - errorMessage: ${viewModel.errorMessage}');
+                print('   - posts.length: ${viewModel.posts.length}');
+                print('   - posts.isEmpty: ${viewModel.posts.isEmpty}');
+                // ============================
+
                 return _BoardMessage(
                   icon: Icons.cloud_off_outlined,
                   message: viewModel.errorMessage!,
@@ -179,62 +187,68 @@ class _PostCard extends StatelessWidget {
     final accent =
         post.isMarkerShare ? AppDesign.travelStamp : AppDesign.primary;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: const BorderRadius.all(AppDesign.r16),
-        border: Border.all(color: AppDesign.separator),
-        boxShadow: AppDesign.softShadow,
+    return InkWell(
+      borderRadius: const BorderRadius.all(AppDesign.r16),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => CommunityPostDetailView(post: post)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _PostAvatar(
-                nickname: post.authorNickname,
-                accent: accent,
-                stamped: post.isMarkerShare,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(post.authorNickname, style: AppDesign.bodyMedium),
-              ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppDesign.cardBg,
+          borderRadius: const BorderRadius.all(AppDesign.r16),
+          border: Border.all(color: AppDesign.separator),
+          boxShadow: AppDesign.softShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _PostAvatar(
+                  nickname: post.authorNickname,
+                  accent: accent,
+                  stamped: post.isMarkerShare,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(post.authorNickname, style: AppDesign.bodyMedium),
+                ),
+                Text(
+                  post.isMarkerShare ? '$formattedDate · 마커 공유' : formattedDate,
+                  style: AppDesign.caption11,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (post.isMarkerShare) _SharedMarkerPreview(post: post),
+            if (!post.isMarkerShare) ...[
+              Text(post.title, style: AppDesign.journalTitleSmall),
+              const SizedBox(height: 8),
               Text(
-                post.isMarkerShare ? '$formattedDate · 마커 공유' : formattedDate,
-                style: AppDesign.caption11,
+                post.content,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: AppDesign.bodyMedium.copyWith(
+                  color: AppDesign.secondaryText,
+                  height: 1.5,
+                ),
               ),
             ],
-          ),
-          const SizedBox(height: 14),
-          if (post.isMarkerShare) _SharedMarkerPreview(post: post),
-          if (!post.isMarkerShare) ...[
-            Text(post.title, style: AppDesign.journalTitleSmall),
-            const SizedBox(height: 8),
-            Text(
-              post.content,
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: AppDesign.bodyMedium.copyWith(
-                color: AppDesign.secondaryText,
-                height: 1.5,
-              ),
-            ),
+            if (!post.isMarkerShare &&
+                post.destination != null &&
+                post.destination!.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _DestinationTag(label: post.destination!),
+            ],
+            if (post.isMarkerShare &&
+                post.destination != null &&
+                post.destination!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _DestinationTag(label: post.destination!),
+            ],
           ],
-          if (!post.isMarkerShare &&
-              post.destination != null &&
-              post.destination!.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            _DestinationTag(label: post.destination!),
-          ],
-          if (post.isMarkerShare &&
-              post.destination != null &&
-              post.destination!.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _DestinationTag(label: post.destination!),
-          ],
-        ],
+        ),
       ),
     );
   }
