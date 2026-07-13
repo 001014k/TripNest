@@ -7,8 +7,16 @@ import '../design/app_design.dart'; // AppDesign 임포트 추가
 
 class MarkerCreationScreen extends StatefulWidget {
   final LatLng initialLatLng;
+  final String? initialTitle;
+  final String? initialAddress;
 
-  MarkerCreationScreen({required this.initialLatLng});
+
+  const MarkerCreationScreen({
+    required this.initialLatLng,
+    this.initialTitle,
+    this.initialAddress,
+    super.key,
+  });
 
   @override
   _MarkerCreationScreenState createState() => _MarkerCreationScreenState();
@@ -34,6 +42,14 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen>
     _initializeAnimations();
     _loadAddress();
     _loadUserLists();
+    super.initState();
+    _titleController = TextEditingController(text: widget.initialTitle ?? '');
+
+    if (widget.initialAddress != null && widget.initialAddress!.isNotEmpty) {
+      setState(() {
+        _address = widget.initialAddress!;
+      });
+    }
   }
 
   void _initializeAnimations() {
