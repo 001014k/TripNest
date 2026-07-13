@@ -18,7 +18,6 @@ class CollaboratorViewModel extends ChangeNotifier {
   String? get error => _errorMessage;
 
   void _setLoading(bool value) {
-    if (_isLoading == value) return;
     _isLoading = value;
     notifyListeners();
   }
@@ -129,6 +128,7 @@ class CollaboratorViewModel extends ChangeNotifier {
       });
 
       await getCollaborators(listId);
+      await getFriends(listId);
 
       _setLoading(false);
       return true;
@@ -247,6 +247,24 @@ class CollaboratorViewModel extends ChangeNotifier {
       _setError('친구 목록 조회 실패: $e');
       _friends = [];
       _setLoading(false);
+    }
+  }
+
+  Future<bool> removeCollaborator(String listId, String userId) async {
+    try {
+      await supabase
+          .from('list_members')
+          .delete()
+          .eq('list_id', listId)
+          .eq('user_id', userId);
+
+      await getCollaborators(listId);
+      await getFriends(listId);
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 }
