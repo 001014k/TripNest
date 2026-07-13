@@ -25,6 +25,7 @@ class MapSampleView extends StatefulWidget {
 }
 
 class _MapSampleViewState extends State<MapSampleView> {
+  late MapSampleViewModel _viewModel;
   final ZoomDrawerController zoomDrawerController = ZoomDrawerController();
   GoogleMapController? _controller; // late를 추가하면 오류가 뜨고 삭제하면 해당 위치에 대한 결과가 뜸
   Map<MarkerId, String> _markerKeywords = {};
@@ -44,10 +45,10 @@ class _MapSampleViewState extends State<MapSampleView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final viewModel = context.read<MapSampleViewModel>();
+    _viewModel = context.read<MapSampleViewModel>();
 
     // 검색 마커 클릭 처리
-    viewModel.onSearchMarkerTapped = (Marker marker) async {
+    _viewModel.onSearchMarkerTapped = (Marker marker) async {
       print("✅ [Search Marker Tap] 클릭됨 → ${marker.markerId.value}");
 
       final result = await Navigator.push(
@@ -62,18 +63,18 @@ class _MapSampleViewState extends State<MapSampleView> {
       );
 
       if (result != null && result is Map<String, dynamic>) {
-        viewModel.addMarker(
+        _viewModel.addMarker(
           title: result['title'],
           snippet: result['snippet'],
           position: marker.position,
           keyword: result['keyword'],
           address: result['address'] ?? '',
           listId: result['listId'],
-          onTapCallback: (id) => viewModel.onMarkerTapped(id),
+          onTapCallback: (id) => _viewModel.onMarkerTapped(id),
         );
 
-        viewModel.clearSearchResults();
-        viewModel.notifyListeners();
+        _viewModel.clearSearchResults();
+        _viewModel.notifyListeners();
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -89,7 +90,7 @@ class _MapSampleViewState extends State<MapSampleView> {
     };
 
     // onSearchCompleted를 이렇게 변경하세요
-    viewModel.onSearchCompleted = (List<Marker> searchMarkers) async {
+    _viewModel.onSearchCompleted = (List<Marker> searchMarkers) async {
       if (searchMarkers.isEmpty) return;
 
       print("✅ 검색 완료 - ${searchMarkers.length}개 마커 → 카메라 이동 시도");
@@ -571,6 +572,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                           BorderRadius.circular(AppDesign.radiusMedium),
                       onTap: () {
                         context.read<MapSampleViewModel>().loadMarkers();
+                        context.read<MapSampleViewModel>().fetchAllAccessibleMarkers();
                         context.read<MapSampleViewModel>().clearPolylines();
                         Navigator.pop(context);
                       },
