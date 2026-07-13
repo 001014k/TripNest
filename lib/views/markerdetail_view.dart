@@ -1,12 +1,11 @@
-import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../env.dart';
 import '../design/app_design.dart';
+import '../env.dart';
 import '../viewmodels/markerdetail_viewmodel.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'mapsample_view.dart';
@@ -107,18 +106,12 @@ class _MarkerDetailViewState extends State<MarkerDetailView> {
 
                 // ── 하단 고정 바 ──
                 Positioned(
-                  bottom: 0, left: 0, right: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
                   child: _BottomBar(
                     onNavigate: () => _showNavigationSheet(ctx, vm),
-                    onMap: () => Navigator.push(
-                      ctx,
-                      MaterialPageRoute(
-                        builder: (_) => MapSampleView(
-                          initialMarkerId: vm.marker.markerId,
-                        ),
-                      ),
-                    ),
-                    onShare: () => vm.saveMarker(ctx),
+                    onShare: () => _sharePlace(ctx, vm),
                   ),
                 ),
               ],
@@ -164,24 +157,55 @@ class _MarkerDetailViewState extends State<MarkerDetailView> {
   }
 
   Future<bool?> _confirmDelete(BuildContext ctx) => showDialog<bool>(
-    context: ctx,
-    builder: (d) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('마커 삭제'),
-      content: const Text('정말 이 마커를 삭제하시겠습니까?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(d, false),
-          child: const Text('취소'),
+        context: ctx,
+        builder: (d) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('마커 삭제'),
+          content: const Text('정말 이 마커를 삭제하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(d, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(d, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('삭제'),
+            ),
+          ],
         ),
-        TextButton(
-          onPressed: () => Navigator.pop(d, true),
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
-          child: const Text('삭제'),
-        ),
-      ],
-    ),
-  );
+      );
+
+  Future<void> _sharePlace(
+      BuildContext context, MarkerDetailViewModel vm) async {
+    final position = vm.marker.position;
+    final title = vm.title;
+    final address = vm.address?.trim();
+    final mapUrl = Uri.https(
+      'www.google.com',
+      '/maps/search/',
+      {
+        'api': '1',
+        'query': '${position.latitude},${position.longitude}',
+      },
+    );
+    final message = [
+      '$title 공유',
+      if (address != null && address.isNotEmpty) address,
+      mapUrl.toString(),
+    ].join('\n');
+    final box = context.findRenderObject() as RenderBox?;
+
+    await SharePlus.instance.share(
+      ShareParams(
+        text: message,
+        title: title,
+        sharePositionOrigin:
+            box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────
@@ -253,31 +277,33 @@ class _HeroContent extends StatelessWidget {
             // 1. PageView (가장 아래, 제스처 우선)
             photos.isEmpty
                 ? Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
-                ),
-              ),
-            )
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                      ),
+                    ),
+                  )
                 : PageView.builder(
-              controller: pageController,
-              itemCount: photos.length,
-              physics: const ClampingScrollPhysics(), // ← BouncingScrollPhysics에서 변경
-              itemBuilder: (_, i) => CachedNetworkImage(
-                imageUrl: photos[i],
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: const Color(0xFF4F46E5)),
-                errorWidget: (_, __, ___) => Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                    controller: pageController,
+                    itemCount: photos.length,
+                    physics:
+                        const ClampingScrollPhysics(), // ← BouncingScrollPhysics에서 변경
+                    itemBuilder: (_, i) => CachedNetworkImage(
+                      imageUrl: photos[i],
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) =>
+                          Container(color: const Color(0xFF4F46E5)),
+                      errorWidget: (_, __, ___) => Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
 
             // 2. 그라디언트 오버레이 — IgnorePointer로 터치 완전 차단
             IgnorePointer(
@@ -286,7 +312,11 @@ class _HeroContent extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0x26000000), Color(0x00000000), Color(0x8C000000)],
+                    colors: [
+                      Color(0x26000000),
+                      Color(0x00000000),
+                      Color(0x8C000000)
+                    ],
                     stops: [0.0, 0.4, 1.0],
                   ),
                 ),
@@ -303,26 +333,32 @@ class _HeroContent extends StatelessWidget {
                 children: [
                   _GlassButton(
                     onTap: onBack,
-                    child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                    child: const Icon(Icons.arrow_back_ios_new,
+                        color: Colors.white, size: 18),
                   ),
                   Row(
                     children: [
                       if (photos.length > 1)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.4),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             '${currentPage + 1} / ${photos.length}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white),
                           ),
                         ),
                       const SizedBox(width: 8),
                       _GlassButton(
                         onTap: onMore,
-                        child: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
+                        child: const Icon(Icons.more_horiz,
+                            color: Colors.white, size: 20),
                       ),
                     ],
                   ),
@@ -369,7 +405,8 @@ class _HeroContent extends StatelessWidget {
                     children: [
                       Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(20),
@@ -377,11 +414,15 @@ class _HeroContent extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.label, size: 12, color: Colors.white),
+                            const Icon(Icons.label,
+                                size: 12, color: Colors.white),
                             const SizedBox(width: 4),
                             Text(
                               vm.keyword ?? '카테고리',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white),
                             ),
                           ],
                         ),
@@ -396,12 +437,14 @@ class _HeroContent extends StatelessWidget {
                       if (vm.address != null)
                         Row(
                           children: [
-                            const Icon(Icons.location_on, size: 13, color: Colors.white70),
+                            const Icon(Icons.location_on,
+                                size: 13, color: Colors.white70),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 vm.address!,
-                                style: const TextStyle(fontSize: 13, color: Colors.white70),
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.white70),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -431,42 +474,48 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // 영업시간 (클릭 가능)
         Expanded(
-          flex: 19,
-          child: GestureDetector(
-            onTap: () => _showFullBusinessHours(context, vm),
-            child: _StatCard(
-              label: '영업시간',
-              value: vm.businessHours ?? '–',
-              sub: vm.isOpen == true ? '영업 중' : vm.isOpen == false ? '영업 종료' : null,
-              subColor: vm.isOpen == true ? AppDesign.success : AppDesign.label3,
-            ),
-          ),
-        ),
-        const SizedBox(width: 5),
-
-        // 평점 (구글 리뷰로 이동)
-        Expanded(
-          flex: 10,
-          child: GestureDetector(
-            onTap: () => vm.openGoogleReview(context),
-            child: _StatCard(
-              label: '평점',
-              value: vm.rating != null ? '★ ${vm.rating}' : '–',
-              sub: vm.reviewCount != null ? '리뷰 ${vm.reviewCount}개' : null,
+          child: SizedBox(
+            height: 116,
+            child: GestureDetector(
+              onTap: () => _showFullBusinessHours(context, vm),
+              child: _StatCard(
+                label: '영업시간',
+                value: vm.businessHours ?? '–',
+                sub: vm.isOpen == true
+                    ? '영업 중'
+                    : vm.isOpen == false
+                        ? '영업 종료'
+                        : null,
+                subColor:
+                    vm.isOpen == true ? AppDesign.success : AppDesign.label3,
+              ),
             ),
           ),
         ),
         const SizedBox(width: 8),
-
-        // 거리
         Expanded(
-          flex: 11,
-          child: _StatCard(
-            label: '거리',
-            value: vm.distance ?? '–',
-            sub: vm.walkTime,
+          child: SizedBox(
+            height: 116,
+            child: GestureDetector(
+              onTap: () => vm.openGoogleReview(context),
+              child: _StatCard(
+                label: '평점',
+                value: vm.rating != null ? '★ ${vm.rating}' : '–',
+                sub: vm.reviewCount != null ? '리뷰 ${vm.reviewCount}개' : null,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: SizedBox(
+            height: 116,
+            child: _StatCard(
+              label: '거리',
+              value: vm.distance ?? '–',
+              sub: vm.walkTime,
+            ),
           ),
         ),
       ],
@@ -523,7 +572,7 @@ class _StatCard extends StatelessWidget {
               color: AppDesign.label1,
               height: 1.4,
             ),
-            maxLines: 4,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           if (sub != null) ...[
@@ -566,8 +615,13 @@ class _InfoCard extends StatelessWidget {
               iconBg: const Color(0xFFEEF2FF),
               label: '주소',
               value: vm.address!,
-              onTap: null,
-              showChevron: false,
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: vm.address!));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('주소를 복사했습니다')),
+                );
+              },
+              showChevron: true,
             ),
           if (vm.address != null && vm.phone != null)
             const Divider(height: 0, indent: 60, color: AppDesign.separator),
@@ -582,9 +636,124 @@ class _InfoCard extends StatelessWidget {
               onTap: () => launchUrl(Uri.parse('tel:${vm.phone}')),
               showChevron: true,
             ),
+          if (vm.address != null && _hasValidLocation(vm.marker.position)) ...[
+            const Divider(
+                height: 0,
+                indent: 16,
+                endIndent: 16,
+                color: AppDesign.separator),
+            _MapPreview(vm: vm),
+          ],
         ],
       ),
     );
+  }
+
+  bool _hasValidLocation(LatLng position) {
+    return position.latitude.abs() <= 90 &&
+        position.longitude.abs() <= 180 &&
+        (position.latitude != 0 || position.longitude != 0);
+  }
+}
+
+class _MapPreview extends StatelessWidget {
+  const _MapPreview({required this.vm});
+
+  final MarkerDetailViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final position = vm.marker.position;
+    final address = vm.address!;
+    final staticMapUrl = _buildStaticMapUrl(position);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: InkWell(
+        borderRadius: const BorderRadius.all(AppDesign.r14),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => MapSampleView(initialMarkerId: vm.marker.markerId),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.all(AppDesign.r14),
+          child: SizedBox(
+            height: 164,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                IgnorePointer(
+                  child: Image.network(
+                    staticMapUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const ColoredBox(
+                      color: AppDesign.lightGray,
+                      child: Center(
+                        child: Icon(
+                          Icons.map_outlined,
+                          color: AppDesign.label3,
+                          size: 32,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.94),
+                      borderRadius: const BorderRadius.all(AppDesign.r12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.map_outlined,
+                            size: 18, color: AppDesign.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            address,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppDesign.bodyMedium,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.chevron_right_rounded,
+                            color: AppDesign.label3),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _buildStaticMapUrl(LatLng position) {
+    final location =
+        '${position.latitude.toStringAsFixed(6)},${position.longitude.toStringAsFixed(6)}';
+    return Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/staticmap',
+      {
+        'center': location,
+        'zoom': '16',
+        'size': '640x328',
+        'scale': '2',
+        'format': 'png',
+        'markers': 'color:red|$location',
+        'key': Env.googleMapsApiKey,
+      },
+    ).toString();
   }
 }
 
@@ -619,7 +788,8 @@ class _InfoRow extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 40, height: 40,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: iconBg,
                 borderRadius: BorderRadius.circular(12),
@@ -687,7 +857,8 @@ class _FullBusinessHoursSheet extends StatelessWidget {
             ),
             child: Text(
               '영업시간',
-              style: AppDesign.headingSmall, // fontSize 18, FontWeight.w600, label1 계열 매칭
+              style: AppDesign
+                  .headingSmall, // fontSize 18, FontWeight.w600, label1 계열 매칭
             ),
           ),
 
@@ -701,15 +872,9 @@ class _FullBusinessHoursSheet extends StatelessWidget {
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: vm.weeklyHours.map((day) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppDesign.spacing8),
-                child: Text(
-                  day,
-                  style: AppDesign.body15.copyWith(
-                    height: 1.5, // 가독성을 위한 행간 유지
-                  ),
-                ),
-              )).toList(),
+              children: vm.weeklyHours
+                  .map((hours) => _WeeklyHoursRow(hours: hours))
+                  .toList(),
             ),
           ),
 
@@ -743,6 +908,35 @@ class _FullBusinessHoursSheet extends StatelessWidget {
   }
 }
 
+class _WeeklyHoursRow extends StatelessWidget {
+  const _WeeklyHoursRow({required this.hours});
+
+  final String hours;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = hours.split('\n');
+    final day = lines.first;
+    final time = lines.length > 1 ? lines.skip(1).join(' ') : '정보 없음';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppDesign.spacing8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(day,
+              style: AppDesign.body15.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(
+            time,
+            style: AppDesign.bodyMedium.copyWith(color: AppDesign.label3),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────
 // 메모 카드
 // ─────────────────────────────────────────
@@ -769,7 +963,9 @@ class _MemoCard extends StatelessWidget {
           child: Text(
             memo,
             style: const TextStyle(
-              fontSize: 14, color: AppDesign.label2, height: 1.6,
+              fontSize: 14,
+              color: AppDesign.label2,
+              height: 1.6,
             ),
           ),
         ),
@@ -784,12 +980,10 @@ class _MemoCard extends StatelessWidget {
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.onNavigate,
-    required this.onMap,
     required this.onShare,
   });
 
   final VoidCallback onNavigate;
-  final VoidCallback onMap;
   final VoidCallback onShare;
 
   @override
@@ -824,7 +1018,8 @@ class _BottomBar extends StatelessWidget {
                     Text(
                       '길찾기',
                       style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
@@ -834,11 +1029,11 @@ class _BottomBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          // 지도 버튼
-          _IconBtn(icon: Icons.map_outlined, onTap: onMap),
-          const SizedBox(width: 10),
-          // 공유 버튼
-          _IconBtn(icon: Icons.share_outlined, onTap: onShare),
+          _IconBtn(
+            icon: Icons.share_outlined,
+            tooltip: '장소 공유',
+            onTap: onShare,
+          ),
         ],
       ),
     );
@@ -846,22 +1041,31 @@ class _BottomBar extends StatelessWidget {
 }
 
 class _IconBtn extends StatelessWidget {
-  const _IconBtn({required this.icon, required this.onTap});
+  const _IconBtn({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
   final IconData icon;
+  final String tooltip;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 50, height: 50,
-        decoration: BoxDecoration(
-          color: AppDesign.cardBg,
-          borderRadius: const BorderRadius.all(AppDesign.r14),
-          border: Border.all(color: AppDesign.separator, width: 0.5),
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: AppDesign.cardBg,
+            borderRadius: const BorderRadius.all(AppDesign.r14),
+            border: Border.all(color: AppDesign.separator, width: 0.5),
+          ),
+          child: Icon(icon, color: AppDesign.primary, size: 22),
         ),
-        child: Icon(icon, color: AppDesign.primary, size: 22),
       ),
     );
   }
@@ -880,7 +1084,8 @@ class _GlassButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 36, height: 36,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.25),
           shape: BoxShape.circle,
@@ -964,7 +1169,9 @@ class _SheetItem extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w500, color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: color,
               ),
             ),
           ],
@@ -987,56 +1194,57 @@ class _NavigationSheet extends StatelessWidget {
       _NavApp('구글맵', 'assets/GoogleMap.png', () => vm.openGoogleMaps(context)),
       _NavApp('카카오맵', 'assets/kakaomap.png', () => vm.openKakaoMap(context)),
       _NavApp('네이버맵', 'assets/NaverMap.png', () => vm.openNaverMap(context)),
-      _NavApp('티맵',    'assets/Tmap.png',      () => vm.openTmap(context)),
+      _NavApp('티맵', 'assets/Tmap.png', () => vm.openTmap(context)),
     ];
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: const BorderRadius.all(AppDesign.r16),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 핸들
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Container(
-              width: 36, height: 4,
-              decoration: BoxDecoration(
-                color: AppDesign.separator,
-                borderRadius: BorderRadius.circular(2),
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        decoration: BoxDecoration(
+          color: AppDesign.cardBg,
+          borderRadius: const BorderRadius.all(AppDesign.r16),
+          boxShadow: AppDesign.softShadow,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppDesign.separator,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.directions_rounded,
-                      color: AppDesign.primary, size: 20),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  '길찾기 앱 선택',
-                  style: TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.w600,
-                    color: AppDesign.label1,
-                  ),
-                ),
-              ],
+            const SizedBox(height: 20),
+            const Text('어디로 안내할까요?', style: AppDesign.headingSmall),
+            const SizedBox(height: 6),
+            Text(
+              vm.address ?? vm.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppDesign.bodyMedium.copyWith(color: AppDesign.label3),
             ),
-          ),
-          ...apps.map((app) => _NavAppRow(app: app)),
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 20),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 2.6,
+              ),
+              itemCount: apps.length,
+              itemBuilder: (_, index) => _NavAppTile(app: apps[index]),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1049,49 +1257,47 @@ class _NavApp {
   final VoidCallback onTap;
 }
 
-class _NavAppRow extends StatelessWidget {
-  const _NavAppRow({required this.app});
+class _NavAppTile extends StatelessWidget {
+  const _NavAppTile({required this.app});
   final _NavApp app;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Divider(height: 0, indent: 68, color: AppDesign.separator),
-        InkWell(
-          onTap: () {
-            Navigator.pop(context);
-            app.onTap();
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 36, height: 36,
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF2F2F7),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Image.asset(app.asset, fit: BoxFit.contain),
-                ),
-                const SizedBox(width: 14),
-                Text(
+    return Material(
+      color: AppDesign.lightGray,
+      borderRadius: const BorderRadius.all(AppDesign.r12),
+      child: InkWell(
+        borderRadius: const BorderRadius.all(AppDesign.r12),
+        onTap: () {
+          Navigator.pop(context);
+          app.onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: Image.asset(app.asset, fit: BoxFit.contain),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
                   app.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                     color: AppDesign.label1,
                   ),
                 ),
-                const Spacer(),
-                const Icon(Icons.chevron_right_rounded,
-                    color: AppDesign.separator, size: 20),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
