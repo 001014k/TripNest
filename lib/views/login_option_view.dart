@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:fluttertrip/views/terms_agreement_view.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -49,20 +50,21 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
 
           final nickname = response?['nickname'] as String?;
 
+          // CombinedLoginView 내부의 _authSubscription 리스너 안
           if (nickname == null || nickname.isEmpty) {
-            // 닉네임 없으면 설정 화면으로
-            Navigator.pushReplacementNamed(
+            // 닉네임이 없다면 약관 동의 페이지로 이동
+            Navigator.pushReplacement(
               context,
-              '/nickname_setup',
-              arguments: userId,
+              MaterialPageRoute(
+                builder: (context) => TermsAgreementPage(userId: userId),
+              ),
             );
           } else {
-            // 닉네임 있으면 데이터 로드 후 홈으로
+            // 닉네임이 있다면 기존 로직 실행 (홈으로 이동)
             await Future.wait([
               context.read<ProfileViewModel>().fetchUserStats(userId),
               context.read<ListViewModel>().loadLists(),
             ]);
-
             Navigator.pushReplacementNamed(context, '/home');
           }
         } catch (e) {
