@@ -151,4 +151,22 @@ class ListViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> decrementCollaboratorCount(String listId) async {
+    // lists에서 해당 리스트 찾아 collaboratorCount 감소
+    final index = lists.indexWhere((list) => list.id == listId);
+    if (index != -1) {
+      final currentList = lists[index];
+
+      lists[index] = ListModel(
+        id: currentList.id,
+        name: currentList.name,
+        createdAt: currentList.createdAt,
+        markerCount: currentList.markerCount,
+        collaboratorCount: (currentList.collaboratorCount ?? 0) - 1,
+      );
+
+      notifyListeners();
+    }
+  }
 }
