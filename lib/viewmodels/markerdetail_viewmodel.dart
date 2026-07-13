@@ -9,7 +9,6 @@ import '../env.dart';
 import '../views/mapsample_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-
 class MarkerDetailViewModel extends ChangeNotifier {
   final SupabaseClient supabase = Supabase.instance.client;
 
@@ -70,7 +69,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
     // 검색어 조합 (이름 + 주소)
     final searchQuery = title.isNotEmpty && address.isNotEmpty
         ? '$title $address'
-        : title;  // 주소가 없으면 title만 사용
+        : title; // 주소가 없으면 title만 사용
 
     final encoded = Uri.encodeComponent(searchQuery);
 
@@ -78,27 +77,27 @@ class MarkerDetailViewModel extends ChangeNotifier {
       {
         'platform': '네이버',
         'url': //'https://pcmap.place.naver.com/search/all/$encoded/review/visitor',  // 후기 탭 우선
-        // 또는 더 일반적으로:
-        'https://search.naver.com/search.naver?query=$encoded&where=pcmap&sm=tab_hty'
+            // 또는 더 일반적으로:
+            'https://search.naver.com/search.naver?query=$encoded&where=pcmap&sm=tab_hty'
       },
       {
         'platform': '구글',
-        'url': 'https://www.google.com/search?q=$encoded+리뷰',  // "장소이름 리뷰"로 검색
+        'url': 'https://www.google.com/search?q=$encoded+리뷰', // "장소이름 리뷰"로 검색
         // 또는
         // 'https://www.google.com/maps/search/?api=1&query=$encoded'
       },
       {
         'platform': '인스타그램',
-        'url': 'https://www.instagram.com/explore/tags/${Uri.encodeComponent(title.replaceAll(" ", ""))}/',
+        'url':
+            'https://www.instagram.com/explore/tags/${Uri.encodeComponent(title.replaceAll(" ", ""))}/',
       },
     ];
   }
 
   Future<List<String>> fetchPhotos(String address, String? title) async {
     if (address.isEmpty) return [];
-    final query = (title != null && title.isNotEmpty)
-        ? '$title $address'
-        : address;
+    final query =
+        (title != null && title.isNotEmpty) ? '$title $address' : address;
     try {
       final res = await http.post(
         Uri.https('places.googleapis.com', '/v1/places:searchText'),
@@ -117,7 +116,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
       for (final photo in places[0]['photos'] ?? []) {
         urls.add(
           'https://places.googleapis.com/v1/${photo['name']}/media'
-              '?key=${Env.googleMapsApiKey}&maxWidthPx=800',
+          '?key=${Env.googleMapsApiKey}&maxWidthPx=800',
         );
         if (urls.length >= 6) break;
       }
@@ -180,9 +179,8 @@ class MarkerDetailViewModel extends ChangeNotifier {
 
 // Google Places API 호출 (Text Search → Place Details)
   Future<void> _fetchGooglePlaceDetails(String address, String? title) async {
-    final query = (title != null && title.isNotEmpty)
-        ? '$title $address'
-        : address;
+    final query =
+        (title != null && title.isNotEmpty) ? '$title $address' : address;
 
     try {
       // Step 1: Text Search (기존 유지)
@@ -191,7 +189,8 @@ class MarkerDetailViewModel extends ChangeNotifier {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': Env.googleMapsApiKey,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress',
+          'X-Goog-FieldMask':
+              'places.id,places.displayName,places.formattedAddress',
         },
         body: jsonEncode({'textQuery': query}),
       );
@@ -208,7 +207,8 @@ class MarkerDetailViewModel extends ChangeNotifier {
       // Step 2: Place Details - 영업시간 필드 추가 요청
       final detailsRes = await http.get(
         Uri.https('places.googleapis.com', '/v1/places/$placeId', {
-          'fields': 'currentOpeningHours,regularOpeningHours,rating,userRatingCount,internationalPhoneNumber,nationalPhoneNumber,formattedAddress',
+          'fields':
+              'currentOpeningHours,regularOpeningHours,rating,userRatingCount,internationalPhoneNumber,nationalPhoneNumber,formattedAddress',
           'key': Env.googleMapsApiKey,
         }),
       );
@@ -229,20 +229,23 @@ class MarkerDetailViewModel extends ChangeNotifier {
       if (currentHours != null) {
         _isOpen = currentHours['openNow'] as bool?;
 
-        final weekdayDescriptions = currentHours['weekdayDescriptions'] as List<dynamic>?;
+        final weekdayDescriptions =
+            currentHours['weekdayDescriptions'] as List<dynamic>?;
         if (weekdayDescriptions != null && weekdayDescriptions.isNotEmpty) {
           if (todayIndex >= 0 && todayIndex < weekdayDescriptions.length) {
-            todayHours = _formatBusinessHours(weekdayDescriptions[todayIndex] as String);
+            todayHours =
+                _formatBusinessHours(weekdayDescriptions[todayIndex] as String);
           }
         } else {
           todayHours = _formatTodayPeriod(currentHours['periods'] as List?);
         }
-      }
-      else if (regularHours != null) {
-        final weekdayDescriptions = regularHours['weekdayDescriptions'] as List<dynamic>?;
+      } else if (regularHours != null) {
+        final weekdayDescriptions =
+            regularHours['weekdayDescriptions'] as List<dynamic>?;
         if (weekdayDescriptions != null && weekdayDescriptions.isNotEmpty) {
           if (todayIndex >= 0 && todayIndex < weekdayDescriptions.length) {
-            todayHours = _formatBusinessHours(weekdayDescriptions[todayIndex] as String);
+            todayHours =
+                _formatBusinessHours(weekdayDescriptions[todayIndex] as String);
           }
         } else {
           todayHours = _formatTodayPeriod(regularHours['periods'] as List?);
@@ -277,11 +280,11 @@ class MarkerDetailViewModel extends ChangeNotifier {
     }
 
     final now = DateTime.now();
-    final todayDart = now.weekday;           // 1=월 ~ 7=일
-    final todayGoogle = todayDart - 1;       // 0=월 ~ 6=일
+    final todayDart = now.weekday; // 1=월 ~ 7=일
+    final todayGoogle = todayDart - 1; // 0=월 ~ 6=일
 
     for (var period in periods) {
-      final openDay = period['open']?['day'] as int?;   // Google 기준 0~6
+      final openDay = period['open']?['day'] as int?; // Google 기준 0~6
       if (openDay == todayGoogle) {
         final openTime = period['open']?['time'] ?? '';
         final closeTime = period['close']?['time'] ?? '';
@@ -319,7 +322,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
         };
 
         final dayKo = dayMap[dayEn] ?? dayEn;
-        return '$dayKo: $time';
+        return '$dayKo\n$time';
       }
     }
 
@@ -327,19 +330,27 @@ class MarkerDetailViewModel extends ChangeNotifier {
     const dayNames = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
     final todayName = dayNames[DateTime.now().weekday - 1];
 
-    return '$todayName: $rawText';
+    return '$todayName\n$rawText';
   }
 
   // 전체 주간 영업시간 파싱 (월~일)
   List<String> _parseWeeklyHours(dynamic hoursData) {
-    if (hoursData == null) {
-      return List.filled(7, '영업시간 정보 없음');
-    }
-
-    List<String> result = List.filled(7, '휴무 또는 정보 없음');
     const dayNames = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
 
-    final weekdayDescriptions = hoursData['weekdayDescriptions'] as List<dynamic>?;
+    if (hoursData == null) {
+      return List.generate(
+        7,
+        (index) => '${dayNames[index]}\n영업시간 정보 없음',
+      );
+    }
+
+    final result = List.generate(
+      7,
+      (index) => '${dayNames[index]}\n휴무 또는 정보 없음',
+    );
+
+    final weekdayDescriptions =
+        hoursData['weekdayDescriptions'] as List<dynamic>?;
 
     if (weekdayDescriptions != null && weekdayDescriptions.isNotEmpty) {
       for (int i = 0; i < weekdayDescriptions.length && i < 7; i++) {
@@ -348,9 +359,9 @@ class MarkerDetailViewModel extends ChangeNotifier {
         if (text.contains(':')) {
           final parts = text.split(':');
           final timePart = parts.sublist(1).join(':').trim();
-          result[i] = '${dayNames[i]}  $timePart';
+          result[i] = '${dayNames[i]}\n$timePart';
         } else {
-          result[i] = '${dayNames[i]}  $text';
+          result[i] = '${dayNames[i]}\n$text';
         }
       }
       return result;
@@ -367,11 +378,10 @@ class MarkerDetailViewModel extends ChangeNotifier {
 
           String timeStr = '휴무';
           if (openTime.isNotEmpty) {
-            timeStr = closeTime.isNotEmpty
-                ? '$openTime ~ $closeTime'
-                : '$openTime ~';
+            timeStr =
+                closeTime.isNotEmpty ? '$openTime ~ $closeTime' : '$openTime ~';
           }
-          result[openDay] = '${dayNames[openDay]}  $timeStr';
+          result[openDay] = '${dayNames[openDay]}\n$timeStr';
         }
       }
     }
@@ -390,7 +400,6 @@ class MarkerDetailViewModel extends ChangeNotifier {
           .eq('user_id', user.id)
           .eq('id', _marker.markerId.value);
 
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('마커 및 연관 데이터가 삭제되었습니다.')),
       );
@@ -398,7 +407,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => MapSampleView()),
-            (route) => false, // 모든 이전 라우트를 제거
+        (route) => false, // 모든 이전 라우트를 제거
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -489,9 +498,8 @@ class MarkerDetailViewModel extends ChangeNotifier {
     final title = _title ?? _marker.infoWindow.title ?? '';
     final address = _address ?? _marker.infoWindow.snippet ?? '';
 
-    final searchQuery = title.isNotEmpty && address.isNotEmpty
-        ? '$title $address'
-        : title;
+    final searchQuery =
+        title.isNotEmpty && address.isNotEmpty ? '$title $address' : title;
 
     final encoded = Uri.encodeComponent(searchQuery);
     final googleReviewUrl = 'https://www.google.com/search?q=$encoded+리뷰';
@@ -537,9 +545,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
       );
 
       final Uri googleMapsUrl = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&origin=${currentPosition
-            .latitude},${currentPosition.longitude}&destination=${_marker
-            .position.latitude},${_marker.position.longitude}',
+        'https://www.google.com/maps/dir/?api=1&origin=${currentPosition.latitude},${currentPosition.longitude}&destination=${_marker.position.latitude},${_marker.position.longitude}',
       );
 
       if (await canLaunchUrl(googleMapsUrl)) {
@@ -563,21 +569,20 @@ class MarkerDetailViewModel extends ChangeNotifier {
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
 
-      final String kakaoMapUrl = 'kakaomap://route?sp=${position
-          .latitude},${position.longitude}&ep=${_marker.position
-          .latitude},${_marker.position.longitude}&by=CAR';
+      final String kakaoMapUrl =
+          'kakaomap://route?sp=${position.latitude},${position.longitude}&ep=${_marker.position.latitude},${_marker.position.longitude}&by=CAR';
 
       final Uri uri = Uri.parse(kakaoMapUrl);
 
       // canLaunchUrl 대신 직접 launchUrl 시도 → 실패하면 설치 페이지
-      final launched = await launchUrl(
-          uri, mode: LaunchMode.externalApplication);
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
 
       if (!launched) {
         final installUrl = Platform.isIOS
             ? Uri.parse('https://apps.apple.com/kr/app/id304608425')
             : Uri.parse(
-            'https://play.google.com/store/apps/details?id=net.daum.android.map');
+                'https://play.google.com/store/apps/details?id=net.daum.android.map');
 
         await launchUrl(installUrl, mode: LaunchMode.externalApplication);
       }
@@ -595,20 +600,19 @@ class MarkerDetailViewModel extends ChangeNotifier {
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
 
-      final String naverMapUrl = 'nmap://route/car?slat=${position
-          .latitude}&slng=${position.longitude}&sname=현재위치&dlat=${_marker
-          .position.latitude}&dlng=${_marker.position.longitude}&dname=목적지';
+      final String naverMapUrl =
+          'nmap://route/car?slat=${position.latitude}&slng=${position.longitude}&sname=현재위치&dlat=${_marker.position.latitude}&dlng=${_marker.position.longitude}&dname=목적지';
 
       final Uri uri = Uri.parse(naverMapUrl);
 
-      final launched = await launchUrl(
-          uri, mode: LaunchMode.externalApplication);
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
 
       if (!launched) {
         final installUrl = Platform.isIOS
             ? Uri.parse('https://apps.apple.com/kr/app/id311867728')
             : Uri.parse(
-            'https://play.google.com/store/apps/details?id=com.nhn.android.nmap');
+                'https://play.google.com/store/apps/details?id=com.nhn.android.nmap');
 
         await launchUrl(installUrl, mode: LaunchMode.externalApplication);
       }
@@ -626,21 +630,20 @@ class MarkerDetailViewModel extends ChangeNotifier {
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
 
-      final String tmapUrl = 'tmap://route?goalLat=${_marker.position
-          .latitude}&goalLon=${_marker.position.longitude}&startLat=${position
-          .latitude}&startLon=${position.longitude}&goalName=목적지&startName=출발지';
+      final String tmapUrl =
+          'tmap://route?goalLat=${_marker.position.latitude}&goalLon=${_marker.position.longitude}&startLat=${position.latitude}&startLon=${position.longitude}&goalName=목적지&startName=출발지';
 
       final Uri uri = Uri.parse(tmapUrl);
 
-      final launched = await launchUrl(
-          uri, mode: LaunchMode.externalApplication);
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
 
       if (!launched) {
         final installUrl = Platform.isIOS
             ? Uri.parse(
-            'https://apps.apple.com/kr/app/t-map-t맵-대중교통-길찾기-지도-내비게이션/id431589174')
+                'https://apps.apple.com/kr/app/t-map-t맵-대중교통-길찾기-지도-내비게이션/id431589174')
             : Uri.parse(
-            'https://play.google.com/store/apps/details?id=com.skt.tmap.ku');
+                'https://play.google.com/store/apps/details?id=com.skt.tmap.ku');
 
         await launchUrl(installUrl, mode: LaunchMode.externalApplication);
       }
