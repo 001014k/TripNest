@@ -1,16 +1,20 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:fluttertrip/views/profile_view.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:fluttertrip/services/app_group_handler_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:app_links/app_links.dart';
 import 'dart:async';
 import 'package:fluttertrip/env.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:fluttertrip/models/cached_photo_url.dart';
 
 // ViewModel imports...
+import 'firebase_options.dart';
 import 'viewmodels/mapsample_viewmodel.dart';
 import 'viewmodels/dashboard_viewmodel.dart';
 import 'viewmodels/forgot_password_viewmodel.dart';
@@ -31,6 +35,7 @@ import 'package:fluttertrip/viewmodels/chat_recommendation_viewmodel.dart';
 
 // Service imports...
 import 'services/marker_service.dart';
+import 'services/notification_service.dart';
 
 // View imports...
 import 'views/forgot_password_view.dart';
@@ -46,32 +51,87 @@ import 'views/list_view.dart';
 import 'views/shared_link_view.dart';
 import 'views/marker_list_screen_view.dart';
 import 'views/nickname_dialog_view.dart';
+import 'views/notification_settings_view.dart';
 
 /// ✅ 전역 Navigator Key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+
+Future<void> saveFcmToken() async {
+  final messaging = FirebaseMessaging.instance;
+
+  // 1. 기존 토큰 삭제 후 재발급 강제 (필요시)
+  // await messaging.deleteToken();
+
+  final token = await messaging.getToken();
+
+  if (token != null) {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) {
+      await Supabase.instance.client
+          .from('user_push_tokens')
+          .upsert({
+        'user_id': userId,
+        'token': token,
+      }, onConflict: 'user_id'); // user_id 기준 중복 방지
+      debugPrint("✅ 토큰 새로 저장 완료: $token");
+    }
+  }
+}
+
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print('백그라운드 메시지 수신: ${message.messageId}');
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // intl 로케일 데이터 초기화 추가
+  // ==================== Firebase 초기화 ====================
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    debugPrint('✅ Firebase 초기화 성공');
+  } catch (e, stack) {
+    debugPrint('❌ Firebase 초기화 실패: $e');
+    debugPrint('$stack');
+    // 여기서 return 하지 말고 Supabase는 계속 초기화
+  }
+  final options = Firebase.app().options;
+  print("현재 앱의 프로젝트 ID: ${options.projectId}");
+  print("현재 앱의 Sender ID: ${options.messagingSenderId}");
+
+  // intl + Hive
   await initializeDateFormatting('ko_KR');
-  // Hive 초기화(flutter 앱에서는 반드시 initFlutter() 사용)
   await Hive.initFlutter();
   Hive.registerAdapter(CachedPhotoUrlAdapter());
-
-  // 앱 시작 시 바로 Box 열어두기 → ViewModel에서 openBox 호출 불필요
   await Hive.openBox<CachedPhotoUrl>('photo_urls');
 
-
+  // ==================== Supabase 초기화 ====================
   try {
     await Supabase.initialize(
       url: Env.supabaseUrl,
       anonKey: Env.supabaseAnonKey,
     );
-
-    await MarkerService().syncOfflineMarkers();
+    debugPrint('✅ Supabase 초기화 성공');
   } catch (e) {
-    print('Error during initialization: $e');
+    debugPrint('❌ Supabase 초기화 실패: $e');
+  }
+
+  await NotificationService().initializePushNotifications();
+  await MarkerService().syncOfflineMarkers();
+
+  final prefs = await SharedPreferences.getInstance();
+  String? savedLanguage = prefs.getString('language');
+
+  if (savedLanguage == null) {
+    final deviceLang = PlatformDispatcher.instance.locale.languageCode;
+    savedLanguage = (deviceLang == 'ko' || deviceLang == 'en') ? deviceLang : 'en';
+    await prefs.setString('language', savedLanguage);
   }
 
   runApp(
@@ -92,8 +152,13 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => CollaboratorViewModel()),
         ChangeNotifierProvider(create: (_) => MarkerCreationScreenViewModel()),
         ChangeNotifierProvider(create: (_) => HomeDashboardViewModel()),
-        ChangeNotifierProvider(create: (_) => MarkerListViewModel(Supabase.instance.client)),
+        ChangeNotifierProvider(
+          create: (_) => MarkerListViewModel(Supabase.instance.client),
+        ),
         ChangeNotifierProvider(create: (_) => ChatRecommendationViewModel()),
+        ChangeNotifierProvider(
+          create: (_) => FriendManagementViewModel()..subscribeToPresence(),
+        ),
       ],
       child: MyApp(),
     ),
@@ -101,21 +166,32 @@ Future<void> main() async {
 }
 
 class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri?>? _sub;
   StreamSubscription<AuthState>? _authSub;
-  bool _alreadyNavigated = false;
   StreamSubscription? _uriSub;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // 👈 앱 생명주기 감지
+    WidgetsBinding.instance.addObserver(this);
+
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final user = data.session?.user;
+      if (user != null) {
+        debugPrint('🔐 로그인 감지 - FCM 초기화 시작');
+
+        // FCM 초기화 + 토큰 리프레시
+        unawaited(NotificationService().initializePushNotifications());
+        unawaited(NotificationService().refreshPushTokenOnLogin());   // ← 강제 리프레시
+      }
+    });
   }
 
   // ✅ 앱 생명주기 변경 감지: 포그라운드 전환 시 공유 처리
@@ -156,6 +232,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/list': (context) => ListPage(),
         '/shared_link': (context) => SharedLinkView(),
         '/marker_list': (context) => MarkerListScreen(),
+        '/notification_settings': (context) => const NotificationSettingsView(),
         '/profile': (context) {
           final args = ModalRoute.of(context)!.settings.arguments as String;
           return ProfilePage(userId: args);
@@ -168,4 +245,3 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 }
-
