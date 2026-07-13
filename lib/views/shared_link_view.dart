@@ -196,8 +196,8 @@ class _SharedLinkViewState extends State<SharedLinkView>
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(AppDesign.spacing32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -267,6 +267,9 @@ class _SharedLinkViewState extends State<SharedLinkView>
             description: '공유한 링크가 자동으로 정리됩니다',
             color: AppDesign.travelGreen,
           ),
+
+          // 화면 끝에 여백 확보 (스크롤이 자연스럽게 끝나도록)
+          const SizedBox(height: AppDesign.spacing80),
         ],
       ),
     );
@@ -754,8 +757,9 @@ class _PremiumLinkCardState extends State<_PremiumLinkCard>
                             style: AppDesign.bodyMedium.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
-                            maxLines: 2,
+                            maxLines: 3,
                             overflow: TextOverflow.ellipsis,
+                            softWrap: true,
                           ),
                         ),
                       ],
