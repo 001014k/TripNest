@@ -73,10 +73,8 @@ class ProfileViewModel extends ChangeNotifier {
         return false;
       }
 
-      final userId = user.id;  // UUID 추출
+      // 소셜 연결 해제
       final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
-
-      // 1. 소셜 연결 완전 해제 (카카오/구글 unlink/revoke – 그대로 유지)
       final identities = user.identities ?? [];
       for (final identity in identities) {
         final provider = identity.provider;
@@ -88,30 +86,48 @@ class ProfileViewModel extends ChangeNotifier {
         }
       }
 
-      // 2. RPC 직접 호출 → profiles 논리적 + 나머지 물리적 + auth.users hard delete
-      // (클라이언트에서 직접 처리 – Edge Function 불필요)
-      final response = await Supabase.instance.client.rpc(
-        'delete_user_data',
-        params: {'p_user_id': userId},
+      // Edge Function 호출
+      final response = await Supabase.instance.client.functions.invoke(
+        'delete-account',
+        body: {},
+        headers: {
+          'Authorization': 'Bearer ${Supabase.instance.client.auth.currentSession?.accessToken ?? ''}',
+        },
       );
 
-      print("RPC response: $response");  // 디버깅 로그 추가
+      print("Edge Function Status: ${response.status}");
+      print("Edge Function Response Data: ${response.data}");
+      print("Response Data Type: ${response.data.runtimeType}");
 
-      if (response['success'] != true) {
-        throw Exception('탈퇴 실패: ${response['message'] ?? '알 수 없는 오류'}');
+      final data = response.data;
+
+      // ==================== 개선된 체크 로직 ====================
+      bool isSuccess = false;
+
+      if (response.status == 200) {
+        if (data is Map) {
+          isSuccess = data['success'] == true || data['success'] == 'true';
+        } else if (data is String) {
+          // JSON이 String으로 올 경우 대비
+          isSuccess = data.contains('"success":true');
+        }
+      }
+      // ====================================================
+
+      if (isSuccess) {
+        await Supabase.instance.client.auth.signOut();
+        print("회원탈퇴 성공!");
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        final errorMsg = (data is Map) ? (data['error'] ?? '알 수 없는 오류') : '탈퇴 처리 실패';
+        throw Exception(errorMsg);
       }
 
-      // 3. 로그아웃 (auth.users 이미 삭제됐으므로 세션 무효화)
-      await Supabase.instance.client.auth.signOut();
-
-      print("진짜 완전 탈퇴 성공! 모든 데이터 삭제 완료");
-      _isLoading = false;
-      notifyListeners();
-      return true;
-
     } catch (e) {
-      _errorMessage = "탈퇴 처리 중 오류가 발생했습니다: $e";
-      print("탈퇴 실패: $e");
+      print("탈퇴 실패 상세: $e");
+      _errorMessage = "탈퇴 처리 중 오류가 발생했습니다. 다시 시도해주세요.";
       _isLoading = false;
       notifyListeners();
       return false;
