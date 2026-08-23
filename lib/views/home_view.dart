@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shimmer/shimmer.dart' as shimmer_pkg;
+import 'package:elegant_notification/elegant_notification.dart';
+import 'package:elegant_notification/resources/arrays.dart';
 import 'package:fluttertrip/views/shared_link_view.dart';
-import 'package:fluttertrip/views/widgets/address_photo_preview.dart';
+import 'package:fluttertrip/widgets/address_photo_preview.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/shared_link_model.dart';
+import '../viewmodels/shared_link_viewmodel.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../models/marker_model.dart';
 import '../design/app_design.dart';
+import 'community_board_view.dart';
 import 'markerdetail_view.dart';
 
 // ================================
 // 메인 홈 대시보드 뷰
-// ================================
 class HomeDashboardView extends StatefulWidget {
   const HomeDashboardView({super.key});
 
@@ -29,8 +35,16 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
   void initState() {
     super.initState();
     _viewModel = context.read<HomeDashboardViewModel>();
+    _viewModel.subscribeToChanges();
     _initializeAnimations();
     _initializeData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !context.read<SharedLinkViewModel>().hasPendingSharedUrl) {
+        return;
+      }
+      Navigator.pushNamed(context, '/shared_link');
+    });
   }
 
   void _initializeAnimations() {
@@ -59,7 +73,8 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppDesign.backgroundGradient),
+        decoration:
+            const BoxDecoration(gradient: AppDesign.homeBackgroundGradient),
         child: SafeArea(
           child: Consumer<HomeDashboardViewModel>(
             builder: (context, viewModel, child) {
@@ -71,9 +86,11 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                     // 개선된 헤더 섹션
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
+                        padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 0),
                         child: _DashboardHeader(
-                          userId: Supabase.instance.client.auth.currentUser?.id ?? '',
+                          userId:
+                              Supabase.instance.client.auth.currentUser?.id ??
+                                  '',
                         ),
                       ),
                     ),
@@ -81,7 +98,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                     // 프리미엄 웰컴 카드
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: EdgeInsets.symmetric(horizontal: 20.w),
                         child: _MoodBanner(),
                       ),
                     ),
@@ -89,7 +106,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                     // 메인 기능 그리드
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.all(24),
+                        padding: EdgeInsets.all(20.w),
                         child: _MainFeaturesGrid(),
                       ),
                     ),
@@ -124,8 +141,15 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
     );
   }
 
-  void _navigateToList() => Navigator.pushNamed(context, '/marker_list');
-  void _navigateToSharedLinks() => Navigator.pushNamed(context, '/shared_link');
+  Future<void> _navigateToList() async {
+    await Navigator.pushNamed(context, '/marker_list');
+    if (mounted) _viewModel.loadRecentMarkers();
+  }
+
+  Future<void> _navigateToSharedLinks() async {
+    await Navigator.pushNamed(context, '/shared_link');
+    if (mounted) _viewModel.loadSharedLinks();
+  }
 }
 
 // ================================
@@ -150,31 +174,36 @@ class _DashboardHeader extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      width: 6,
-                      height: 6,
+                      width: 6.w,
+                      height: 6.w,
                       decoration: BoxDecoration(
-                        color: AppDesign.travelBlue,
+                        color: AppDesign.homeEyebrow,
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6.w),
                     Text(
                       '트래블 노트',
                       style: AppDesign.caption.copyWith(
-                        color: AppDesign.travelBlue,
+                        color: AppDesign.homeEyebrow,
                         fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                        fontSize: 12.sp,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: AppDesign.spacing12),
-                const Text('어디로 떠날까요?', style: AppDesign.headingXL),
+                Text(
+                  '어디로 떠날까요?',
+                  style: AppDesign.headingXL.copyWith(
+                    color: AppDesign.homeForeground,
+                  ),
+                ),
                 const SizedBox(height: AppDesign.spacing8),
                 Text(
                   '새로운 모험이 당신을 기다리고 있어요 ✈️',
                   style: AppDesign.bodyLarge.copyWith(
-                    color: AppDesign.secondaryText,
+                    color: AppDesign.homeMutedText,
                   ),
                 ),
               ],
@@ -197,17 +226,18 @@ class _DashboardHeader extends StatelessWidget {
         );
       },
       child: Container(
-        width: 48,
-        height: 48,
+        width: 48.w,
+        height: 48.w,
         decoration: BoxDecoration(
-          gradient: AppDesign.primaryGradient,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppDesign.glowShadow,
+          color: AppDesign.homeSurface,
+          border: Border.all(color: AppDesign.homeSurfaceBorder),
+          borderRadius: BorderRadius.circular(16.r),
+          boxShadow: AppDesign.softShadow,
         ),
-        child: const Icon(
+        child: Icon(
           Icons.person_outline,
-          color: Colors.white,
-          size: 24,
+          color: AppDesign.homeTagForeground,
+          size: 24.sp,
         ),
       ),
     );
@@ -215,104 +245,115 @@ class _DashboardHeader extends StatelessWidget {
 }
 
 // ================================
-// 무드 배너 — 비인터랙티브
-// GestureDetector 없음, 탭 불가, 분위기 전달 전용
+// 무드 배너 — 비인터랙티브(정보 전달) + 탭 가능한 진입점
 // ================================
 class _MoodBanner extends StatelessWidget {
   const _MoodBanner();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+    return Semantics(
+      button: true,
+      label: '여행 이야기 게시판 열기',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CommunityBoardView()),
+          ),
+          child: Container(
+            height: 160.h,
+            padding: EdgeInsets.all(18.w),
+            decoration: BoxDecoration(
+              gradient: AppDesign.homeHeroGradient,
+              borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+              boxShadow: AppDesign.softShadow,
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -16.w,
+                  top: -16.h,
+                  child: Container(
+                    width: 80.w,
+                    height: 80.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.07),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 20.w,
+                  bottom: -24.h,
+                  child: Container(
+                    width: 56.w,
+                    height: 56.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(right: 52.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '오늘의 여행',
+                        style: AppDesign.caption.copyWith(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11.sp,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '세계 어디든,\n당신의 이야기로',
+                        style: AppDesign.headingSmall.copyWith(
+                          color: Colors.white,
+                          fontSize: 20.sp,
+                          height: 1.25,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        '숨겨진 보석을 발견해보세요',
+                        style: AppDesign.caption.copyWith(
+                          color: Colors.white.withValues(alpha: 0.82),
+                          fontSize: 12.sp,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 38.w,
+                    height: 38.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.24),
+                      ),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      color: AppDesign.homeForeground,
+                      size: 20.sp,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-      ),
-      child: Stack(
-        children: [
-          // 데코 원형 — 순수 시각 장식
-          Positioned(
-            right: -16,
-            top: -16,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.07),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 20,
-            bottom: -24,
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          // 콘텐츠
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.explore_outlined,
-                  color: Colors.white,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: AppDesign.spacing16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '오늘의 여행',
-                      style: AppDesign.caption.copyWith(
-                        color: Colors.white.withOpacity(0.7),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '세계 어디든,\n당신의 이야기로',
-                      style: AppDesign.headingSmall.copyWith(
-                        color: Colors.white,
-                        fontSize: 16,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '숨겨진 보석을 발견해보세요',
-                      style: AppDesign.caption.copyWith(
-                        color: Colors.white.withOpacity(0.75),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -321,38 +362,7 @@ class _MoodBanner extends StatelessWidget {
 // ================================
 // 메인 기능 그리드
 // ================================
-class _MainFeaturesGrid extends StatefulWidget {
-  @override
-  State<_MainFeaturesGrid> createState() => _MainFeaturesGridState();
-}
-
-class _MainFeaturesGridState extends State<_MainFeaturesGrid> with SingleTickerProviderStateMixin {
-  late AnimationController _shimmerController;
-  late Animation<double> _shimmerAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeShimmerAnimation();
-  }
-
-  void _initializeShimmerAnimation() {
-    _shimmerController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
-    _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
-      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
-    );
-    _shimmerController.repeat();
-  }
-
-  @override
-  void dispose() {
-    _shimmerController.dispose();
-    super.dispose();
-  }
-
+class _MainFeaturesGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -361,20 +371,20 @@ class _MainFeaturesGridState extends State<_MainFeaturesGrid> with SingleTickerP
           children: [
             Expanded(
               child: _FeatureGridItem(
-                icon: _buildAnimatedIcon(Icons.map_outlined),
+                icon: _buildIcon(Icons.map_outlined),
                 title: '지도 탐색',
                 subtitle: '새로운 장소 발견하기',
-                gradient: AppDesign.primaryGradient,
+                gradient: AppDesign.homeMapIconGradient,
                 onTap: () => Navigator.pushNamed(context, '/map'),
               ),
             ),
             const SizedBox(width: AppDesign.spacing16),
             Expanded(
               child: _FeatureGridItem(
-                icon: _buildAnimatedIcon(Icons.bookmark_outline),
+                icon: _buildIcon(Icons.bookmark_outline),
                 title: '여행 리스트',
                 subtitle: '나만의 여행 노트',
-                gradient: AppDesign.greenGradient,
+                gradient: AppDesign.homeListIconGradient,
                 onTap: () => Navigator.pushNamed(context, '/list'),
               ),
             ),
@@ -386,39 +396,11 @@ class _MainFeaturesGridState extends State<_MainFeaturesGrid> with SingleTickerP
     );
   }
 
-  Widget _buildAnimatedIcon(IconData iconData) {
-    return AnimatedBuilder(
-      animation: _shimmerAnimation,
-      builder: (context, child) {
-        return Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.1),
-                Colors.white.withOpacity(0.2),
-                Colors.white.withOpacity(0.1),
-              ],
-              stops: [
-                _shimmerAnimation.value - 0.3,
-                _shimmerAnimation.value,
-                _shimmerAnimation.value + 0.3,
-              ].map((stop) => stop.clamp(0.0, 1.0)).toList(),
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            iconData,
-            color: Colors.white,
-            size: 24,
-          ),
-        );
-      },
-    );
-  }
+  static Widget _buildIcon(IconData iconData) => Icon(
+        iconData,
+        color: AppDesign.whiteText,
+        size: 22.sp,
+      );
 }
 
 // ================================
@@ -480,23 +462,22 @@ class _FeatureGridItemState extends State<_FeatureGridItem>
         animation: _scaleAnimation,
         builder: (context, child) => Transform.scale(
           scale: _scaleAnimation.value,
-          child: Container(
-            height: 140,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: widget.gradient,
-              borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-              boxShadow: AppDesign.elevatedShadow,
-            ),
+          child: ShadCard(
+            height: 140.h,
+            padding: EdgeInsets.all(20.w),
+            backgroundColor: AppDesign.homeSurface,
+            radius: BorderRadius.circular(AppDesign.radiusLarge),
+            border: ShadBorder.all(color: AppDesign.homeSurfaceBorder),
+            shadows: AppDesign.softShadow,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 40.w,
+                  height: 40.w,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: widget.gradient,
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
                   child: widget.icon,
                 ),
@@ -504,7 +485,7 @@ class _FeatureGridItemState extends State<_FeatureGridItem>
                 Text(
                   widget.title,
                   style: AppDesign.bodyMedium.copyWith(
-                    color: Colors.white,
+                    color: AppDesign.homeForeground,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -512,7 +493,7 @@ class _FeatureGridItemState extends State<_FeatureGridItem>
                 Text(
                   widget.subtitle,
                   style: AppDesign.caption.copyWith(
-                    color: Colors.white.withOpacity(0.8),
+                    color: AppDesign.homeMutedText,
                     height: 1.3,
                   ),
                 ),
@@ -568,14 +549,13 @@ class _PremiumFriendsCardState extends State<_PremiumFriendsCard>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ShadCard(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppDesign.primaryText,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.elevatedShadow,
-      ),
+      padding: EdgeInsets.all(24.w),
+      backgroundColor: AppDesign.homeSurface,
+      radius: BorderRadius.circular(AppDesign.radiusLarge),
+      border: ShadBorder.all(color: AppDesign.homeSurfaceBorder),
+      shadows: AppDesign.softShadow,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -584,7 +564,7 @@ class _PremiumFriendsCardState extends State<_PremiumFriendsCard>
           child: Row(
             children: [
               _buildAnimatedIcon(),
-              const SizedBox(width: AppDesign.spacing20),
+              SizedBox(width: AppDesign.spacing20),
               Expanded(child: _buildTextContent()),
               _buildArrowIcon(),
             ],
@@ -599,29 +579,16 @@ class _PremiumFriendsCardState extends State<_PremiumFriendsCard>
       animation: _shimmerAnimation,
       builder: (context, child) {
         return Container(
-          width: 60,
-          height: 60,
+          width: 60.w,
+          height: 60.w,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.1),
-                Colors.white.withOpacity(0.2),
-                Colors.white.withOpacity(0.1),
-              ],
-              stops: [
-                _shimmerAnimation.value - 0.3,
-                _shimmerAnimation.value,
-                _shimmerAnimation.value + 0.3,
-              ].map((stop) => stop.clamp(0.0, 1.0)).toList(),
-            ),
-            borderRadius: BorderRadius.circular(16),
+            color: AppDesign.homeMutedSurface,
+            borderRadius: BorderRadius.circular(16.r),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.people_outline,
-            color: Colors.white,
-            size: 28,
+            color: AppDesign.homeTagForeground,
+            size: 28.sp,
           ),
         );
       },
@@ -634,13 +601,14 @@ class _PremiumFriendsCardState extends State<_PremiumFriendsCard>
       children: [
         Text(
           '친구들과 함께',
-          style: AppDesign.headingSmall.copyWith(color: Colors.white),
+          style:
+              AppDesign.headingSmall.copyWith(color: AppDesign.homeForeground),
         ),
         const SizedBox(height: AppDesign.spacing4),
         Text(
           '여행 계획을 공유하고 추억을 함께 만들어보세요',
           style: AppDesign.bodyMedium.copyWith(
-            color: Colors.white.withOpacity(0.8),
+            color: AppDesign.homeMutedText,
             fontWeight: FontWeight.w400,
           ),
         ),
@@ -650,15 +618,15 @@ class _PremiumFriendsCardState extends State<_PremiumFriendsCard>
 
   Widget _buildArrowIcon() {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(8.w),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: AppDesign.homeMutedSurface,
+        borderRadius: BorderRadius.circular(8.r),
       ),
-      child: const Icon(
+      child: Icon(
         Icons.arrow_forward_ios,
-        color: Colors.white,
-        size: 16,
+        color: AppDesign.homeTagForeground,
+        size: 16.sp,
       ),
     );
   }
@@ -671,11 +639,13 @@ class SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final VoidCallback onViewAll;
+  final Gradient iconGradient;
 
   const SectionHeader({
     required this.title,
     required this.icon,
     required this.onViewAll,
+    this.iconGradient = AppDesign.homeListIconGradient,
     Key? key,
   }) : super(key: key);
 
@@ -687,15 +657,20 @@ class SectionHeader extends StatelessWidget {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(8.w),
               decoration: BoxDecoration(
-                gradient: AppDesign.primaryGradient,
-                borderRadius: BorderRadius.circular(8),
+                gradient: iconGradient,
+                borderRadius: BorderRadius.circular(8.r),
               ),
-              child: Icon(icon, color: Colors.white, size: 16),
+              child: Icon(icon, color: Colors.white, size: 16.sp),
             ),
             const SizedBox(width: AppDesign.spacing12),
-            Text(title, style: AppDesign.headingMedium),
+            Text(
+              title,
+              style: AppDesign.headingMedium.copyWith(
+                color: AppDesign.homeForeground,
+              ),
+            ),
           ],
         ),
         GestureDetector(
@@ -705,13 +680,17 @@ class SectionHeader extends StatelessWidget {
               Text(
                 '전체 보기',
                 style: AppDesign.caption.copyWith(
-                  color: AppDesign.travelBlue,
+                  color: AppDesign.homeTagForeground,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 13.sp,
                 ),
               ),
-              const SizedBox(width: 2),
-              Icon(Icons.chevron_right, size: 16, color: AppDesign.travelBlue),
+              SizedBox(width: 2.w),
+              Icon(
+                Icons.chevron_right,
+                size: 16.sp,
+                color: AppDesign.homeTagForeground,
+              ),
             ],
           ),
         ),
@@ -740,6 +719,7 @@ class RecentMarkersSection extends StatefulWidget {
 class _RecentMarkersSectionState extends State<RecentMarkersSection> {
   final Map<String, LinkPreviewData?> _previewDataCache = {};
   final Set<String> _loadingUrls = {};
+  bool _previewErrorNotified = false;
 
   @override
   void initState() {
@@ -757,7 +737,9 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
 
   Future<void> _fetchPreviewForMarker(MarkerModel marker) async {
     final url = marker.address;
-    if (url.isEmpty || _previewDataCache.containsKey(url) || _loadingUrls.contains(url)) {
+    if (url.isEmpty ||
+        _previewDataCache.containsKey(url) ||
+        _loadingUrls.contains(url)) {
       return;
     }
 
@@ -775,10 +757,24 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
         setState(() {
           _previewDataCache[url] = null;
         });
+        _notifyPreviewLoadIssue();
       }
     } finally {
       _loadingUrls.remove(url);
     }
+  }
+
+  // 미리보기 로드 실패는 섹션당 1번만 조용히 안내합니다(스팸 방지).
+  void _notifyPreviewLoadIssue() {
+    if (_previewErrorNotified || !mounted) return;
+    _previewErrorNotified = true;
+    ElegantNotification.info(
+      title: const Text('알림'),
+      description: const Text('일부 장소의 미리보기를 불러오지 못했어요'),
+      position: Alignment.topCenter,
+      animation: AnimationType.fromTop,
+      toastDuration: const Duration(seconds: 2),
+    ).show(context);
   }
 
   @override
@@ -787,11 +783,12 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
           child: SectionHeader(
             icon: Icons.location_on,
             title: '최근 저장한 장소',
             onViewAll: _handleViewAll,
+            iconGradient: AppDesign.homeMapIconGradient,
           ),
         ),
         const SizedBox(height: AppDesign.spacing20),
@@ -811,35 +808,36 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     }
 
     return SizedBox(
-      height: 270,
+      height: 226.h,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
         scrollDirection: Axis.horizontal,
         itemCount: widget.markers.length,
         separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing16),
-        itemBuilder: (context, index) => _buildPremiumMarkerCard(widget.markers[index]),
+        itemBuilder: (context, index) =>
+            _buildPremiumMarkerCard(widget.markers[index]),
       ),
     );
   }
 
   Widget _buildEmptyMarkersState() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
       child: Container(
-        height: 270,
+        height: 252.h,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppDesign.cardBg,
-              AppDesign.primaryBg,
+              AppDesign.homeSurface,
+              AppDesign.homeBackgroundTop,
             ],
           ),
           borderRadius: BorderRadius.circular(AppDesign.radiusXL),
           boxShadow: AppDesign.elevatedShadow,
           border: Border.all(
-            color: AppDesign.travelBlue.withOpacity(0.1),
+            color: AppDesign.homeSurfaceBorder,
             width: 2,
           ),
         ),
@@ -854,7 +852,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
                     center: Alignment.topRight,
                     radius: 1.5,
                     colors: [
-                      AppDesign.travelBlue.withOpacity(0.05),
+                      AppDesign.homeMutedSurface,
                       Colors.transparent,
                     ],
                   ),
@@ -863,25 +861,25 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
             ),
             // 장식적 요소들
             Positioned(
-              top: 20,
-              right: 20,
+              top: 20.h,
+              right: 20.w,
               child: Container(
-                width: 60,
-                height: 60,
+                width: 60.w,
+                height: 60.w,
                 decoration: BoxDecoration(
-                  color: AppDesign.travelBlue.withOpacity(0.08),
+                  color: AppDesign.homeMutedSurface,
                   borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
                 ),
               ),
             ),
             Positioned(
-              bottom: 20,
-              left: 20,
+              bottom: 20.h,
+              left: 20.w,
               child: Container(
-                width: 40,
-                height: 40,
+                width: 40.w,
+                height: 40.w,
                 decoration: BoxDecoration(
-                  color: AppDesign.travelPurple.withOpacity(0.06),
+                  color: AppDesign.homeMutedSurface,
                   borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
                 ),
               ),
@@ -889,15 +887,15 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
             // 메인 콘텐츠 - 중앙 정렬
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDesign.spacing24),
+                padding: EdgeInsets.symmetric(horizontal: AppDesign.spacing24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 80,
-                      height: 80,
+                      width: 80.w,
+                      height: 80.w,
                       decoration: BoxDecoration(
-                        gradient: AppDesign.primaryGradient,
+                        color: AppDesign.homeActionSurface,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
@@ -913,17 +911,17 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.explore_outlined,
                         color: Colors.white,
-                        size: 36,
+                        size: 36.sp,
                       ),
                     ),
                     const SizedBox(height: AppDesign.spacing16),
                     Text(
                       '새로운 모험을 시작하세요!',
                       style: AppDesign.headingSmall.copyWith(
-                        color: AppDesign.primaryText,
+                        color: AppDesign.homeForeground,
                         fontWeight: FontWeight.w800,
                       ),
                       textAlign: TextAlign.center,
@@ -932,61 +930,21 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
                     Text(
                       '지도에서 특별한 장소를 발견하고\n나만의 여행 컬렉션을 만들어보세요',
                       style: AppDesign.bodyMedium.copyWith(
-                        color: AppDesign.secondaryText,
+                        color: AppDesign.homeMutedText,
                         height: 1.5,
                       ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: AppDesign.spacing20),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: AppDesign.primaryGradient,
-                        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppDesign.travelBlue.withOpacity(0.3),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                            spreadRadius: -2,
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => Navigator.pushNamed(context, '/map'),
-                          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppDesign.spacing20,
-                              vertical: AppDesign.spacing10,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Icon(
-                                    Icons.add_location_alt,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                ),
-                                const SizedBox(width: AppDesign.spacing8),
-                                Text(
-                                  '지도 탐색하기',
-                                  style: AppDesign.bodyMedium.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                    // shadcn_ui 버튼으로 교체 — 탭 가능한 요소임이 더 분명하게 보입니다.
+                    ShadButton(
+                      onPressed: () => Navigator.pushNamed(context, '/map'),
+                      leading: Icon(Icons.add_location_alt, size: 16.sp),
+                      child: Text(
+                        '지도 탐색하기',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.sp,
                         ),
                       ),
                     ),
@@ -1004,9 +962,9 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     final previewData = _previewDataCache[marker.address];
 
     return Container(
-      width: 300,
+      width: 274.w,
       decoration: BoxDecoration(
-        color: AppDesign.cardBg,
+        color: AppDesign.homeSurface,
         borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
         boxShadow: AppDesign.softShadow,
       ),
@@ -1016,14 +974,17 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
           borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
           onTap: () => _navigateToMarkerDetail(marker),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(12.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildPremiumMarkerImage(address: marker.address, title: marker.title,),
-                const SizedBox(height: AppDesign.spacing16),
+                _buildPremiumMarkerImage(
+                  address: marker.address,
+                  title: marker.title,
+                ),
+                const SizedBox(height: AppDesign.spacing10),
                 _buildMarkerTitle(marker, previewData),
-                const SizedBox(height: AppDesign.spacing8),
+                const SizedBox(height: AppDesign.spacing4),
                 _buildMarkerDescription(marker, previewData),
                 const Spacer(),
                 _buildMarkerFooter(marker),
@@ -1042,16 +1003,15 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
       child: Container(
-        height: 120,
-        width: double.infinity, // 또는 300처럼 넓게
+        height: 88.h,
+        width: double.infinity,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
         ),
         child: AddressPhotoPreview(
           address: address,
           title: title,
-          size: 120, // 높이 120px 고정
-          // 아래로 오버레이 + 그라데이션 살리기
+          size: 88,
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -1073,16 +1033,17 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
   Widget _buildMarkerTitle(MarkerModel marker, LinkPreviewData? previewData) {
     return Text(
       previewData?.title ?? marker.title,
-      style: AppDesign.headingSmall,
+      style: AppDesign.headingSmall.copyWith(color: AppDesign.homeForeground),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
   }
 
-  Widget _buildMarkerDescription(MarkerModel marker, LinkPreviewData? previewData) {
+  Widget _buildMarkerDescription(
+      MarkerModel marker, LinkPreviewData? previewData) {
     return Text(
       previewData?.description ?? marker.address,
-      style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText),
+      style: AppDesign.bodyMedium.copyWith(color: AppDesign.homeMutedText),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -1096,67 +1057,81 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
 
     final viewModel = context.read<HomeDashboardViewModel>();
     final rating = viewModel.getRating(query);
+    final keywordSurface = AppDesign.homeKeywordSurface(keyword);
+    final keywordForeground = AppDesign.homeKeywordForeground(keyword);
 
     return Row(
       children: [
         if (keyword.isNotEmpty)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
             decoration: BoxDecoration(
-              color: AppDesign.travelBlue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: keywordSurface,
+              borderRadius: BorderRadius.circular(12.r),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.label,
-                  size: 12,
-                  color: AppDesign.travelBlue,
+                  size: 12.sp,
+                  color: keywordForeground,
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 4.w),
                 Text(
                   keyword,
                   style: AppDesign.caption.copyWith(
-                    color: AppDesign.travelBlue,
+                    color: keywordForeground,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-          const Spacer(),
-
+        const Spacer(),
         if (rating != null && rating > 0)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               ...List.generate(5, (index) {
                 return Icon(
-                  index < rating.floor() ? Icons.star : (index < rating ? Icons.star_half : Icons.star_border),
-                  size: 14,
-                  color: AppDesign.travelOrange,
+                  index < rating.floor()
+                      ? Icons.star
+                      : (index < rating ? Icons.star_half : Icons.star_border),
+                  size: 14.sp,
+                  color: AppDesign.homeTagForeground,
                 );
               }),
-              const SizedBox(width: 6),
+              SizedBox(width: 6.w),
               Text(
                 rating.toStringAsFixed(1),
                 style: AppDesign.caption.copyWith(
-                  color: AppDesign.primaryText,
+                  color: AppDesign.homeForeground,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           )
         else
-          const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          // 평점 로딩 표시 — 스피너 대신 shimmer 플레이스홀더로 통일감을 줍니다.
+          shimmer_pkg.Shimmer.fromColors(
+            baseColor: AppDesign.homeMutedSurface,
+            highlightColor: AppDesign.homeSurface,
+            child: Container(
+              width: 40.w,
+              height: 14.h,
+              decoration: BoxDecoration(
+                color: AppDesign.homeMutedSurface,
+                borderRadius: BorderRadius.circular(6.r),
+              ),
+            ),
           ),
-
-        const SizedBox(width: 12),
-        Icon(Icons.arrow_forward_ios, size: 16, color: AppDesign.subtleText),
+        SizedBox(width: 12.w),
+        Icon(
+          Icons.arrow_forward_ios,
+          size: 16.sp,
+          color: AppDesign.homeNavigationText,
+        ),
       ],
     );
   }
@@ -1192,16 +1167,14 @@ class SharedLinksSection extends StatefulWidget {
   State<SharedLinksSection> createState() => _SharedLinksSectionState();
 }
 
-class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProviderStateMixin {
+class _SharedLinksSectionState extends State<SharedLinksSection> {
   final Map<String, LinkPreviewData> _previewDataCache = {};
   bool _isLoading = true;
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+  bool _previewErrorNotified = false;
 
   @override
   void initState() {
     super.initState();
-    _initializePulseAnimation();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensurePreviewDataLoaded();
     });
@@ -1219,22 +1192,10 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
         } else {
           setState(() {
             _isLoading = false;
-            print('[Preview] 링크가 없어서 _isLoading=false 설정');
           });
         }
       });
     }
-  }
-
-  void _initializePulseAnimation() {
-    _pulseController = AnimationController(
-      duration: const Duration(seconds: 1),
-      vsync: this,
-    );
-    _pulseAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-    _pulseController.repeat(reverse: true);
   }
 
   Future<void> _loadAllPreviewData() async {
@@ -1248,7 +1209,6 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
       setState(() {
         _isLoading = false;
       });
-      _pulseController.stop();
     }
   }
 
@@ -1262,13 +1222,21 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
         description: '',
         image: null,
       );
+      _notifyPreviewLoadIssue();
     }
   }
 
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
+  // 미리보기 로드 실패는 섹션당 1번만 조용히 안내합니다(스팸 방지).
+  void _notifyPreviewLoadIssue() {
+    if (_previewErrorNotified || !mounted) return;
+    _previewErrorNotified = true;
+    ElegantNotification.info(
+      title: const Text('알림'),
+      description: const Text('일부 링크의 미리보기를 불러오지 못했어요'),
+      position: Alignment.topCenter,
+      animation: AnimationType.fromTop,
+      toastDuration: const Duration(seconds: 2),
+    ).show(context);
   }
 
   @override
@@ -1278,7 +1246,9 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
       children: [
         _buildSectionHeader(),
         const SizedBox(height: AppDesign.spacing20),
-        widget.sharedLinks.isEmpty ? _buildEmptyLinksState() : (_isLoading ? _buildPremiumLoadingState() : _buildLinksList()),
+        widget.sharedLinks.isEmpty
+            ? _buildEmptyLinksState()
+            : (_isLoading ? _buildPremiumLoadingState() : _buildLinksList()),
         const SizedBox(height: AppDesign.spacing40),
       ],
     );
@@ -1286,11 +1256,12 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
 
   Widget _buildSectionHeader() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
       child: SectionHeader(
         title: '공유된 링크',
         icon: Icons.share,
         onViewAll: _handleViewAll,
+        iconGradient: AppDesign.homeLinkIconGradient,
       ),
     );
   }
@@ -1305,22 +1276,22 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
 
   Widget _buildEmptyLinksState() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
       child: Container(
-        height: 290,
+        height: 252.h,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppDesign.cardBg,
-              AppDesign.lightGray,
+              AppDesign.homeSurface,
+              AppDesign.homeBackgroundTop,
             ],
           ),
           borderRadius: BorderRadius.circular(AppDesign.radiusXL),
           boxShadow: AppDesign.elevatedShadow,
           border: Border.all(
-            color: AppDesign.sunsetGradientStart.withOpacity(0.1),
+            color: AppDesign.homeSurfaceBorder,
             width: 2,
           ),
         ),
@@ -1335,7 +1306,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
                     center: Alignment.bottomLeft,
                     radius: 1.8,
                     colors: [
-                      AppDesign.sunsetGradientStart.withOpacity(0.06),
+                      AppDesign.homeMutedSurface,
                       Colors.transparent,
                     ],
                   ),
@@ -1344,37 +1315,37 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
             ),
             // 장식적 요소들
             Positioned(
-              top: 16,
-              left: 16,
+              top: 16.h,
+              left: 16.w,
               child: Container(
-                width: 50,
-                height: 50,
+                width: 50.w,
+                height: 50.w,
                 decoration: BoxDecoration(
-                  color: AppDesign.travelOrange.withOpacity(0.08),
+                  color: AppDesign.homeMutedSurface,
                   borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
                 ),
               ),
             ),
             Positioned(
-              bottom: 16,
-              right: 16,
+              bottom: 16.h,
+              right: 16.w,
               child: Container(
-                width: 70,
-                height: 70,
+                width: 70.w,
+                height: 70.w,
                 decoration: BoxDecoration(
-                  color: AppDesign.sunsetGradientEnd.withOpacity(0.06),
+                  color: AppDesign.homeMutedSurface,
                   borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
                 ),
               ),
             ),
             Positioned(
-              top: 60,
-              right: 30,
+              top: 60.h,
+              right: 30.w,
               child: Container(
-                width: 30,
-                height: 30,
+                width: 30.w,
+                height: 30.w,
                 decoration: BoxDecoration(
-                  color: AppDesign.sunsetGradientStart.withOpacity(0.1),
+                  color: AppDesign.homeMutedSurface,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -1382,19 +1353,20 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
             // 메인 콘텐츠 - 중앙 정렬
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDesign.spacing24),
+                padding: EdgeInsets.symmetric(horizontal: AppDesign.spacing24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 80,
-                      height: 80,
+                      width: 80.w,
+                      height: 80.w,
                       decoration: BoxDecoration(
-                        gradient: AppDesign.sunsetGradient,
+                        color: AppDesign.homeActionSurface,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: AppDesign.sunsetGradientStart.withOpacity(0.4),
+                            color:
+                                AppDesign.sunsetGradientStart.withOpacity(0.4),
                             blurRadius: 24,
                             offset: const Offset(0, 8),
                             spreadRadius: -4,
@@ -1406,17 +1378,17 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.share_outlined,
-                        color: Colors.white,
-                        size: 36,
+                        color: AppDesign.homeTagForeground,
+                        size: 36.sp,
                       ),
                     ),
                     const SizedBox(height: AppDesign.spacing16),
                     Text(
                       '여행 링크를 공유해보세요!',
                       style: AppDesign.headingSmall.copyWith(
-                        color: AppDesign.primaryText,
+                        color: AppDesign.homeForeground,
                         fontWeight: FontWeight.w800,
                       ),
                       textAlign: TextAlign.center,
@@ -1425,61 +1397,22 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
                     Text(
                       '멋진 여행 관련 링크를 저장하고\n나중에 쉽게 찾아볼 수 있어요',
                       style: AppDesign.bodyMedium.copyWith(
-                        color: AppDesign.secondaryText,
+                        color: AppDesign.homeMutedText,
                         height: 1.5,
                       ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: AppDesign.spacing20),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: AppDesign.sunsetGradient,
-                        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppDesign.sunsetGradientStart.withOpacity(0.3),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                            spreadRadius: -2,
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => Navigator.pushNamed(context, '/shared_link'),
-                          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppDesign.spacing20,
-                              vertical: AppDesign.spacing10,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Icon(
-                                    Icons.add_link,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                ),
-                                const SizedBox(width: AppDesign.spacing8),
-                                Text(
-                                  '링크 추가하기',
-                                  style: AppDesign.bodyMedium.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                    // shadcn_ui 버튼으로 교체 — 탭 가능한 요소임이 더 분명하게 보입니다.
+                    ShadButton(
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/shared_link'),
+                      leading: Icon(Icons.add_link, size: 16.sp),
+                      child: Text(
+                        '링크 추가하기',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.sp,
                         ),
                       ),
                     ),
@@ -1494,68 +1427,59 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
   }
 
   Widget _buildPremiumLoadingState() {
+    // 커스텀 pulse 애니메이션 대신 shimmer 패키지의 스윕 효과를 사용합니다.
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: AnimatedBuilder(
-        animation: _pulseAnimation,
-        builder: (context, child) {
-          return Opacity(
-            opacity: _pulseAnimation.value,
-            child: Container(
-              height: 240,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppDesign.cardBg,
-                    AppDesign.lightGray,
-                  ],
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: shimmer_pkg.Shimmer.fromColors(
+        baseColor: AppDesign.homeSurface,
+        highlightColor: AppDesign.homeBackgroundTop,
+        child: Container(
+          height: 208.h,
+          decoration: BoxDecoration(
+            color: AppDesign.homeSurface,
+            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+            boxShadow: AppDesign.softShadow,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 60.w,
+                height: 60.w,
+                decoration: BoxDecoration(
+                  gradient: AppDesign.homeListIconGradient,
+                  borderRadius: BorderRadius.circular(16.r),
                 ),
-                borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-                boxShadow: AppDesign.softShadow,
+                child: Icon(
+                  Icons.cloud_download,
+                  color: Colors.white,
+                  size: 28.sp,
+                ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      gradient: AppDesign.primaryGradient,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.cloud_download,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(height: AppDesign.spacing16),
-                  Text(
-                    '링크 정보를 불러오는 중...',
-                    style: AppDesign.bodyMedium.copyWith(
-                      color: AppDesign.secondaryText,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: AppDesign.spacing16),
+              Text(
+                '링크 정보를 불러오는 중...',
+                style: AppDesign.bodyMedium.copyWith(
+                  color: AppDesign.homeMutedText,
+                ),
               ),
-            ),
-          );
-        },
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildLinksList() {
     return SizedBox(
-      height: 290,
+      height: 226.h,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
         scrollDirection: Axis.horizontal,
         itemCount: widget.sharedLinks.length,
         separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing16),
-        itemBuilder: (context, index) => _buildPremiumLinkCard(widget.sharedLinks[index]),
+        itemBuilder: (context, index) =>
+            _buildPremiumLinkCard(widget.sharedLinks[index]),
       ),
     );
   }
@@ -1565,13 +1489,13 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
     final subtitle = _getClippedSubtitle(previewData, link);
 
     return Container(
-      width: 300,
+      width: 274.w,
       decoration: BoxDecoration(
-        color: AppDesign.cardBg,
+        color: AppDesign.homeSurface,
         borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
         boxShadow: AppDesign.softShadow,
         border: Border.all(
-          color: AppDesign.borderColor,
+          color: AppDesign.homeSurfaceBorder,
           width: 1,
         ),
       ),
@@ -1581,14 +1505,14 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
           borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
           onTap: () => _navigateToLinkDetail(link),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(12.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildLinkImage(previewData),
-                const SizedBox(height: AppDesign.spacing16),
+                const SizedBox(height: AppDesign.spacing10),
                 _buildLinkTitle(previewData, link),
-                const SizedBox(height: AppDesign.spacing8),
+                const SizedBox(height: AppDesign.spacing4),
                 _buildLinkDescription(subtitle),
                 const Spacer(),
                 _buildLinkFooter(link),
@@ -1602,27 +1526,26 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
 
   Widget _buildLinkImage(LinkPreviewData? previewData) {
     return Container(
-      height: 120,
+      height: 88.h,
       decoration: BoxDecoration(
-        gradient: previewData?.image != null
-            ? null
-            : AppDesign.sunsetGradient,
+        gradient:
+            previewData?.image != null ? null : AppDesign.homeListIconGradient,
         borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
         image: previewData?.image != null
             ? DecorationImage(
-          image: NetworkImage(previewData!.image!),
-          fit: BoxFit.cover,
-        )
+                image: NetworkImage(previewData!.image!),
+                fit: BoxFit.cover,
+              )
             : null,
       ),
       child: previewData?.image == null
-          ? const Center(
-        child: Icon(
-          Icons.link,
-          color: Colors.white,
-          size: 40,
-        ),
-      )
+          ? Center(
+              child: Icon(
+                Icons.link,
+                color: Colors.white,
+                size: 40.sp,
+              ),
+            )
           : null,
     );
   }
@@ -1630,7 +1553,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
   Widget _buildLinkTitle(LinkPreviewData? previewData, SharedLinkModel link) {
     return Text(
       previewData?.title ?? link.platform,
-      style: AppDesign.headingSmall,
+      style: AppDesign.headingSmall.copyWith(color: AppDesign.homeForeground),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -1639,7 +1562,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
   Widget _buildLinkDescription(String subtitle) {
     return Text(
       subtitle,
-      style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText),
+      style: AppDesign.bodyMedium.copyWith(color: AppDesign.homeMutedText),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
@@ -1649,37 +1572,38 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
           decoration: BoxDecoration(
-            color: AppDesign.travelOrange.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+            color: AppDesign.homeTagSurface,
+            borderRadius: BorderRadius.circular(12.r),
           ),
           child: Text(
             link.platform,
             style: AppDesign.caption.copyWith(
-              color: AppDesign.travelOrange,
+              color: AppDesign.homeTagForeground,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
         const Spacer(),
         Container(
-          padding: const EdgeInsets.all(4),
+          padding: EdgeInsets.all(4.w),
           decoration: BoxDecoration(
-            color: AppDesign.lightGray,
-            borderRadius: BorderRadius.circular(6),
+            color: AppDesign.homeMutedSurface,
+            borderRadius: BorderRadius.circular(6.r),
           ),
           child: Icon(
             Icons.open_in_new,
-            size: 14,
-            color: AppDesign.subtleText,
+            size: 14.sp,
+            color: AppDesign.homeNavigationText,
           ),
         ),
       ],
     );
   }
 
-  String _getClippedSubtitle(LinkPreviewData? previewData, SharedLinkModel link) {
+  String _getClippedSubtitle(
+      LinkPreviewData? previewData, SharedLinkModel link) {
     final subtitleText = previewData?.description ?? link.url;
     return subtitleText.length > 80
         ? '${subtitleText.substring(0, 77)}...'
@@ -1694,7 +1618,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> with TickerProv
     Navigator.pushNamed(
       context,
       '/shared_link_detail',
-      arguments: link.id,
+      arguments: link,
     );
   }
 }
@@ -1772,7 +1696,9 @@ class _FeatureCardState extends State<FeatureCard>
             child: Container(
               padding: widget.padding,
               decoration: BoxDecoration(
-                color: widget.gradient == null ? (widget.color ?? AppDesign.cardBg) : null,
+                color: widget.gradient == null
+                    ? (widget.color ?? AppDesign.cardBg)
+                    : null,
                 gradient: widget.gradient,
                 borderRadius: widget.borderRadius,
                 boxShadow: AppDesign.softShadow.map((shadow) {
