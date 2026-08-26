@@ -62,7 +62,14 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ChatRecommendationViewModel(mapSampleViewModel: widget.mapSampleViewModel),
+      create: (_) {
+        final vm = ChatRecommendationViewModel(
+          mapSampleViewModel: widget.mapSampleViewModel,
+        );
+        // 생성 직후 바로 로드
+        vm.loadRecentRecommendations();
+        return vm;
+      },
       child: Consumer<ChatRecommendationViewModel>(
         builder: (context, vm, child) {
           return Scaffold(
@@ -294,9 +301,6 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
       _controller.clear();
       vm.sendMessage(text);
       FocusScope.of(context).unfocus();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom();
-      });
     }
   }
 }
