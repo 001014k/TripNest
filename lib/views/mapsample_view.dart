@@ -99,14 +99,14 @@ class _MapSampleViewState extends State<MapSampleView> {
       if (positions.isEmpty) return;
 
       LatLng southwest = positions.reduce((a, b) => LatLng(
-        a.latitude < b.latitude ? a.latitude : b.latitude,
-        a.longitude < b.longitude ? a.longitude : b.longitude,
-      ));
+            a.latitude < b.latitude ? a.latitude : b.latitude,
+            a.longitude < b.longitude ? a.longitude : b.longitude,
+          ));
 
       LatLng northeast = positions.reduce((a, b) => LatLng(
-        a.latitude > b.latitude ? a.latitude : b.latitude,
-        a.longitude > b.longitude ? a.longitude : b.longitude,
-      ));
+            a.latitude > b.latitude ? a.latitude : b.latitude,
+            a.longitude > b.longitude ? a.longitude : b.longitude,
+          ));
 
       final bounds = LatLngBounds(southwest: southwest, northeast: northeast);
 
@@ -162,12 +162,10 @@ class _MapSampleViewState extends State<MapSampleView> {
 
   @override
   void dispose() {
-    // detachMap 호출
-    context.read<MapSampleViewModel>().detachMap();
-
-    // 콜백 정리 (안전하게)
-    context.read<MapSampleViewModel>().onSearchMarkerTapped = null;
-    context.read<MapSampleViewModel>().onSearchCompleted = null;
+    // dispose 단계에서는 비활성화된 context로 Provider를 조회하지 않습니다.
+    _viewModel.detachMap();
+    _viewModel.onSearchMarkerTapped = null;
+    _viewModel.onSearchCompleted = null;
 
     super.dispose();
   }
@@ -572,7 +570,9 @@ class _MapSampleViewState extends State<MapSampleView> {
                           BorderRadius.circular(AppDesign.radiusMedium),
                       onTap: () {
                         context.read<MapSampleViewModel>().loadMarkers();
-                        context.read<MapSampleViewModel>().fetchAllAccessibleMarkers();
+                        context
+                            .read<MapSampleViewModel>()
+                            .fetchAllAccessibleMarkers();
                         context.read<MapSampleViewModel>().clearPolylines();
                         Navigator.pop(context);
                       },
@@ -639,7 +639,8 @@ class _MapSampleViewState extends State<MapSampleView> {
     Map<String, Map<String, String>> markerDetailsMap = {};
     await Future.wait(
       markers.map((marker) async {
-        final details = await viewModel.fetchMarkerDetail(marker.markerId.value);
+        final details =
+            await viewModel.fetchMarkerDetail(marker.markerId.value);
         markerDetailsMap[marker.markerId.value] = details;
       }),
     );
@@ -694,7 +695,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                             Container(
                               width: 40,
                               height: 4,
-                              margin: EdgeInsets.only(bottom: AppDesign.spacing16),
+                              margin:
+                                  EdgeInsets.only(bottom: AppDesign.spacing16),
                               decoration: BoxDecoration(
                                 color: AppDesign.borderColor,
                                 borderRadius: BorderRadius.circular(2),
@@ -727,7 +729,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                                   ),
                                   decoration: BoxDecoration(
                                     gradient: AppDesign.primaryGradient,
-                                    borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+                                    borderRadius: BorderRadius.circular(
+                                        AppDesign.radiusXL),
                                   ),
                                   child: Row(
                                     children: [
@@ -761,7 +764,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                                     AppDesign.travelPurple.withOpacity(0.1),
                                   ],
                                 ),
-                                borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                borderRadius: BorderRadius.circular(
+                                    AppDesign.radiusMedium),
                                 border: Border.all(
                                   color: AppDesign.travelBlue.withOpacity(0.2),
                                 ),
@@ -783,7 +787,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                                   SizedBox(width: AppDesign.spacing12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           '드래그하여 순서 변경',
@@ -795,7 +800,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                                         Text(
                                           '카드를 탭하면 지도에서 위치를 확인할 수 있어요',
                                           style: AppDesign.caption.copyWith(
-                                            color: AppDesign.travelBlue.withOpacity(0.8),
+                                            color: AppDesign.travelBlue
+                                                .withOpacity(0.8),
                                           ),
                                         ),
                                       ],
@@ -834,12 +840,15 @@ class _MapSampleViewState extends State<MapSampleView> {
                                   );
                                 },
                                 itemBuilder: (context, index) {
-                                  final marker = viewModel.orderedMarkers[index];
-                                  final details = markerDetailsMap[marker.markerId.value] ?? {
-                                    'title': '제목 없음',
-                                    'keyword': '키워드 없음',
-                                    'address': '주소 없음',
-                                  };
+                                  final marker =
+                                      viewModel.orderedMarkers[index];
+                                  final details =
+                                      markerDetailsMap[marker.markerId.value] ??
+                                          {
+                                            'title': '제목 없음',
+                                            'keyword': '키워드 없음',
+                                            'address': '주소 없음',
+                                          };
 
                                   final title = details['title']!;
                                   final keyword = details['keyword']!;
@@ -854,80 +863,101 @@ class _MapSampleViewState extends State<MapSampleView> {
                                     '음식점': AppDesign.travelGreen,
                                     '전시회': AppDesign.sunsetGradientStart,
                                   };
-                                  final keywordColor = keywordColors[keyword] ?? AppDesign.travelBlue;
+                                  final keywordColor = keywordColors[keyword] ??
+                                      AppDesign.travelBlue;
 
                                   return Container(
                                     key: ValueKey(marker.markerId.value),
-                                    margin: EdgeInsets.only(bottom: AppDesign.spacing12),
+                                    margin: EdgeInsets.only(
+                                        bottom: AppDesign.spacing12),
                                     child: Material(
                                       color: Colors.transparent,
                                       child: InkWell(
                                         onTap: () {
                                           HapticFeedback.selectionClick();
                                           Navigator.pop(context);
-                                          viewModel.onMarkerTapped(marker.markerId);
+                                          viewModel
+                                              .onMarkerTapped(marker.markerId);
                                         },
-                                        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+                                        borderRadius: BorderRadius.circular(
+                                            AppDesign.radiusLarge),
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: AppDesign.cardBg,
-                                            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+                                            borderRadius: BorderRadius.circular(
+                                                AppDesign.radiusLarge),
                                             border: Border.all(
-                                              color: AppDesign.borderColor.withOpacity(0.5),
+                                              color: AppDesign.borderColor
+                                                  .withOpacity(0.5),
                                               width: 1,
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: keywordColor.withOpacity(0.08),
+                                                color: keywordColor
+                                                    .withOpacity(0.08),
                                                 blurRadius: 12,
                                                 offset: Offset(0, 4),
                                               ),
                                               BoxShadow(
-                                                color: Colors.black.withOpacity(0.04),
+                                                color: Colors.black
+                                                    .withOpacity(0.04),
                                                 blurRadius: 4,
                                                 offset: Offset(0, 2),
                                               ),
                                             ],
                                           ),
                                           child: Container(
-                                            padding: EdgeInsets.all(AppDesign.spacing16),
+                                            padding: EdgeInsets.all(
+                                                AppDesign.spacing16),
                                             child: Row(
                                               children: [
                                                 // 드래그 핸들과 순서 번호
                                                 Column(
                                                   children: [
                                                     Icon(
-                                                      Icons.drag_indicator_rounded,
-                                                      color: AppDesign.subtleText,
+                                                      Icons
+                                                          .drag_indicator_rounded,
+                                                      color:
+                                                          AppDesign.subtleText,
                                                       size: 20,
                                                     ),
                                                     Container(
                                                       width: 36,
                                                       height: 36,
                                                       decoration: BoxDecoration(
-                                                        gradient: LinearGradient(
-                                                          begin: Alignment.topLeft,
-                                                          end: Alignment.bottomRight,
+                                                        gradient:
+                                                            LinearGradient(
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end: Alignment
+                                                              .bottomRight,
                                                           colors: [
                                                             keywordColor,
-                                                            keywordColor.withOpacity(0.7),
+                                                            keywordColor
+                                                                .withOpacity(
+                                                                    0.7),
                                                           ],
                                                         ),
                                                         shape: BoxShape.circle,
                                                         boxShadow: [
                                                           BoxShadow(
-                                                            color: keywordColor.withOpacity(0.3),
+                                                            color: keywordColor
+                                                                .withOpacity(
+                                                                    0.3),
                                                             blurRadius: 8,
-                                                            offset: Offset(0, 2),
+                                                            offset:
+                                                                Offset(0, 2),
                                                           ),
                                                         ],
                                                       ),
                                                       child: Center(
                                                         child: Text(
-                                                          orderNumber.toString(),
+                                                          orderNumber
+                                                              .toString(),
                                                           style: TextStyle(
                                                             color: Colors.white,
-                                                            fontWeight: FontWeight.bold,
+                                                            fontWeight:
+                                                                FontWeight.bold,
                                                             fontSize: 16,
                                                           ),
                                                         ),
@@ -935,54 +965,91 @@ class _MapSampleViewState extends State<MapSampleView> {
                                                     ),
                                                   ],
                                                 ),
-                                                SizedBox(width: AppDesign.spacing16),
+                                                SizedBox(
+                                                    width: AppDesign.spacing16),
                                                 // 콘텐츠
                                                 Expanded(
                                                   child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
                                                       Row(
                                                         children: [
                                                           Expanded(
                                                             child: Text(
                                                               title,
-                                                              style: AppDesign.bodyMedium.copyWith(
-                                                                fontWeight: FontWeight.w600,
+                                                              style: AppDesign
+                                                                  .bodyMedium
+                                                                  .copyWith(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
                                                                 fontSize: 15,
                                                               ),
                                                               maxLines: 1,
-                                                              overflow: TextOverflow.ellipsis,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
                                                             ),
                                                           ),
-                                                          SizedBox(width: AppDesign.spacing8),
+                                                          SizedBox(
+                                                              width: AppDesign
+                                                                  .spacing8),
                                                           Container(
-                                                            padding: EdgeInsets.symmetric(
-                                                              horizontal: AppDesign.spacing10,
-                                                              vertical: AppDesign.spacing4,
+                                                            padding: EdgeInsets
+                                                                .symmetric(
+                                                              horizontal:
+                                                                  AppDesign
+                                                                      .spacing10,
+                                                              vertical:
+                                                                  AppDesign
+                                                                      .spacing4,
                                                             ),
-                                                            decoration: BoxDecoration(
-                                                              color: keywordColor.withOpacity(0.1),
-                                                              borderRadius: BorderRadius.circular(AppDesign.radiusXL),
-                                                              border: Border.all(
-                                                                color: keywordColor.withOpacity(0.2),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: keywordColor
+                                                                  .withOpacity(
+                                                                      0.1),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          AppDesign
+                                                                              .radiusXL),
+                                                              border:
+                                                                  Border.all(
+                                                                color: keywordColor
+                                                                    .withOpacity(
+                                                                        0.2),
                                                                 width: 1,
                                                               ),
                                                             ),
                                                             child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
                                                               children: [
                                                                 Icon(
-                                                                  _getKeywordIcon(keyword),
+                                                                  _getKeywordIcon(
+                                                                      keyword),
                                                                   size: 12,
-                                                                  color: keywordColor,
+                                                                  color:
+                                                                      keywordColor,
                                                                 ),
-                                                                SizedBox(width: AppDesign.spacing4),
+                                                                SizedBox(
+                                                                    width: AppDesign
+                                                                        .spacing4),
                                                                 Text(
                                                                   keyword,
-                                                                  style: TextStyle(
-                                                                    color: keywordColor,
-                                                                    fontSize: 11,
-                                                                    fontWeight: FontWeight.w600,
+                                                                  style:
+                                                                      TextStyle(
+                                                                    color:
+                                                                        keywordColor,
+                                                                    fontSize:
+                                                                        11,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
                                                                   ),
                                                                 ),
                                                               ],
@@ -990,24 +1057,36 @@ class _MapSampleViewState extends State<MapSampleView> {
                                                           ),
                                                         ],
                                                       ),
-                                                      if (address.isNotEmpty) ...[
-                                                        SizedBox(height: AppDesign.spacing8),
+                                                      if (address
+                                                          .isNotEmpty) ...[
+                                                        SizedBox(
+                                                            height: AppDesign
+                                                                .spacing8),
                                                         Row(
                                                           children: [
                                                             Icon(
-                                                              Icons.location_on_outlined,
+                                                              Icons
+                                                                  .location_on_outlined,
                                                               size: 14,
-                                                              color: AppDesign.subtleText,
+                                                              color: AppDesign
+                                                                  .subtleText,
                                                             ),
-                                                            SizedBox(width: AppDesign.spacing4),
+                                                            SizedBox(
+                                                                width: AppDesign
+                                                                    .spacing4),
                                                             Expanded(
                                                               child: Text(
                                                                 address,
-                                                                style: AppDesign.caption.copyWith(
-                                                                  color: AppDesign.secondaryText,
+                                                                style: AppDesign
+                                                                    .caption
+                                                                    .copyWith(
+                                                                  color: AppDesign
+                                                                      .secondaryText,
                                                                 ),
                                                                 maxLines: 1,
-                                                                overflow: TextOverflow.ellipsis,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
                                                               ),
                                                             ),
                                                           ],
@@ -1018,14 +1097,17 @@ class _MapSampleViewState extends State<MapSampleView> {
                                                 ),
                                                 // 화살표
                                                 Container(
-                                                  padding: EdgeInsets.all(AppDesign.spacing8),
+                                                  padding: EdgeInsets.all(
+                                                      AppDesign.spacing8),
                                                   decoration: BoxDecoration(
                                                     color: AppDesign.lightGray,
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: Icon(
-                                                    Icons.arrow_forward_ios_rounded,
-                                                    color: AppDesign.secondaryText,
+                                                    Icons
+                                                        .arrow_forward_ios_rounded,
+                                                    color:
+                                                        AppDesign.secondaryText,
                                                     size: 14,
                                                   ),
                                                 ),
@@ -1065,20 +1147,24 @@ class _MapSampleViewState extends State<MapSampleView> {
                                       color: AppDesign.borderColor,
                                       width: 1,
                                     ),
-                                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                    borderRadius: BorderRadius.circular(
+                                        AppDesign.radiusMedium),
                                   ),
                                   child: Material(
                                     color: Colors.transparent,
                                     child: InkWell(
-                                      borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                      borderRadius: BorderRadius.circular(
+                                          AppDesign.radiusMedium),
                                       onTap: () {
                                         Navigator.pop(context);
                                         showUserLists(context);
                                       },
                                       child: Padding(
-                                        padding: EdgeInsets.symmetric(vertical: AppDesign.spacing16),
+                                        padding: EdgeInsets.symmetric(
+                                            vertical: AppDesign.spacing16),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Icon(
                                               Icons.arrow_back_rounded,
@@ -1088,7 +1174,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                                             SizedBox(width: AppDesign.spacing8),
                                             Text(
                                               '뒤로가기',
-                                              style: AppDesign.bodyMedium.copyWith(
+                                              style:
+                                                  AppDesign.bodyMedium.copyWith(
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
@@ -1104,40 +1191,53 @@ class _MapSampleViewState extends State<MapSampleView> {
                                 child: Container(
                                   decoration: BoxDecoration(
                                     gradient: AppDesign.primaryGradient,
-                                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                    borderRadius: BorderRadius.circular(
+                                        AppDesign.radiusMedium),
                                     boxShadow: AppDesign.glowShadow,
                                   ),
                                   child: Material(
                                     color: Colors.transparent,
                                     child: InkWell(
-                                      borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                      borderRadius: BorderRadius.circular(
+                                          AppDesign.radiusMedium),
                                       onTap: () {
                                         Navigator.pop(context);
-                                        final viewModel = context.read<MapSampleViewModel>(); // ViewModel 타입에 맞게 바꿔주세요
+                                        final viewModel = context.read<
+                                            MapSampleViewModel>(); // ViewModel 타입에 맞게 바꿔주세요
                                         viewModel.showPolyline();
                                         // 경로 최적화 또는 네비게이션 시작
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           SnackBar(
                                             content: Row(
                                               children: [
-                                                Icon(Icons.navigation_rounded, color: Colors.white, size: 20),
-                                                SizedBox(width: AppDesign.spacing8),
+                                                Icon(Icons.navigation_rounded,
+                                                    color: Colors.white,
+                                                    size: 20),
+                                                SizedBox(
+                                                    width: AppDesign.spacing8),
                                                 Text('경로 안내를 시작합니다'),
                                               ],
                                             ),
-                                            backgroundColor: AppDesign.travelGreen,
+                                            backgroundColor:
+                                                AppDesign.travelGreen,
                                             behavior: SnackBarBehavior.floating,
-                                            margin: EdgeInsets.all(AppDesign.spacing16),
+                                            margin: EdgeInsets.all(
+                                                AppDesign.spacing16),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      AppDesign.radiusMedium),
                                             ),
                                           ),
                                         );
                                       },
                                       child: Padding(
-                                        padding: EdgeInsets.symmetric(vertical: AppDesign.spacing16),
+                                        padding: EdgeInsets.symmetric(
+                                            vertical: AppDesign.spacing16),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Icon(
                                               Icons.navigation_rounded,
@@ -1147,7 +1247,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                                             SizedBox(width: AppDesign.spacing8),
                                             Text(
                                               '경로 시작',
-                                              style: AppDesign.bodyMedium.copyWith(
+                                              style:
+                                                  AppDesign.bodyMedium.copyWith(
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -1198,7 +1299,7 @@ class _MapSampleViewState extends State<MapSampleView> {
     Navigator.pushNamedAndRemoveUntil(
       context,
       '/home',
-          (route) => false,
+      (route) => false,
     );
   }
 
@@ -1235,7 +1336,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                   controller.setMapStyle(viewModel.mapStyle);
 
                   // 핵심 수정: initialMarkerId가 있으면 내 위치 이동 안 함!
-                  if (widget.initialMarkerId == null && viewModel.currentLocation != null) {
+                  if (widget.initialMarkerId == null &&
+                      viewModel.currentLocation != null) {
                     // 처음 앱 켤 때만 내 위치로 이동
                     controller.animateCamera(
                       CameraUpdate.newCameraPosition(
@@ -1282,7 +1384,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                   if (viewModel.temporaryMarker != null)
                     viewModel.temporaryMarker!.copyWith(
                       onTapParam: () {
-                        final LatLng latLng = viewModel.temporaryMarker!.position;
+                        final LatLng latLng =
+                            viewModel.temporaryMarker!.position;
                         _onMapTapped(context, latLng);
                       },
                     ),
@@ -1374,15 +1477,19 @@ class _MapSampleViewState extends State<MapSampleView> {
                             color: AppDesign.primaryText,
                           ),
                           onSubmitted: (value) {
-                            context.read<MapSampleViewModel>().onSearchSubmitted(value);
+                            context
+                                .read<MapSampleViewModel>()
+                                .onSearchSubmitted(value);
                           },
                           onChanged: (value) {
-                            final viewModel = context.read<MapSampleViewModel>();
+                            final viewModel =
+                                context.read<MapSampleViewModel>();
 
                             if (value.trim().isEmpty) {
                               // 검색 텍스트가 비었을 때 → 검색 결과 초기화
-                              viewModel.clearSearchResults();        // _searchResults = []
-                              viewModel.temporaryMarker = null;      // 임시 마커 제거
+                              viewModel
+                                  .clearSearchResults(); // _searchResults = []
+                              viewModel.temporaryMarker = null; // 임시 마커 제거
                             } else {
                               // 기존 실시간 업데이트 로직 (있으면 유지)
                               viewModel.updateSearchResults(value);
@@ -1563,11 +1670,13 @@ class _MapSampleViewState extends State<MapSampleView> {
                           behavior: SnackBarBehavior.floating,
                           shape: RoundedRectangleBorder(
                             borderRadius:
-                            BorderRadius.circular(AppDesign.radiusSmall),
+                                BorderRadius.circular(AppDesign.radiusSmall),
                           ),
                         ),
                       );
-                      context.read<MapSampleViewModel>().moveToCurrentLocation();
+                      context
+                          .read<MapSampleViewModel>()
+                          .moveToCurrentLocation();
                     },
                     backgroundColor: Colors.transparent,
                     elevation: 0,
@@ -1597,8 +1706,12 @@ class _MapSampleViewState extends State<MapSampleView> {
                 // 3. AI 챗봇 버튼 (새로 추가)
                 Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(  // AI 느낌을 살리기 위해 새로운 그라데이션 추천
-                      colors: [Color(0xFF6A11CB), Color(0xFF2575FC)], // 보라-파랑 계열 (AI 스타일)
+                    gradient: LinearGradient(
+                      // AI 느낌을 살리기 위해 새로운 그라데이션 추천
+                      colors: [
+                        Color(0xFF6A11CB),
+                        Color(0xFF2575FC)
+                      ], // 보라-파랑 계열 (AI 스타일)
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -1606,26 +1719,28 @@ class _MapSampleViewState extends State<MapSampleView> {
                     boxShadow: AppDesign.elevatedShadow,
                   ),
                   child: FloatingActionButton(
-                    heroTag: 'btn_ai_chat',  // heroTag 중복 방지 필수!
+                    heroTag: 'btn_ai_chat', // heroTag 중복 방지 필수!
                     onPressed: () {
                       // AI 챗봇 화면으로 이동
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ChatRecommendationScreen(mapSampleViewModel: context.read<MapSampleViewModel>()),
+                          builder: (context) => ChatRecommendationScreen(
+                              mapSampleViewModel:
+                                  context.read<MapSampleViewModel>()),
                         ),
                       );
-                       ScaffoldMessenger.of(context).showSnackBar(
-                         SnackBar(
-                           content: Text("AI 여행 플래너를 열었습니다"),
-                           duration: Duration(seconds: 1),
-                         ),
-                       );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("AI 여행 플래너를 열었습니다"),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
                     },
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     child: Icon(
-                      Icons.smart_toy_rounded,  // 또는 Icons.chat_bubble_rounded
+                      Icons.smart_toy_rounded, // 또는 Icons.chat_bubble_rounded
                       color: AppDesign.whiteText,
                       size: 28,
                     ),
@@ -1646,7 +1761,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                 return Container(
                   decoration: BoxDecoration(
                     gradient: AppDesign.backgroundGradient,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(AppDesign.radiusLarge)),
+                    borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(AppDesign.radiusLarge)),
                     boxShadow: AppDesign.elevatedShadow,
                   ),
                   child: ListView(
@@ -1658,7 +1774,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                         child: Container(
                           width: 50,
                           height: 5,
-                          margin: EdgeInsets.symmetric(vertical: AppDesign.spacing12),
+                          margin: EdgeInsets.symmetric(
+                              vertical: AppDesign.spacing12),
                           decoration: BoxDecoration(
                             color: AppDesign.borderColor,
                             borderRadius: BorderRadius.circular(10),
@@ -1667,7 +1784,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                       ),
                       // 헤더
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: AppDesign.spacing20),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: AppDesign.spacing20),
                         child: Row(
                           children: [
                             Icon(Icons.search, color: AppDesign.travelBlue),
@@ -1687,34 +1805,47 @@ class _MapSampleViewState extends State<MapSampleView> {
                       SizedBox(height: AppDesign.spacing12),
                       // 검색 결과 리스트
                       ListView.separated(
-                        padding: EdgeInsets.symmetric(horizontal: AppDesign.spacing16),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: AppDesign.spacing16),
                         shrinkWrap: true,
                         physics: NeverScrollableScrollPhysics(),
-                        itemCount: context.read<MapSampleViewModel>().searchResults.length,
-                        separatorBuilder: (context, index) => SizedBox(height: AppDesign.spacing8),
+                        itemCount: context
+                            .read<MapSampleViewModel>()
+                            .searchResults
+                            .length,
+                        separatorBuilder: (context, index) =>
+                            SizedBox(height: AppDesign.spacing8),
                         itemBuilder: (context, index) {
-                          final marker = context.read<MapSampleViewModel>().searchResults[index];
+                          final marker = context
+                              .read<MapSampleViewModel>()
+                              .searchResults[index];
                           final keyword = _markerKeywords[marker.markerId];
-                          final icon = context.read<MapSampleViewModel>().keywordIcons[keyword];
+                          final icon = context
+                              .read<MapSampleViewModel>()
+                              .keywordIcons[keyword];
 
                           return Container(
                             decoration: BoxDecoration(
                               color: AppDesign.cardBg,
-                              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                              borderRadius:
+                                  BorderRadius.circular(AppDesign.radiusMedium),
                               boxShadow: AppDesign.softShadow,
                             ),
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                                borderRadius: BorderRadius.circular(
+                                    AppDesign.radiusMedium),
                                 onTap: () async {
                                   print("검색 결과 클릭 → ${marker.markerId.value}");
-                                  final viewModel = context.read<MapSampleViewModel>();
+                                  final viewModel =
+                                      context.read<MapSampleViewModel>();
 
                                   // 컨트롤러 대기
                                   if (viewModel.controller == null) {
                                     print("controller null → 기다리는 중...");
-                                    await Future.delayed(const Duration(seconds: 5));
+                                    await Future.delayed(
+                                        const Duration(seconds: 5));
                                     if (viewModel.controller == null) {
                                       print("5초 후에도 controller 없음 → 포기");
                                       return;
@@ -1751,10 +1882,12 @@ class _MapSampleViewState extends State<MapSampleView> {
                                   child: Row(
                                     children: [
                                       Container(
-                                        padding: EdgeInsets.all(AppDesign.spacing8),
+                                        padding:
+                                            EdgeInsets.all(AppDesign.spacing8),
                                         decoration: BoxDecoration(
                                           gradient: AppDesign.sunsetGradient,
-                                          borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                                          borderRadius: BorderRadius.circular(
+                                              AppDesign.radiusSmall),
                                         ),
                                         child: Icon(
                                           Icons.location_on_rounded,
@@ -1765,15 +1898,19 @@ class _MapSampleViewState extends State<MapSampleView> {
                                       SizedBox(width: AppDesign.spacing12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              marker.infoWindow.title ?? 'Untitled',
-                                              style: AppDesign.bodyMedium.copyWith(
+                                              marker.infoWindow.title ??
+                                                  'Untitled',
+                                              style:
+                                                  AppDesign.bodyMedium.copyWith(
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            if (marker.infoWindow.snippet != null)
+                                            if (marker.infoWindow.snippet !=
+                                                null)
                                               Text(
                                                 marker.infoWindow.snippet!,
                                                 style: AppDesign.caption,
@@ -1785,23 +1922,30 @@ class _MapSampleViewState extends State<MapSampleView> {
                                       ),
                                       if (keyword != null && keyword.isNotEmpty)
                                         Container(
-                                          margin: EdgeInsets.only(left: AppDesign.spacing8),
+                                          margin: EdgeInsets.only(
+                                              left: AppDesign.spacing8),
                                           padding: EdgeInsets.symmetric(
                                             horizontal: AppDesign.spacing12,
                                             vertical: AppDesign.spacing8,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: AppDesign.travelBlue.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+                                            color: AppDesign.travelBlue
+                                                .withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(
+                                                AppDesign.radiusXL),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(icon, color: AppDesign.travelBlue, size: 16),
-                                              SizedBox(width: AppDesign.spacing4),
+                                              Icon(icon,
+                                                  color: AppDesign.travelBlue,
+                                                  size: 16),
+                                              SizedBox(
+                                                  width: AppDesign.spacing4),
                                               Text(
                                                 keyword,
-                                                style: AppDesign.caption.copyWith(
+                                                style:
+                                                    AppDesign.caption.copyWith(
                                                   color: AppDesign.travelBlue,
                                                   fontWeight: FontWeight.w600,
                                                 ),
