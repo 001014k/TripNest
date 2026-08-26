@@ -261,33 +261,56 @@ class ChatRecommendationViewModel extends ChangeNotifier {
         required BuildContext context,
       }) async {
     try {
-      if (context.mounted) {
-        final double lat = (place['lat'] as num).toDouble();
-        final double lng = (place['lng'] as num).toDouble();
+      if (!context.mounted) return;
 
-        // 마커 생성 창으로 이동
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => MarkerCreationScreen(
+      final double lat = (place['lat'] as num).toDouble();
+      final double lng = (place['lng'] as num).toDouble();
+
+      // 1. 마커 생성 화면으로 이동 + 결과 받기
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MarkerCreationScreen(
             initialTitle: place['name'] ?? place['title'] ?? '',
             initialAddress: place['address'] ?? '',
             initialLatLng: LatLng(lat, lng),
           ),
-          ),
+        ),
+      );
+
+      // 2. 사용자가 취소했거나 결과가 없으면 종료
+      if (result == null) return;
+
+      // 3. 실제로 지도에 마커 추가 (이게 핵심!)
+      if (mapSampleViewModel != null) {
+        mapSampleViewModel!.addMarker(
+          title: result['title'] as String?,
+          snippet: result['snippet'] as String?,
+          position: LatLng(lat, lng),
+          keyword: result['keyword'] as String,
+          address: result['address'] as String? ?? place['address'] ?? '',
+          listId: result['listId'] as String?,
+          onTapCallback: (markerId) {
+            // 필요하면 기존 onMarkerTapped 연결
+            mapSampleViewModel!.onMarkerTapped(markerId);
+          },
         );
+      }
+
+      // 4. UI 정리
+      pendingPlaces.remove(place);
+      notifyListeners();
+
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("${place['title']}이(가) 지도에 추가되었습니다."),
+            content: Text("${result['title']}이(가) 지도에 추가되었습니다."),
             duration: const Duration(seconds: 2),
           ),
         );
       }
-
-      pendingPlaces.remove(place);
-      notifyListeners();
-
     } catch (e) {
-      if(kDebugMode) print('화면 이동 중 오류 발생: $e');
+      if (kDebugMode) print('화면 이동 중 오류 발생: $e');
     }
   }
 
