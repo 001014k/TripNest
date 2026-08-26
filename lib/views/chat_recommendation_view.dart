@@ -373,7 +373,7 @@ class _QuickStartGrid extends StatelessWidget {
       'preset': '내 주변 인기 명소를 추천해줘',
       'icon': Icons.place_rounded,
       'isNearby': true,
-      'gradient': [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+      'gradient': [AppDesign.travelBlue, AppDesign.travelPurple],
     },
     {
       'title': '테마 여행',
@@ -381,7 +381,7 @@ class _QuickStartGrid extends StatelessWidget {
       'preset': '테마별 여행 코스를 추천해줘',
       'icon': Icons.explore_rounded,
       'isNearby': false,
-      'gradient': [Color(0xFF10B981), Color(0xFF059669)],
+      'gradient': [AppDesign.travelGreen, AppDesign.primaryDark],
     },
     {
       'title': '스테이 & 무드',
@@ -389,7 +389,7 @@ class _QuickStartGrid extends StatelessWidget {
       'preset': '인스타 감성의 독채 숙소와 사진 찍기 좋은 장소를 추천해줘',
       'icon': Icons.wb_sunny_rounded,
       'isNearby': false,
-      'gradient': [Color(0xFFFF6B6B), Color(0xFFFFE066)],
+      'gradient': [AppDesign.sunsetGradientStart, AppDesign.sunsetGradientEnd],
     },
     {
       'title': '함께하는 여행',
@@ -397,7 +397,7 @@ class _QuickStartGrid extends StatelessWidget {
       'preset': '친구들과 함께할 수 있는 여행 코스를 추천해줘',
       'icon': Icons.people_rounded,
       'isNearby': false,
-      'gradient': [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+      'gradient': [AppDesign.travelPurple, AppDesign.travelStamp],
     },
   ];
 
