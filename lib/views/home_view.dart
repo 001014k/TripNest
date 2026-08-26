@@ -757,24 +757,10 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
         setState(() {
           _previewDataCache[url] = null;
         });
-        _notifyPreviewLoadIssue();
       }
     } finally {
       _loadingUrls.remove(url);
     }
-  }
-
-  // 미리보기 로드 실패는 섹션당 1번만 조용히 안내합니다(스팸 방지).
-  void _notifyPreviewLoadIssue() {
-    if (_previewErrorNotified || !mounted) return;
-    _previewErrorNotified = true;
-    ElegantNotification.info(
-      title: const Text('알림'),
-      description: const Text('일부 장소의 미리보기를 불러오지 못했어요'),
-      position: Alignment.topCenter,
-      animation: AnimationType.fromTop,
-      toastDuration: const Duration(seconds: 2),
-    ).show(context);
   }
 
   @override
