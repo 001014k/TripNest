@@ -356,8 +356,12 @@ class AddMarkersToListPage extends StatelessWidget {
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(
                                       AppDesign.radiusLarge),
-                                  onTap: () => viewModel.addMarkerToList(
-                                      marker, listId, context),
+                                  // 이미 포함된 장소는 선택 완료 상태로만 보여주고
+                                  // 다시 추가 요청을 보내지 않습니다.
+                                  onTap: isSelected
+                                      ? null
+                                      : () => viewModel.addMarkerToList(
+                                          marker, listId, context),
                                   child: Padding(
                                     padding:
                                         EdgeInsets.all(AppDesign.spacing20),

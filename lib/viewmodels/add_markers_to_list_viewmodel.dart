@@ -101,6 +101,11 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
+    // UI 상태가 갱신되기 전의 연속 탭도 중복 추가로 이어지지 않게 막습니다.
+    if (isMarkerInList(marker, listId)) {
+      return;
+    }
+
     try {
       await supabase.rpc('add_marker_to_list', params: {
         'p_list_id': listId,
