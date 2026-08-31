@@ -569,11 +569,11 @@ class _MapSampleViewState extends State<MapSampleView> {
                       borderRadius:
                           BorderRadius.circular(AppDesign.radiusMedium),
                       onTap: () {
-                        context.read<MapSampleViewModel>().loadMarkers();
-                        context
-                            .read<MapSampleViewModel>()
-                            .fetchAllAccessibleMarkers();
-                        context.read<MapSampleViewModel>().clearPolylines();
+                        // 초기화는 선택한 여행 경로만 해제합니다.
+                        // 이어서 리스트 필터를 해제해 전체 마커와 클러스터를 복원합니다.
+                        final viewModel = context.read<MapSampleViewModel>();
+                        viewModel.clearPolylines();
+                        viewModel.showAllMarkers();
                         Navigator.pop(context);
                       },
                       child: Padding(

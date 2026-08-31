@@ -527,6 +527,12 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 여행 리스트로 좁혀진 지도 표시를 사용자의 전체 마커로 되돌립니다.
+  /// 경로 데이터와 마커 데이터는 서로 독립적으로 유지합니다.
+  void showAllMarkers() {
+    setFilteredMarkers(_allMarkers.toList());
+  }
+
   Future<void> reorderMarkers(int oldIndex,
       int newIndex,
       String listId,
