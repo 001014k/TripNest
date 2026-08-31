@@ -14,11 +14,11 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
   // 채팅 내역 및 상태 초기화
   void resetChat() {
-    messages.clear();           // 대화 내역 삭제
-    pendingPlaces.clear();      // 추천 대기 장소 삭제
-    currentMode = '';           // 선택된 모드 초기화
+    messages.clear(); // 대화 내역 삭제
+    pendingPlaces.clear(); // 추천 대기 장소 삭제
+    currentMode = ''; // 선택된 모드 초기화
     _geminiService.resetChat(); // Gemini 세션 초기화 (gemini_service에 정의됨)
-    notifyListeners();          // UI 갱신 (Stage 1으로 복귀)
+    notifyListeners(); // UI 갱신 (Stage 1으로 복귀)
   }
 
   ChatRecommendationViewModel({this.mapSampleViewModel});
@@ -73,10 +73,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       restoredResponse += "📍 ${place['title']}\n${place['snippet'] ?? ''}\n\n";
     }
 
-    messages.add({
-      'role': 'bot',
-      'text': restoredResponse
-    });
+    messages.add({'role': 'bot', 'text': restoredResponse});
 
     // 4. 지도 마커 데이터 즉시 복구 (이게 핵심!)
     // 이미 verifiedPlacesWithCoords 형태로 저장되어 있으므로 다시 API 호출할 필요 없음
@@ -120,7 +117,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
     for (final parsedPlace in parsedPlacesData) {
       final placeTitle = parsedPlace['title'] as String;
-      final placeDetailsList = await placesService.searchPlacesByKeyword(placeTitle);
+      final placeDetailsList =
+          await placesService.searchPlacesByKeyword(placeTitle);
 
       if (placeDetailsList.isNotEmpty) {
         final placeDetails = placeDetailsList.first;
@@ -130,6 +128,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
             'title': parsedPlace['title'],
             'address': parsedPlace['address'],
             'snippet': parsedPlace['snippet'],
+            'rating': placeDetails['rating'],
             'lat': location['latitude'],
             'lng': location['longitude'],
             'keyword': parsedPlace['title'],
@@ -150,7 +149,11 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
   List<Map<String, dynamic>> _parsePlaceDetailsFromResponse(String text) {
     final List<Map<String, dynamic>> places = [];
-    final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    final lines = text
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
 
     String? currentName;
     String? currentAddress;
@@ -158,9 +161,9 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
     // 1. 검증 모드 패턴 (이번 로그처럼 나올 때)
     final RegExp verifyModeRegex = RegExp(
-      r'\[(.+?)\]\s*'                             // [ 장소 이름 ]
-      r'주소:\s*(.+?)(?:\n|$)'                    // 주소: ...
-      r'(?:설명:\s*(.+?))?',                      // 설명: ...
+      r'\[(.+?)\]\s*' // [ 장소 이름 ]
+      r'주소:\s*(.+?)(?:\n|$)' // 주소: ...
+      r'(?:설명:\s*(.+?))?', // 설명: ...
       multiLine: true,
       dotAll: true,
     );
@@ -191,7 +194,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       if (RegExp(r'^[•\*\-]\s*.+\(검증됨\)').hasMatch(line)) {
         // 이전 장소 저장
         if (currentName != null && currentAddress != null) {
-          final desc = currentDescLines.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+          final desc =
+              currentDescLines.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
           places.add({
             'title': currentName.replaceAll(RegExp(r'[\uFEFF﻿]'), '').trim(),
             'address': currentAddress,
@@ -211,9 +215,12 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
       // 주소 라인 감지 (주소:, 주소 : , >주소 등)
       if (line.contains('주소') || line.contains('address')) {
-        String addr = line.replaceAll(RegExp(r'^[-→>]*\s*주소\s*[:：]?\s*'), '').trim();
+        String addr =
+            line.replaceAll(RegExp(r'^[-→>]*\s*주소\s*[:：]?\s*'), '').trim();
         // 다음 줄이 주소 이어질 수 있음
-        if (i + 1 < lines.length && !lines[i + 1].contains('설명') && !lines[i + 1].startsWith('•')) {
+        if (i + 1 < lines.length &&
+            !lines[i + 1].contains('설명') &&
+            !lines[i + 1].startsWith('•')) {
           addr += ' ${lines[i + 1].trim()}';
           i++; // 다음 줄 건너뜀
         }
@@ -222,8 +229,12 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       }
 
       // 설명 라인 감지
-      if (line.contains('설명') || currentDescLines.isNotEmpty || line.startsWith('->') || line.startsWith('→')) {
-        String descPart = line.replaceAll(RegExp(r'^[-→>]*\s*설명\s*[:：]?\s*'), '').trim();
+      if (line.contains('설명') ||
+          currentDescLines.isNotEmpty ||
+          line.startsWith('->') ||
+          line.startsWith('→')) {
+        String descPart =
+            line.replaceAll(RegExp(r'^[-→>]*\s*설명\s*[:：]?\s*'), '').trim();
         if (descPart.isNotEmpty) {
           currentDescLines.add(descPart);
         }
@@ -232,7 +243,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
     // 마지막 장소 저장
     if (currentName != null && currentAddress != null) {
-      final desc = currentDescLines.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      final desc =
+          currentDescLines.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
       places.add({
         'title': currentName.replaceAll(RegExp(r'[\uFEFF﻿]'), '').trim(),
         'address': currentAddress,
@@ -257,9 +269,9 @@ class ChatRecommendationViewModel extends ChangeNotifier {
   }
 
   Future<void> savePlaceToMap(
-      Map<String, dynamic> place, {
-        required BuildContext context,
-      }) async {
+    Map<String, dynamic> place, {
+    required BuildContext context,
+  }) async {
     try {
       if (!context.mounted) return;
 
@@ -353,7 +365,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _saveRecommendation(String title, List<Map<String, dynamic>> places) async {
+  Future<void> _saveRecommendation(
+      String title, List<Map<String, dynamic>> places) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null || places.isEmpty) return;
 
@@ -370,11 +383,16 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     await loadRecentRecommendations();
   }
 
-  Future<void> sendMessage(String userInput, {bool isNearbySearch = false}) async {
+  Future<void> sendMessage(String userInput,
+      {bool isNearbySearch = false}) async {
     if (userInput.trim().isEmpty) return;
 
     // 사용자 질문 저장 (DB 타이틀용)
     _lastUserQuery = userInput;
+
+    // 새 턴이 시작되면 이전 답변에 연결된 추천 카드만 즉시 숨깁니다.
+    // 대화 메시지 기록은 유지하며, 새 AI 답변 완료 후 새 추천 장소로 채워집니다.
+    pendingPlaces.clear();
 
     // 1. 사용자 메시지 추가
     messages.add({'role': 'user', 'text': userInput});
@@ -393,6 +411,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       // 3. 봇의 빈 메시지 추가
       final botMessageIndex = messages.length;
       messages.add({'role': 'bot', 'text': ''});
+      // 첫 응답 조각을 기다리는 동안에도 준비 중 UI가 바로 표시되도록 알립니다.
+      notifyListeners();
 
       // 4. 스트림 구독 및 실시간 업데이트
       String fullResponse = "";
@@ -407,12 +427,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       // 5. 답변 완료 후 추천 장소 추출 및 DB 저장
       pendingPlaces.clear();
       await _handleAiResponse(fullResponse);
-
     } catch (e) {
-      messages.add({
-        'role': 'bot',
-        'text': '죄송합니다. 오류가 발생했습니다. ($e)'
-      });
+      messages.add({'role': 'bot', 'text': '죄송합니다. 오류가 발생했습니다. ($e)'});
     } finally {
       isLoading = false;
       notifyListeners();
@@ -445,7 +461,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       }
 
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,   // medium → high로 변경
+        desiredAccuracy: LocationAccuracy.high, // medium → high로 변경
         timeLimit: const Duration(seconds: 10),
       );
 

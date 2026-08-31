@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../widgets/address_photo_preview.dart';
 import '../viewmodels/chat_recommendation_viewmodel.dart';
 import '../design/app_design.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
@@ -29,7 +30,7 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
     _initializeAnimations();
   }
 
-  // AI 응답 후 자동 스크롤
+  // 새 질문과 AI 응답이 보이도록 대화의 마지막으로 이동합니다.
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
@@ -38,6 +39,14 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
         curve: Curves.easeOut,
       );
     }
+  }
+
+  void _scheduleScrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scrollToBottom();
+      }
+    });
   }
 
   void _initializeAnimations() {
@@ -266,6 +275,20 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
   }
 
   Widget _buildChatScreen(BuildContext context, ChatRecommendationViewModel vm) {
+    final isPreparingResponse =
+        vm.isLoading &&
+        vm.messages.isNotEmpty &&
+        vm.messages.last['role'] == 'bot' &&
+        (vm.messages.last['text']?.trim().isEmpty ?? true);
+
+    if (isPreparingResponse) {
+      _scheduleScrollToBottom();
+    }
+
+    // 답변을 받을 빈 봇 메시지는 준비 중 말풍선으로 대체해 중복 표시를 막습니다.
+    final visibleMessageCount =
+        vm.messages.length - (isPreparingResponse ? 1 : 0);
+
     return Column(
       children: [
         Expanded(
@@ -273,8 +296,12 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
             controller: _scrollController,
             padding: const EdgeInsets.all(24),
             physics: const BouncingScrollPhysics(),
-            itemCount: vm.messages.length,
+            itemCount: visibleMessageCount + (isPreparingResponse ? 1 : 0),
             itemBuilder: (context, index) {
+              if (isPreparingResponse && index == visibleMessageCount) {
+                return const _LoadingIndicator();
+              }
+
               final msg = vm.messages[index];
               final isUser = msg['role'] == 'user';
               return _ChatMessageBubble(
@@ -286,7 +313,6 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
             },
           ),
         ),
-        if (vm.isLoading) _LoadingIndicator(),
         _PremiumInputArea(
           controller: _controller,
           onSend: () => _sendMessage(context, vm),
@@ -301,6 +327,14 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
       _controller.clear();
       vm.sendMessage(text);
       FocusScope.of(context).unfocus();
+      _scheduleScrollToBottom();
+
+      // 입력창이 닫히는 애니메이션 뒤에도 마지막 메시지가 보이게 한 번 더 맞춥니다.
+      Future<void>.delayed(const Duration(milliseconds: 260), () {
+        if (mounted) {
+          _scrollToBottom();
+        }
+      });
     }
   }
 }
@@ -966,54 +1000,113 @@ class _PlaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = place['title']?.toString() ?? '장소 이름';
+    final address = place['address']?.toString() ??
+        place['snippet']?.toString() ??
+        '';
+    final rating = (place['rating'] as num?)?.toDouble();
+
     return Container(
-      width: 220,
-      padding: const EdgeInsets.all(12),
+      width: 310,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppDesign.borderColor.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+        border: Border.all(color: AppDesign.borderColor),
+        boxShadow: AppDesign.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            place['title'] ?? '장소 이름',
-            style: AppDesign.bodyLarge.copyWith(fontWeight: FontWeight.w600),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            place['snippet'] ?? place['address'] ?? '',
-            style: AppDesign.caption.copyWith(color: AppDesign.secondaryText),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextButton.icon(
-                onPressed: onAdd,  // ← 여기서 vm.savePlaceToMap() 호출됨
-                icon: const Icon(Icons.add_location_alt_rounded, size: 18),
-                label: const Text("지도에 추가"),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppDesign.travelBlue,
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                child: SizedBox(
+                  width: 84,
+                  height: 84,
+                  child: AddressPhotoPreview(
+                    address: address,
+                    title: title,
+                    size: 84,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppDesign.spacing12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppDesign.headingSmall.copyWith(fontSize: 17),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (rating != null) ...[
+                      const SizedBox(height: AppDesign.spacing6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 18,
+                            color: AppDesign.travelOrange,
+                          ),
+                          const SizedBox(width: AppDesign.spacing4),
+                          Text(
+                            rating.toStringAsFixed(1),
+                            style: AppDesign.bodyMedium.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: AppDesign.spacing8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: AppDesign.subtleText,
+                        ),
+                        const SizedBox(width: AppDesign.spacing4),
+                        Expanded(
+                          child: Text(
+                            address,
+                            style: AppDesign.caption.copyWith(
+                              color: AppDesign.secondaryText,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppDesign.spacing16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add_location_alt_rounded, size: 18),
+              label: const Text('지도에 추가'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppDesign.primary,
+                foregroundColor: AppDesign.whiteText,
+                minimumSize: const Size.fromHeight(44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -1025,46 +1118,55 @@ class _PlaceCard extends StatelessWidget {
 // 로딩 인디케이터
 // ================================
 class _LoadingIndicator extends StatelessWidget {
+  const _LoadingIndicator();
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 16,
-      ),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg.withOpacity(0.95),
-        border: Border(
-          top: BorderSide(
-            color: AppDesign.borderColor.withOpacity(0.5),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: AppDesign.primaryGradient,
-              shape: BoxShape.circle,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppDesign.cardBg.withOpacity(0.95),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppDesign.borderColor.withOpacity(0.7)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-            child: SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                gradient: AppDesign.primaryGradient,
+                shape: BoxShape.circle,
+              ),
+              child: const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'AI가 추천을 준비하고 있어요...',
-            style: AppDesign.bodyMedium.copyWith(
-              color: AppDesign.secondaryText,
+            const SizedBox(width: 10),
+            Text(
+              'AI가 답변을 준비하고 있어요',
+              style: AppDesign.bodyMedium.copyWith(
+                color: AppDesign.secondaryText,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
