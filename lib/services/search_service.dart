@@ -54,7 +54,7 @@ class SearchService {
   /// 지오코딩을 이용한 검색
   Future<Marker?> geocodeSearch(String query) async {
     try {
-      final locations = await geocoding.locationFromAddress(query);
+      final locations = await geocoding.Geocoding().locationFromAddress(query);
       if (locations.isNotEmpty) {
         final location = locations.first;
         return Marker(
