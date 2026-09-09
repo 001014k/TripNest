@@ -187,12 +187,11 @@ class MapSampleViewModel extends ChangeNotifier {
         .select('marker_id')
         .inFilter('list_id', listIds);
 
-    final List<String> accessibleMarkerIds = (bookmarkedMarkerIds as List<dynamic>)
+    final List<String> accessibleMarkerIds =
+    (bookmarkedMarkerIds as List<dynamic>)
         .map((e) => e['marker_id'] as String)
         .toList();
 
-    // 3. 쿼리 수정: or 연산자 내부에 괄호와 콤마를 정확히 배치
-    // id.in.(...) 형식으로 명시
     final String idList = accessibleMarkerIds.isEmpty
         ? '00000000-0000-0000-0000-000000000000'
         : accessibleMarkerIds.join(',');
@@ -203,20 +202,51 @@ class MapSampleViewModel extends ChangeNotifier {
         .or('user_id.eq.$currentUserId,id.in.($idList)')
         .isFilter('deleted_at', null);
 
-    // 4. 데이터 매핑
     final List<dynamic> data = response as List<dynamic>;
     final List<MarkerModel> markerModels = data
         .map((item) => MarkerModel.fromMap(item as Map<String, dynamic>))
         .toList();
 
-    _allMarkers = markerModels.map((model) {
-      return Marker(
-        markerId: MarkerId(model.id),
+    // ✅ 커스텀 아이콘 + 키워드 매핑까지 같이 처리
+    final Map<MarkerId, Marker> uniqueMarkersMap = {};
+    final Map<MarkerId, String> newKeywords = {};
+
+    for (final model in markerModels) {
+      final String keyword = model.keyword ?? 'default';
+      final String? markerImagePath = keywordMarkerImages[keyword];
+
+      final BitmapDescriptor markerIcon = markerImagePath != null
+          ? await createCustomMarkerImage(markerImagePath, 128, 128)
+          : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+
+      final markerId = MarkerId(model.id);
+      final marker = Marker(
+        markerId: markerId,
         position: LatLng(model.lat, model.lng),
         infoWindow: InfoWindow(title: model.title),
+        icon: markerIcon, // ← 핵심
+        onTap: () => onMarkerTapped(markerId),
       );
-    }).toSet();
 
+      uniqueMarkersMap[markerId] = marker;
+      newKeywords[markerId] = keyword;
+    }
+
+    _allMarkers = uniqueMarkersMap.values.toSet();
+    _filteredMarkers = _allMarkers.toSet();
+    _markerKeywords.addAll(newKeywords); // 기존 키워드도 유지하면서 추가
+
+    // 클러스터용 Place 업데이트
+    _filteredPlaces = _filteredMarkers.map((marker) {
+      return Place(
+        id: marker.markerId.value,
+        title: marker.infoWindow.title ?? '',
+        snippet: marker.infoWindow.snippet ?? '',
+        latLng: marker.position,
+      );
+    }).toList();
+
+    _clusterManager?.setItems(_filteredPlaces);
     notifyListeners();
   }
 
@@ -531,6 +561,7 @@ class MapSampleViewModel extends ChangeNotifier {
   /// 경로 데이터와 마커 데이터는 서로 독립적으로 유지합니다.
   void showAllMarkers() {
     setFilteredMarkers(_allMarkers.toList());
+    _clusterManager?.updateMap();
   }
 
   Future<void> reorderMarkers(int oldIndex,
