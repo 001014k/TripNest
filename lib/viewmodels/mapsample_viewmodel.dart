@@ -880,22 +880,20 @@ class MapSampleViewModel extends ChangeNotifier {
 
   Future<Marker> Function(cluster_manager.Cluster<Place>) get _markerBuilder =>
           (cluster) async {
-        return Marker(
-          markerId: MarkerId(cluster.getId()), // 클러스터 ID
-          position: cluster.location, // 클러스터 위치
-          icon: await _getMarkerBitmap(
-            cluster.isMultiple ? 125 : 75, // 클러스터 크기 다르게
-            text: cluster.isMultiple
-                ? cluster.count.toString()
-                : null, // 묶음 개수 표시
-          ),
-          onTap: () async {
-            if (cluster.isMultiple) {
+        // ===== 2개 이상 → 클러스터 마커 =====
+        if (cluster.isMultiple) {
+          return Marker(
+            markerId: MarkerId(cluster.getId()),
+            position: cluster.location,
+            icon: await _getMarkerBitmap(
+              125,
+              text: cluster.count.toString(),
+            ),
+            onTap: () async {
               if (_controller != null) {
                 final currentZoom = await _controller!.getZoomLevel();
-
-                double nextZoom = currentZoom + 2; // Force a 2-level jump
-                if (nextZoom > 21) nextZoom = 21; // Cap at max zoom
+                double nextZoom = currentZoom + 2;
+                if (nextZoom > 21) nextZoom = 21;
 
                 await _controller!.animateCamera(
                   CameraUpdate.newLatLngZoom(cluster.location, nextZoom),
@@ -904,12 +902,42 @@ class MapSampleViewModel extends ChangeNotifier {
                 await Future.delayed(const Duration(milliseconds: 300));
                 await _forceClusterUpdate();
               }
-            } else {
-              onSinglePlaceTap(cluster.items.first);
-            }
-            print('클러스터 클릭됨: ${cluster.getId()} - 아이템 개수: ${cluster.count}');
-            cluster.items.forEach((item) => print(item));
-          },
+            },
+          );
+        }
+
+        // ===== 단일 마커 → 원래 커스텀 마커 사용 =====
+        final place = cluster.items.first;
+        final markerId = MarkerId(place.id);
+
+        // 이미 만들어둔 커스텀 마커를 재사용
+        Marker? original = _filteredMarkers
+            .cast<Marker?>()
+            .firstWhere((m) => m?.markerId == markerId, orElse: () => null);
+
+        original ??= _allMarkers
+            .cast<Marker?>()
+            .firstWhere((m) => m?.markerId == markerId, orElse: () => null);
+
+        if (original != null) {
+          // 기존 커스텀 아이콘 + onTap 유지
+          return original.copyWith(
+            onTapParam: () => onMarkerTapped(markerId),
+          );
+        }
+
+        // 혹시 없을 경우 대비 (fallback)
+        final keyword = _markerKeywords[markerId] ?? 'default';
+        final markerImagePath =
+            keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
+        final icon = await createCustomMarkerImage(markerImagePath, 128, 128);
+
+        return Marker(
+          markerId: markerId,
+          position: place.latLng,
+          icon: icon,
+          infoWindow: InfoWindow(title: place.title, snippet: place.snippet),
+          onTap: () => onMarkerTapped(markerId),
         );
       };
 
