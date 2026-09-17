@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../env.dart';
 import '../models/marker_model.dart';
-import '../models/shared_link_model.dart';  // SharedLinkModel 임포트
+import '../models/shared_link_model.dart'; // SharedLinkModel 임포트
 import '../services/marker_service.dart';
 import '../services/shared_link_service.dart';
 
@@ -14,6 +15,41 @@ class HomeDashboardViewModel extends ChangeNotifier {
   List<MarkerModel> get recentMarkers => _recentMarkers;
   List<SharedLinkModel> get sharedLinks => _sharedLinks;
   final Map<String, double?> _ratingCache = {};
+  RealtimeChannel? _realtimeChannel;
+  String? _realtimeUserId;
+
+  void subscribeToChanges() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || _realtimeUserId == user.id) return;
+
+    _realtimeChannel?.unsubscribe();
+    _realtimeUserId = user.id;
+    _realtimeChannel = Supabase.instance.client
+        .channel('home-dashboard-${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'shared_links',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: user.id,
+          ),
+          callback: (_) => loadSharedLinks(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'user_markers',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: user.id,
+          ),
+          callback: (_) => loadRecentMarkers(),
+        )
+        .subscribe();
+  }
 
   // Public Getter 추가
   double? getRating(String query) {
@@ -30,10 +66,11 @@ class HomeDashboardViewModel extends ChangeNotifier {
   Future<void> loadRecentMarkers() async {
     final rawMarkers = await MarkerService().getRecentMarkers(limit: 3);
     _recentMarkers.clear();
-    _recentMarkers.addAll(rawMarkers.map((e) => MarkerModel.fromMap(e)).toList());
+    _recentMarkers
+        .addAll(rawMarkers.map((e) => MarkerModel.fromMap(e)).toList());
 
     notifyListeners();
-    _loadRatings();   // 평점 로드
+    _loadRatings(); // 평점 로드
   }
 
   Future<void> _loadRatings() async {
@@ -91,5 +128,11 @@ class HomeDashboardViewModel extends ChangeNotifier {
     _sharedLinks.clear();
     _sharedLinks.addAll(rawLinks);
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _realtimeChannel?.unsubscribe();
+    super.dispose();
   }
 }
