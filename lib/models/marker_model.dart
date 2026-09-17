@@ -28,7 +28,7 @@ class MarkerModel {
       address: data['address'] ?? 'No Address',
       lat: (data['lat'] ?? 0.0).toDouble(),
       lng: (data['lng'] ?? 0.0).toDouble(),
-      markerImagePath: data['markerImagePath'] ?? '',
+      markerImagePath: data['marker_image_path'] ?? '',
     );
   }
 
