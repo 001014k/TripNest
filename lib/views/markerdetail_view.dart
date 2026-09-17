@@ -281,7 +281,7 @@ class _HeroContent extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                        colors: [AppDesign.primary, AppDesign.travelGreen],
                       ),
                     ),
                   )
@@ -294,11 +294,11 @@ class _HeroContent extends StatelessWidget {
                       imageUrl: photos[i],
                       fit: BoxFit.cover,
                       placeholder: (_, __) =>
-                          Container(color: const Color(0xFF4F46E5)),
+                          Container(color: AppDesign.primary),
                       errorWidget: (_, __, ___) => Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                            colors: [AppDesign.primary, AppDesign.travelGreen],
                           ),
                         ),
                       ),
@@ -608,8 +608,8 @@ class _InfoCard extends StatelessWidget {
           if (vm.address != null)
             _InfoRow(
               icon: Icons.location_on_rounded,
-              iconColor: const Color(0xFF4F46E5),
-              iconBg: const Color(0xFFEEF2FF),
+              iconColor: AppDesign.primary,
+              iconBg: AppDesign.secondaryBg,
               label: '주소',
               value: vm.address!,
               onTap: () {
