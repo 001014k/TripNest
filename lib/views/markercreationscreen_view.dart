@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:elegant_notification/elegant_notification.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/markercreationscreen_viewmodel.dart';
@@ -9,7 +10,6 @@ class MarkerCreationScreen extends StatefulWidget {
   final LatLng initialLatLng;
   final String? initialTitle;
   final String? initialAddress;
-
 
   const MarkerCreationScreen({
     required this.initialLatLng,
@@ -42,7 +42,6 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen>
     _initializeAnimations();
     _loadAddress();
     _loadUserLists();
-    super.initState();
     _titleController = TextEditingController(text: widget.initialTitle ?? '');
 
     if (widget.initialAddress != null && widget.initialAddress!.isNotEmpty) {
@@ -69,7 +68,8 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen>
       begin: const Offset(0, 0.1),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(parent: _slideAnimationController, curve: Curves.easeOutCubic),
+      CurvedAnimation(
+          parent: _slideAnimationController, curve: Curves.easeOutCubic),
     );
 
     _fadeAnimationController.forward();
@@ -77,7 +77,11 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen>
   }
 
   Future<void> _loadAddress() async {
-    final viewModel = Provider.of<MarkerCreationScreenViewModel>(context, listen: false);
+    if (widget.initialAddress != null && widget.initialAddress!.isNotEmpty) {
+      return;
+    }
+    final viewModel =
+        Provider.of<MarkerCreationScreenViewModel>(context, listen: false);
     final result = await viewModel.getAddressFromCoordinates(
       widget.initialLatLng.latitude,
       widget.initialLatLng.longitude,
@@ -88,7 +92,8 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen>
   }
 
   Future<void> _loadUserLists() async {
-    final viewModel = Provider.of<MarkerCreationScreenViewModel>(context, listen: false);
+    final viewModel =
+        Provider.of<MarkerCreationScreenViewModel>(context, listen: false);
     await viewModel.fetchUserLists();
     if (viewModel.lists.isNotEmpty) {
       setState(() {
@@ -440,7 +445,8 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen>
     );
   }
 
-  Widget _buildCategoryCard(List<String> keywords, MarkerCreationScreenViewModel viewModel) {
+  Widget _buildCategoryCard(
+      List<String> keywords, MarkerCreationScreenViewModel viewModel) {
     return Container(
       padding: const EdgeInsets.all(AppDesign.spacing24),
       decoration: BoxDecoration(
@@ -517,15 +523,18 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen>
                     children: [
                       Icon(
                         viewModel.keywordIcons[keyword],
-                        color: isSelected ? Colors.white : AppDesign.secondaryText,
+                        color:
+                            isSelected ? Colors.white : AppDesign.secondaryText,
                         size: 18,
                       ),
                       const SizedBox(width: AppDesign.spacing8),
                       Text(
                         keyword,
                         style: AppDesign.bodyMedium.copyWith(
-                          color: isSelected ? Colors.white : AppDesign.primaryText,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color:
+                              isSelected ? Colors.white : AppDesign.primaryText,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
                     ],
@@ -631,7 +640,8 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen>
                         Container(
                           width: 8,
                           height: 8,
-                          margin: const EdgeInsets.only(right: AppDesign.spacing8),
+                          margin:
+                              const EdgeInsets.only(right: AppDesign.spacing8),
                           decoration: BoxDecoration(
                             color: AppDesign.travelOrange,
                             shape: BoxShape.circle,
@@ -718,21 +728,17 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen>
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.white, size: 20),
-            const SizedBox(width: AppDesign.spacing8),
-            Text(message),
-          ],
-        ),
-        backgroundColor: Colors.red.shade400,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-        ),
-      ),
-    );
+    ElegantNotification(
+      description: Text(message, style: AppDesign.bodyMedium),
+      icon: const Icon(Icons.error_outline, color: AppDesign.travelStamp),
+      background: AppDesign.cardBg,
+      verticalDividerColor: AppDesign.borderColor,
+      progressIndicatorColor: AppDesign.travelStamp,
+      progressIndicatorBackground: AppDesign.secondaryBg,
+      borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+      border: Border.all(color: AppDesign.borderColor),
+      shadow: AppDesign.softShadow.first,
+      position: Alignment.topCenter,
+    ).show(context);
   }
 }
