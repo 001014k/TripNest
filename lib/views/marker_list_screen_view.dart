@@ -5,6 +5,7 @@ import '../design/app_design.dart';
 import '../viewmodels/marker_list_screen_viewmodel.dart';
 import '../views/markerdetail_view.dart';
 import '../models/marker_model.dart';
+import '../widgets/travel_shimmer.dart';
 
 class MarkerListScreen extends StatefulWidget {
   @override
@@ -21,9 +22,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
   Set<String> selectedMarkerIds = {};
 
   late AnimationController _fadeAnimationController;
-  late AnimationController _shimmerController;
   late Animation<double> _fadeAnimation;
-  late Animation<double> _shimmerAnimation;
 
   @override
   void initState() {
@@ -43,22 +42,12 @@ class _MarkerListScreenState extends State<MarkerListScreen>
       CurvedAnimation(parent: _fadeAnimationController, curve: Curves.easeOut),
     );
 
-    _shimmerController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
-    _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
-      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
-    );
-
     _fadeAnimationController.forward();
-    _shimmerController.repeat();
   }
 
   @override
   void dispose() {
     _fadeAnimationController.dispose();
-    _shimmerController.dispose();
     super.dispose();
   }
 
@@ -72,7 +61,8 @@ class _MarkerListScreenState extends State<MarkerListScreen>
     return source.where((marker) {
       final title = marker['title']?.toString() ?? '';
       final keyword = marker['keyword']?.toString();
-      final titleMatch = title.toLowerCase().contains(searchQuery.toLowerCase());
+      final titleMatch =
+          title.toLowerCase().contains(searchQuery.toLowerCase());
       final categoryMatch = (selectedCategory == null ||
           selectedCategory == '전체' ||
           keyword == selectedCategory);
@@ -149,7 +139,8 @@ class _MarkerListScreenState extends State<MarkerListScreen>
               builder: (context, constraints) {
                 final double height = constraints.maxHeight;
                 final bool isExpanded = height > (kToolbarHeight + 100);
-                final double topPad = kToolbarHeight + (isExpanded ? 16 : 8); // 뒤로가기 버튼 아래에서 시작
+                final double topPad =
+                    kToolbarHeight + (isExpanded ? 16 : 8); // 뒤로가기 버튼 아래에서 시작
                 final double bottomPad = 8;
                 return Padding(
                   padding: EdgeInsets.fromLTRB(
@@ -171,7 +162,8 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 if (isExpanded) _buildStatusBadge(),
-                                if (isExpanded) const SizedBox(height: AppDesign.spacing6),
+                                if (isExpanded)
+                                  const SizedBox(height: AppDesign.spacing6),
                                 _buildMainTitle(fontSize: isExpanded ? 26 : 20),
                               ],
                             ),
@@ -274,9 +266,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
 
   Widget _buildMainTitle({double fontSize = 26}) {
     return Text(
-      selectionMode
-          ? '선택됨: ${selectedMarkerIds.length}개'
-          : '저장한 장소',
+      selectionMode ? '선택됨: ${selectedMarkerIds.length}개' : '저장한 장소',
       style: AppDesign.headingLarge.copyWith(
         fontSize: fontSize,
         fontWeight: FontWeight.w800,
@@ -320,7 +310,8 @@ class _MarkerListScreenState extends State<MarkerListScreen>
               Consumer<MarkerListViewModel>(
                 builder: (context, vm, _) {
                   final visible = _applyFilters(vm.markers);
-                  final visibleIds = visible.map((m) => m['id'].toString()).toSet();
+                  final visibleIds =
+                      visible.map((m) => m['id'].toString()).toSet();
                   final allSelected = visibleIds.isNotEmpty &&
                       visibleIds.difference(selectedMarkerIds).isEmpty;
 
@@ -380,23 +371,23 @@ class _MarkerListScreenState extends State<MarkerListScreen>
       decoration: BoxDecoration(
         gradient: isEnabled && (isActive || isDestructive)
             ? (isDestructive
-            ? LinearGradient(
-          colors: [Colors.red.shade400, Colors.red.shade500],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        )
-            : AppDesign.primaryGradient)
+                ? LinearGradient(
+                    colors: [Colors.red.shade400, Colors.red.shade500],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : AppDesign.primaryGradient)
             : LinearGradient(
-          colors: [
-            AppDesign.cardBg.withOpacity(0.95),
-            AppDesign.cardBg.withOpacity(0.9),
-          ],
-        ),
+                colors: [
+                  AppDesign.cardBg.withOpacity(0.95),
+                  AppDesign.cardBg.withOpacity(0.9),
+                ],
+              ),
         borderRadius: BorderRadius.circular(AppDesign.radiusSmall), // radius 줄임
         boxShadow: isEnabled
             ? (isActive || isDestructive
-            ? AppDesign.glowShadow
-            : AppDesign.softShadow)
+                ? AppDesign.glowShadow
+                : AppDesign.softShadow)
             : null,
         border: Border.all(
           color: isActive || isDestructive
@@ -417,8 +408,8 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                 icon,
                 color: isEnabled
                     ? (isActive || isDestructive
-                    ? AppDesign.whiteText
-                    : AppDesign.primaryText)
+                        ? AppDesign.whiteText
+                        : AppDesign.primaryText)
                     : AppDesign.subtleText,
                 size: 16, // 아이콘 크기 줄임
               ),
@@ -428,8 +419,8 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                 style: AppDesign.bodyMedium.copyWith(
                   color: isEnabled
                       ? (isActive || isDestructive
-                      ? AppDesign.whiteText
-                      : AppDesign.primaryText)
+                          ? AppDesign.whiteText
+                          : AppDesign.primaryText)
                       : AppDesign.subtleText,
                   fontWeight: FontWeight.w600,
                   fontSize: 12, // 폰트 크기 줄임
@@ -546,7 +537,8 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                     padding: const EdgeInsets.all(AppDesign.spacing8),
                     decoration: BoxDecoration(
                       gradient: AppDesign.primaryGradient,
-                      borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                      borderRadius:
+                          BorderRadius.circular(AppDesign.radiusSmall),
                     ),
                     child: Icon(
                       Icons.sort,
@@ -611,40 +603,46 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                       gradient: isSelected
                           ? AppDesign.primaryGradient
                           : LinearGradient(
-                        colors: [
-                          AppDesign.lightGray,
-                          AppDesign.borderColor.withOpacity(0.5),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                              colors: [
+                                AppDesign.lightGray,
+                                AppDesign.borderColor.withOpacity(0.5),
+                              ],
+                            ),
+                      borderRadius:
+                          BorderRadius.circular(AppDesign.radiusSmall),
                     ),
                     child: Icon(
                       _getSortIcon(sort),
                       size: 18,
-                      color: isSelected ? AppDesign.whiteText : AppDesign.subtleText,
+                      color: isSelected
+                          ? AppDesign.whiteText
+                          : AppDesign.subtleText,
                     ),
                   ),
                   title: Text(
                     sort,
                     style: AppDesign.bodyMedium.copyWith(
-                      color: isSelected ? AppDesign.travelBlue : AppDesign.primaryText,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected
+                          ? AppDesign.travelBlue
+                          : AppDesign.primaryText,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
                   trailing: isSelected
                       ? Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      gradient: AppDesign.primaryGradient,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.check,
-                      color: AppDesign.whiteText,
-                      size: 14,
-                    ),
-                  )
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            gradient: AppDesign.primaryGradient,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.check,
+                            color: AppDesign.whiteText,
+                            size: 14,
+                          ),
+                        )
                       : null,
                   onTap: () {
                     setState(() {
@@ -795,7 +793,8 @@ class _MarkerListScreenState extends State<MarkerListScreen>
               child: Text(
                 label,
                 style: AppDesign.bodyMedium.copyWith(
-                  color: isSelected ? AppDesign.whiteText : AppDesign.primaryText,
+                  color:
+                      isSelected ? AppDesign.whiteText : AppDesign.primaryText,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -824,7 +823,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
           padding: const EdgeInsets.symmetric(horizontal: AppDesign.spacing24),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
-                  (context, index) {
+              (context, index) {
                 if (index == 0) {
                   return _buildResultsHeader(filteredMarkers.length);
                 } else if (index <= filteredMarkers.length) {
@@ -876,20 +875,15 @@ class _MarkerListScreenState extends State<MarkerListScreen>
     );
   }
 
-  Widget _buildPremiumMarkerCard(
-      MarkerModel marker,
-      Map<String, dynamic> markerMap,
-      MarkerListViewModel vm
-      ) {
+  Widget _buildPremiumMarkerCard(MarkerModel marker,
+      Map<String, dynamic> markerMap, MarkerListViewModel vm) {
     return Dismissible(
       key: Key(marker.id),
       background: _buildDismissBackground(),
-      direction: selectionMode
-          ? DismissDirection.none
-          : DismissDirection.endToStart,
-      confirmDismiss: selectionMode
-          ? null
-          : (direction) => _showDeleteDialog(marker),
+      direction:
+          selectionMode ? DismissDirection.none : DismissDirection.endToStart,
+      confirmDismiss:
+          selectionMode ? null : (direction) => _showDeleteDialog(marker),
       onDismissed: (direction) async {
         await vm.deleteMarker(context, marker.id);
         setState(() {
@@ -905,13 +899,13 @@ class _MarkerListScreenState extends State<MarkerListScreen>
             boxShadow: AppDesign.softShadow,
             border: selectedMarkerIds.contains(marker.id)
                 ? Border.all(
-              color: AppDesign.travelBlue,
-              width: 2,
-            )
+                    color: AppDesign.travelBlue,
+                    width: 2,
+                  )
                 : Border.all(
-              color: AppDesign.borderColor.withOpacity(0.3),
-              width: 1,
-            ),
+                    color: AppDesign.borderColor.withOpacity(0.3),
+                    width: 1,
+                  ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(AppDesign.spacing20),
@@ -958,10 +952,10 @@ class _MarkerListScreenState extends State<MarkerListScreen>
       ),
       child: isSelected
           ? Icon(
-        Icons.check,
-        color: AppDesign.whiteText,
-        size: 16,
-      )
+              Icons.check,
+              color: AppDesign.whiteText,
+              size: 16,
+            )
           : null,
     );
   }
@@ -1063,7 +1057,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
       padding: const EdgeInsets.all(AppDesign.spacing24),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-              (context, index) => _buildShimmerCard(),
+          (context, index) => _buildShimmerCard(),
           childCount: 5,
         ),
       ),
@@ -1079,30 +1073,14 @@ class _MarkerListScreenState extends State<MarkerListScreen>
         borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
         boxShadow: AppDesign.softShadow,
       ),
-      child: AnimatedBuilder(
-        animation: _shimmerAnimation,
-        builder: (context, child) {
-          return Container(
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppDesign.lightGray,
-                  AppDesign.borderColor,
-                  AppDesign.lightGray,
-                ],
-                stops: [
-                  _shimmerAnimation.value - 0.3,
-                  _shimmerAnimation.value,
-                  _shimmerAnimation.value + 0.3,
-                ].map((stop) => stop.clamp(0.0, 1.0)).toList(),
-              ),
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-            ),
-          );
-        },
+      child: TravelShimmer(
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: AppDesign.cardBg,
+            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+          ),
+        ),
       ),
     );
   }
@@ -1247,53 +1225,54 @@ class _MarkerListScreenState extends State<MarkerListScreen>
 
   Future<bool> _showDeleteDialog(MarkerModel marker) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        ),
-        backgroundColor: AppDesign.cardBg,
-        title: Text(
-          "삭제 확인",
-          style: AppDesign.headingMedium,
-        ),
-        content: Text(
-          "'${marker.title}'을(를) 삭제하시겠습니까?",
-          style: AppDesign.bodyMedium.copyWith(
-            color: AppDesign.secondaryText,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(
-              "취소",
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
+            ),
+            backgroundColor: AppDesign.cardBg,
+            title: Text(
+              "삭제 확인",
+              style: AppDesign.headingMedium,
+            ),
+            content: Text(
+              "'${marker.title}'을(를) 삭제하시겠습니까?",
               style: AppDesign.bodyMedium.copyWith(
-                color: AppDesign.subtleText,
+                color: AppDesign.secondaryText,
               ),
             ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.red.shade400, Colors.red.shade500],
-              ),
-              borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-            ),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(
-                "삭제",
-                style: AppDesign.bodyMedium.copyWith(
-                  color: AppDesign.whiteText,
-                  fontWeight: FontWeight.w600,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  "취소",
+                  style: AppDesign.bodyMedium.copyWith(
+                    color: AppDesign.subtleText,
+                  ),
                 ),
               ),
-            ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.red.shade400, Colors.red.shade500],
+                  ),
+                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
+                ),
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: Text(
+                    "삭제",
+                    style: AppDesign.bodyMedium.copyWith(
+                      color: AppDesign.whiteText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   Future<void> _showBulkDeleteDialog(MarkerListViewModel vm) async {
