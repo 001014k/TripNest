@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../design/app_design.dart';
@@ -10,6 +11,7 @@ import '../env.dart';
 import '../models/shared_link_model.dart';
 import '../services/places_service.dart';
 import '../services/shared_link_service.dart';
+import '../viewmodels/mapsample_viewmodel.dart';
 import '../widgets/address_photo_preview.dart';
 import 'markercreationscreen_view.dart';
 import 'shared_link_view.dart';
@@ -198,7 +200,7 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
         );
         return;
       }
-      await Navigator.of(context).push(
+      final result = await Navigator.of(context).push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => MarkerCreationScreen(
             initialLatLng: position,
@@ -206,6 +208,31 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
             initialAddress: address,
           ),
         ),
+      );
+      if (!mounted || result == null) return;
+
+      final keyword = result['keyword'] as String?;
+      final title = result['title'] as String?;
+      if (keyword == null || title == null || title.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('마커 정보를 확인할 수 없습니다.')),
+        );
+        return;
+      }
+
+      await context.read<MapSampleViewModel>().addMarker(
+            title: title,
+            snippet: result['snippet'] as String?,
+            position: position,
+            keyword: keyword,
+            address: result['address'] as String? ?? address,
+            listId: result['listId'] as String?,
+            onTapCallback: (_) {},
+          );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('내 지도에 마커를 저장했습니다.')),
       );
     } finally {
       if (mounted) setState(() => _isOpeningMarkerCreation = false);
