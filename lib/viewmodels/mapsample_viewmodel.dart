@@ -22,6 +22,9 @@ import '../viewmodels/add_markers_to_list_viewmodel.dart';
 import 'package:geolocator/geolocator.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
+  // 확대해도 가까운 장소는 계속 묶고, 확대 단계마다 군집 범위를 줄인다.
+  static const List<double> clusterLevels =
+      [1, 4, 7, 9, 11, 13, 14, 15, 16, 17, 18, 20];
   void Function(Marker)? onSearchMarkerTapped;
   void Function(List<Marker> searchMarkers)? onSearchCompleted;
 
@@ -42,11 +45,10 @@ class MapSampleViewModel extends ChangeNotifier {
   Set<Marker> get filteredMarkers => _filteredMarkers;
 
   Set<Marker> get displayMarkers {
-    if (currentZoom >= 15) {
-      return _filteredMarkers; // 개별 마커
-    } else {
-      return _clusteredMarkers.toSet(); // 클러스터 마커
-    }
+    // 클러스터 계산이 끝나기 전에는 저장된 마커를 임시로 표시한다.
+    return _clusteredMarkers.isEmpty
+        ? _filteredMarkers
+        : _clusteredMarkers.toSet();
   }
 
   // 리스트별로 순서가 있는 마커 저장
@@ -59,6 +61,7 @@ class MapSampleViewModel extends ChangeNotifier {
   List<LatLng> get polygonPoints => _polygonPoints;
 
   cluster_manager.ClusterManager<Place>? _clusterManager;
+  Timer? _clusterRefreshTimer;
 
   cluster_manager.ClusterManager<Place>? get clusterManager => _clusterManager;
 
@@ -103,7 +106,7 @@ class MapSampleViewModel extends ChangeNotifier {
   LatLng get seoulCityHall => _seoulCityHall;
 
   String get mapStyle => _mapStyle;
-  double currentZoom = 14.0; // 초기 줌 레벨
+  double currentZoom = 15.0; // GoogleMap의 initialCameraPosition과 일치
   Set<String> activeKeywords = {}; //활성화 된 키워드 저장
   final location.Location _location = location.Location();
   late Set<Marker> _markers = {};
@@ -164,6 +167,7 @@ class MapSampleViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _clusterRefreshTimer?.cancel();
     _clusterManager = null;
     _controller = null;
     super.dispose();
@@ -275,6 +279,8 @@ class MapSampleViewModel extends ChangeNotifier {
 
   // Map detach용 안전 메서드
   void detachMap() {
+    _clusterRefreshTimer?.cancel();
+    _clusterRefreshTimer = null;
     if (controller != null && clusterManager != null) {
       try {
         clusterManager!.setMapId(controller!.mapId); // null 대신 안전하게 mapId 사용
@@ -489,6 +495,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
     _markers.clear();
     _allMarkers.clear();
+    _clusteredMarkers.clear();
     final Map<MarkerId, Marker> uniqueMarkersMap = {};
 
     for (var data in response) {
@@ -994,7 +1001,8 @@ class MapSampleViewModel extends ChangeNotifier {
         _filteredPlaces,
         _updateMarkers,
         markerBuilder: _markerBuilder,
-        levels: [1, 4, 7, 9, 11, 13, 15, 16, 17, 18, 20],
+        levels: clusterLevels,
+        clusterAlgorithm: cluster_manager.ClusterAlgorithm.MAX_DIST,
         extraPercent: 0.2,
       );
 
@@ -1037,7 +1045,18 @@ class MapSampleViewModel extends ChangeNotifier {
   void onCameraMove(CameraPosition position) {
     currentZoom = position.zoom;
     _currentCameraPosition = position;
-    notifyListeners();
+    _clusterManager?.onCameraMove(position);
+    // 카메라 이동 중에도 갱신하되 매 프레임마다 지도 채널을 호출하지 않는다.
+    _clusterRefreshTimer ??= Timer(const Duration(milliseconds: 150), () {
+      _clusterRefreshTimer = null;
+      if (!_isDisposed) _clusterManager?.updateMap();
+    });
+  }
+
+  void onCameraIdle() {
+    _clusterRefreshTimer?.cancel();
+    _clusterRefreshTimer = null;
+    _clusterManager?.updateMap();
   }
 
   void onEdit(Marker updatedMarker) async {
