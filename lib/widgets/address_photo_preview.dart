@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../design/app_design.dart';
-import '../../viewmodels/address_photo_preview_viewmodel.dart';
+import '../design/app_design.dart';
+import '../viewmodels/address_photo_preview_viewmodel.dart';
 
 class AddressPhotoPreview extends StatefulWidget {
   final String address;
