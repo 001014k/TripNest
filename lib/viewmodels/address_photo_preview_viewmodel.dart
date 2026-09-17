@@ -21,41 +21,35 @@ class AddressPhotoPreviewViewModel extends ChangeNotifier {
     _loadPhotoUrl();
   }
 
-  // 완전히 안전한 캐시 키 생성 (공백·대소문자·줄바꿈 무시)
+  // 완전히 안전한 캐시 키 생성
   String get _cacheKey {
     final addr = address.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
-    final ttl = title?.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_') ?? 'no_title';
+    final ttl = title?.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_') ??
+        'no_title';
     return '$addr|$ttl';
   }
 
   Future<void> _loadPhotoUrl() async {
     _isLoading = true;
+    _error = null;
     notifyListeners();
-
-    debugPrint('🔍 AddressPhotoPreviewViewModel 시작');
-    debugPrint('   주소: "$address"');
-    debugPrint('   제목: "$title"');
-    debugPrint('   캐시 키: "$_cacheKey"');
 
     try {
       final box = Hive.box<CachedPhotoUrl>('photo_urls');
-      debugPrint('   저장된 키들: ${box.keys.toList()}');
 
       final cached = box.get(_cacheKey);
       if (cached != null && cached.isValid) {
         _photoUrl = cached.photoUrl;
         _isLoading = false;
         notifyListeners();
-        debugPrint('✅ 캐시 히트 성공! $_photoUrl');
         return;
       }
-      debugPrint('⚠️ 캐시 미스 또는 만료, API 호출 시작');
 
-      // API 호출
+      // API Query 개선
       String query = address;
-      if (title != null && title!.isNotEmpty) query = '$title $address';
-
-      debugPrint('   API Query: "$query"'); // Query 로깅
+      if (title != null && title!.isNotEmpty) {
+        query = '$title, $address';
+      }
 
       final uri = Uri.https('places.googleapis.com', '/v1/places:searchText');
       final response = await http.post(
@@ -63,20 +57,69 @@ class AddressPhotoPreviewViewModel extends ChangeNotifier {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': Env.googleMapsApiKey,
-          'X-Goog-FieldMask': 'places.photos,places.displayName,places.id',
+          'X-Goog-FieldMask':
+              'places.photos,places.displayName,places.id,places.formattedAddress',
         },
-        body: jsonEncode({"textQuery": query}),
+        body: jsonEncode({
+          "textQuery": query,
+          "maxResultCount": 5,
+          "languageCode": "ko",
+          "regionCode": "KR",
+        }),
       );
 
-      debugPrint('   API Response Status: ${response.statusCode}'); // Status Code 로깅
-      debugPrint('   API Response Body: ${response.body}'); // Body 로깅
-
-      if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
 
       final data = jsonDecode(response.body);
-      final photos = (data['places'] as List?)?.first['photos'] as List<dynamic>? ?? [];
+      final places = data['places'] as List? ?? [];
 
-      if (photos.isEmpty) throw Exception('사진 없음');
+      if (places.isEmpty) {
+        _error = '장소 사진이 없습니다.';
+        return;
+      }
+
+      // 가장 잘 맞는 장소 선택
+      Map<String, dynamic>? bestPlace;
+      double bestScore = -1.0;
+
+      for (final place in places) {
+        final displayName =
+            (place['displayName']?['text'] as String?)?.toLowerCase() ?? '';
+        final formattedAddr =
+            (place['formattedAddress'] as String?)?.toLowerCase() ?? '';
+
+        double score = 0.0;
+
+        // 제목 매칭
+        if (title != null &&
+            title!.isNotEmpty &&
+            displayName.contains(title!.toLowerCase())) {
+          score += 0.6;
+        }
+        // 주소 매칭 (단어 단위)
+        if (address.isNotEmpty) {
+          final addressWords = address.toLowerCase().split(RegExp(r'\s+'));
+          final matchCount =
+              addressWords.where((word) => formattedAddr.contains(word)).length;
+          score += (matchCount / addressWords.length) * 0.4;
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestPlace = place;
+        }
+      }
+
+      // fallback
+      bestPlace ??= places.first;
+
+      final photos = (bestPlace?['photos'] as List<dynamic>?) ?? [];
+      if (photos.isEmpty) {
+        _error = '장소 사진이 없습니다.';
+        return;
+      }
 
       final photoName = photos[0]['name'] as String;
       _photoUrl = 'https://places.googleapis.com/v1/$photoName/media'
@@ -90,10 +133,8 @@ class AddressPhotoPreviewViewModel extends ChangeNotifier {
           photoUrl: _photoUrl!,
         ),
       );
-
-      debugPrint('✅ API 성공 & 캐시 저장 완료: $_photoUrl');
-    } catch (e, s) {
-      debugPrint('❌ 오류 발생: $e\n$s');
+    } catch (e) {
+      debugPrint('장소 사진 미리보기를 불러오지 못했습니다: $e');
       _error = e.toString();
     } finally {
       _isLoading = false;
@@ -101,7 +142,7 @@ class AddressPhotoPreviewViewModel extends ChangeNotifier {
     }
   }
 
-  // 강제 새로고침 (필요시 사용)
+  // 강제 새로고침
   Future<void> refresh() async {
     final box = Hive.box<CachedPhotoUrl>('photo_urls');
     await box.delete(_cacheKey);
