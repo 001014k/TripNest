@@ -1166,14 +1166,34 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
     });
   }
 
+  @override
+  void didUpdateWidget(covariant SharedLinksSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The home view can receive new extracted places for an existing source
+    // URL. Fetch a preview only when a new source URL appears.
+    if (_sourceLinks.any((link) => !_previewDataCache.containsKey(link.url))) {
+      _loadAllPreviewData();
+    }
+  }
+
+  /// Multiple places extracted from one post are stored as separate records.
+  /// The home carousel shows that post only once.
+  List<SharedLinkModel> get _sourceLinks {
+    final linksByUrl = <String, SharedLinkModel>{};
+    for (final link in widget.sharedLinks) {
+      linksByUrl.putIfAbsent(link.url, () => link);
+    }
+    return linksByUrl.values.toList();
+  }
+
   // sharedLinks가 늦게 세팅되어도 안전하게 preview 데이터 로드
   void _ensurePreviewDataLoaded() {
-    if (widget.sharedLinks.isNotEmpty) {
+    if (_sourceLinks.isNotEmpty) {
       _loadAllPreviewData();
     } else {
       // sharedLinks가 나중에 세팅될 수 있으므로 잠깐 지연 후 재시도
       Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && widget.sharedLinks.isNotEmpty) {
+        if (mounted && _sourceLinks.isNotEmpty) {
           _loadAllPreviewData();
         } else {
           setState(() {
@@ -1185,8 +1205,14 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
   }
 
   Future<void> _loadAllPreviewData() async {
+    final linksToLoad = _sourceLinks
+        .where((link) => !_previewDataCache.containsKey(link.url))
+        .toList();
+    if (linksToLoad.isEmpty) return;
+
+    if (mounted) setState(() => _isLoading = true);
     await Future.wait(
-      widget.sharedLinks.map((link) {
+      linksToLoad.map((link) {
         return _loadPreviewForLink(link);
       }),
     );
@@ -1232,7 +1258,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
       children: [
         _buildSectionHeader(),
         const SizedBox(height: AppDesign.spacing20),
-        widget.sharedLinks.isEmpty
+        _sourceLinks.isEmpty
             ? _buildEmptyLinksState()
             : (_isLoading ? _buildPremiumLoadingState() : _buildLinksList()),
         const SizedBox(height: AppDesign.spacing40),
@@ -1462,10 +1488,10 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
       child: ListView.separated(
         padding: EdgeInsets.symmetric(horizontal: 20.w),
         scrollDirection: Axis.horizontal,
-        itemCount: widget.sharedLinks.length,
+        itemCount: _sourceLinks.length,
         separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing16),
         itemBuilder: (context, index) =>
-            _buildPremiumLinkCard(widget.sharedLinks[index]),
+            _buildPremiumLinkCard(_sourceLinks[index]),
       ),
     );
   }
@@ -1473,6 +1499,8 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
   Widget _buildPremiumLinkCard(SharedLinkModel link) {
     final previewData = _previewDataCache[link.url];
     final subtitle = _getClippedSubtitle(previewData, link);
+    final placeCount =
+        widget.sharedLinks.where((item) => item.url == link.url).length;
 
     return Container(
       width: 274.w,
@@ -1501,7 +1529,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
                 const SizedBox(height: AppDesign.spacing4),
                 _buildLinkDescription(subtitle),
                 const Spacer(),
-                _buildLinkFooter(link),
+                _buildLinkFooter(link, placeCount),
               ],
             ),
           ),
@@ -1554,7 +1582,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
     );
   }
 
-  Widget _buildLinkFooter(SharedLinkModel link) {
+  Widget _buildLinkFooter(SharedLinkModel link, int placeCount) {
     return Row(
       children: [
         Container(
@@ -1569,6 +1597,13 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
               color: AppDesign.homeTagForeground,
               fontWeight: FontWeight.w600,
             ),
+          ),
+        ),
+        const SizedBox(width: AppDesign.spacing8),
+        Text(
+          '장소 $placeCount곳',
+          style: AppDesign.caption.copyWith(
+            color: AppDesign.homeMutedText,
           ),
         ),
         const Spacer(),
