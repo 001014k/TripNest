@@ -1,6 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:fluttertrip/design/app_design.dart';
 import 'package:fluttertrip/views/profile_view.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:fluttertrip/services/app_group_handler_service.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -12,6 +15,7 @@ import 'dart:async';
 import 'package:fluttertrip/env.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:fluttertrip/models/cached_photo_url.dart';
+import 'models/shared_link_model.dart';
 
 // ViewModel imports...
 import 'firebase_options.dart';
@@ -49,13 +53,13 @@ import 'views/login_option_view.dart';
 import 'views/home_view.dart';
 import 'views/list_view.dart';
 import 'views/shared_link_view.dart';
+import 'views/shared_link_detail_view.dart';
 import 'views/marker_list_screen_view.dart';
 import 'views/nickname_dialog_view.dart';
 import 'views/notification_settings_view.dart';
 
 /// ✅ 전역 Navigator Key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
 
 Future<void> saveFcmToken() async {
   final messaging = FirebaseMessaging.instance;
@@ -68,9 +72,7 @@ Future<void> saveFcmToken() async {
   if (token != null) {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId != null) {
-      await Supabase.instance.client
-          .from('user_push_tokens')
-          .upsert({
+      await Supabase.instance.client.from('user_push_tokens').upsert({
         'user_id': userId,
         'token': token,
       }, onConflict: 'user_id'); // user_id 기준 중복 방지
@@ -78,7 +80,6 @@ Future<void> saveFcmToken() async {
     }
   }
 }
-
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -130,7 +131,8 @@ Future<void> main() async {
 
   if (savedLanguage == null) {
     final deviceLang = PlatformDispatcher.instance.locale.languageCode;
-    savedLanguage = (deviceLang == 'ko' || deviceLang == 'en') ? deviceLang : 'en';
+    savedLanguage =
+        (deviceLang == 'ko' || deviceLang == 'en') ? deviceLang : 'en';
     await prefs.setString('language', savedLanguage);
   }
 
@@ -189,7 +191,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
         // FCM 초기화 + 토큰 리프레시
         unawaited(NotificationService().initializePushNotifications());
-        unawaited(NotificationService().refreshPushTokenOnLogin());   // ← 강제 리프레시
+        unawaited(NotificationService().refreshPushTokenOnLogin()); // ← 강제 리프레시
       }
     });
   }
@@ -215,33 +217,49 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      debugShowCheckedModeBanner: false,
-      initialRoute: '/splash',
-      routes: {
-        '/splash': (context) => SplashScreenView(),
-        '/login_option': (context) => CombinedLoginView(),
-        '/signup': (context) => SignupPage(),
-        '/forgot_password': (context) => ForgotPasswordView(),
-        '/map': (context) => MapSampleView(),
-        '/dashboard': (context) => DashboardView(),
-        '/friend_management': (context) => FriendManagementView(),
-        '/user_list': (context) => UserListView(),
-        '/home': (context) => HomeDashboardView(),
-        '/list': (context) => ListPage(),
-        '/shared_link': (context) => SharedLinkView(),
-        '/marker_list': (context) => MarkerListScreen(),
-        '/notification_settings': (context) => const NotificationSettingsView(),
-        '/profile': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as String;
-          return ProfilePage(userId: args);
-        },
-        '/nickname_setup': (context) {
-          final userId = ModalRoute.of(context)!.settings.arguments as String;
-          return NicknameSetupPage(userId: userId);
-        },
-      },
+    return ScreenUtilInit(
+      designSize: const Size(390, 844),
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (context, child) => ShadTheme(
+        data: AppDesign.shadTheme,
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          theme: AppDesign.lightTheme,
+          initialRoute: '/splash',
+          routes: {
+            '/splash': (context) => SplashScreenView(),
+            '/login_option': (context) => CombinedLoginView(),
+            '/signup': (context) => SignupPage(),
+            '/forgot_password': (context) => ForgotPasswordView(),
+            '/map': (context) => MapSampleView(),
+            '/dashboard': (context) => DashboardView(),
+            '/friend_management': (context) => FriendManagementView(),
+            '/user_list': (context) => UserListView(),
+            '/home': (context) => HomeDashboardView(),
+            '/list': (context) => ListPage(),
+            '/shared_link': (context) => SharedLinkView(),
+            '/shared_link_detail': (context) {
+              final link =
+                  ModalRoute.of(context)!.settings.arguments as SharedLinkModel;
+              return SharedLinkDetailView(link: link);
+            },
+            '/marker_list': (context) => MarkerListScreen(),
+            '/notification_settings': (context) =>
+                const NotificationSettingsView(),
+            '/profile': (context) {
+              final args = ModalRoute.of(context)!.settings.arguments as String;
+              return ProfilePage(userId: args);
+            },
+            '/nickname_setup': (context) {
+              final userId =
+                  ModalRoute.of(context)!.settings.arguments as String;
+              return NicknameSetupPage(userId: userId);
+            },
+          },
+        ),
+      ),
     );
   }
 }
