@@ -90,3 +90,35 @@ class CommunityMarker {
     );
   }
 }
+
+class CommunityComment {
+  const CommunityComment({
+    required this.id,
+    required this.content,
+    required this.authorId,
+    required this.authorNickname,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String content;
+  final String authorId;
+  final String authorNickname;
+  final DateTime createdAt;
+
+  factory CommunityComment.fromMap(Map<String, dynamic> data) {
+    final profile = data['profiles'];
+    final nickname = profile is Map<String, dynamic>
+        ? profile['nickname']?.toString().trim()
+        : null;
+
+    return CommunityComment(
+      id: data['id'].toString(),
+      content: data['content']?.toString() ?? '',
+      authorId: data['author_id'].toString(),
+      authorNickname: nickname == null || nickname.isEmpty ? '여행자' : nickname,
+      createdAt: DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+          DateTime.now(),
+    );
+  }
+}
