@@ -1331,7 +1331,12 @@ class _MapSampleViewState extends State<MapSampleView> {
                   });
                   viewModel.controller = controller; //viewmodel에도 전달
                   await viewModel.loadMarkers();
-                  await viewModel.fetchAllAccessibleMarkers();
+                  try {
+                    await viewModel.fetchAllAccessibleMarkers();
+                  } catch (error) {
+                    // 공유 리스트 조회가 실패해도 이미 읽은 내 마커는 유지한다.
+                    debugPrint('공유 마커 조회 실패: $error');
+                  }
                   await viewModel.applyMarkersToCluster(controller);
                   controller.setMapStyle(viewModel.mapStyle);
 
@@ -1403,10 +1408,9 @@ class _MapSampleViewState extends State<MapSampleView> {
                 //onTap: (latLng) => _onMapTapped(context, latLng),
                 onCameraMove: (position) {
                   viewModel.onCameraMove(position);
-                  viewModel.clusterManager?.onCameraMove(position);
                 },
                 onCameraIdle: () {
-                  viewModel.clusterManager?.updateMap();
+                  viewModel.onCameraIdle();
                 },
               );
             },
