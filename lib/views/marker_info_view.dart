@@ -1,15 +1,35 @@
+import '../widgets/place_keyword_icon.dart';
+import '../navigation/app_page_route.dart';
+import '../widgets/app_overlays.dart';
+import '../viewmodels/mapsample_viewmodel.dart';
+import '../viewmodels/add_markers_to_list_viewmodel.dart';
+import '../widgets/reference_design.dart';
+import 'mapsample_view.dart';
+import 'schedule_view.dart';
+import '../widgets/address_photo_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../design/app_design.dart';
 import '../models/marker_model.dart';
+import '../mappers/marker_map_adapter.dart';
 import '../viewmodels/marker_info_viewmodel.dart';
 import '../views/add_markers_to_list_view.dart';
 import 'markerdetail_view.dart';
 
 class MarkerInfoPage extends StatefulWidget {
   final String listId;
+  final String? listName;
+  final int collaboratorCount;
+  final VoidCallback? onManage;
+  final VoidCallback? onCollaborate;
 
-  const MarkerInfoPage({Key? key, required this.listId}) : super(key: key);
+  const MarkerInfoPage(
+      {super.key,
+      required this.listId,
+      this.listName,
+      this.collaboratorCount = 0,
+      this.onManage,
+      this.onCollaborate});
 
   @override
   State<MarkerInfoPage> createState() => _MarkerInfoPageState();
@@ -33,7 +53,8 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
   Future<void> navigateToAddMarkersToListPage() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
+      AppPageRoute(
+        motion: AppMotion.editor,
         builder: (context) => AddMarkersToListPage(listId: widget.listId),
       ),
     );
@@ -74,53 +95,40 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                           horizontal: AppDesign.spacing20,
                           vertical: AppDesign.spacing8,
                         ),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final marker = vm.markers[index];
-                              return FutureBuilder<Map<String, String>>(
-                                future: vm.fetchMarkerDetail(marker.id),
-                                builder: (context, snapshot) {
-                                  if (!snapshot.hasData) {
-                                    return Container(
-                                      margin: EdgeInsets.only(
-                                          bottom: AppDesign.spacing16),
-                                      padding:
-                                          EdgeInsets.all(AppDesign.spacing32),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            AppDesign.cardBg.withOpacity(0.5),
-                                        borderRadius: BorderRadius.circular(
-                                            AppDesign.radiusLarge),
-                                      ),
-                                      child: Center(
-                                        child: SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: CircularProgressIndicator(
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                              AppDesign.travelBlue
-                                                  .withOpacity(0.5),
-                                            ),
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  return _MarkerInfoCard(
-                                    marker: marker,
-                                    details: snapshot.data!,
-                                    index: index,
-                                    onDelete: () =>
-                                        _confirmDelete(context, vm, marker.id),
-                                  );
+                        sliver: SliverReorderableList(
+                          itemCount: vm.markers.length,
+                          onReorderItem: (oldIndex, newIndex) async {
+                            final map = context.read<MapSampleViewModel>();
+                            final add =
+                                context.read<AddMarkersToListViewModel>();
+                            try {
+                              await map.loadMarkersForList(widget.listId);
+                              await map.reorderMarkers(
+                                  oldIndex, newIndex, widget.listId, add);
+                              await vm.loadMarkers();
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content:
+                                            Text('순서를 저장하지 못했어요. 다시 시도해주세요.')));
+                              }
+                            }
+                          },
+                          itemBuilder: (context, index) {
+                            final marker = vm.markers[index];
+                            return _MarkerInfoCard(
+                                key: ValueKey(marker.id),
+                                marker: marker,
+                                details: {
+                                  'title': marker.title,
+                                  'address': marker.address,
+                                  'keyword': marker.keyword
                                 },
-                              );
-                            },
-                            childCount: vm.markers.length,
-                          ),
+                                index: index,
+                                onDelete: () =>
+                                    _confirmDelete(context, vm, marker.id));
+                          },
                         ),
                       ),
                     ],
@@ -134,163 +142,214 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
           ),
         ),
         floatingActionButton: _buildPremiumFAB(),
-      ),
-    );
-  }
-
-  Widget _buildPremiumAppBar(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        AppDesign.spacing20,
-        AppDesign.spacing20,
-        AppDesign.spacing20,
-        AppDesign.spacing12,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // 뒤로가기 버튼
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppDesign.cardBg,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                  boxShadow: AppDesign.softShadow,
-                  border: Border.all(
-                    color: AppDesign.borderColor.withOpacity(0.5),
-                    width: 1,
-                  ),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                    onTap: () {
-                      Navigator.pushNamedAndRemoveUntil(
+        bottomNavigationBar: SafeArea(
+            child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: FilledButton.icon(
+                    onPressed: () => Navigator.push(
                         context,
-                        '/list',
-                        (route) => false,
-                      );
-                    },
-                    child: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: AppDesign.primaryText,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              // 우측 액션 버튼
-              Container(
-                padding: EdgeInsets.all(AppDesign.spacing12),
-                decoration: BoxDecoration(
-                  gradient: AppDesign.primaryGradient,
-                  shape: BoxShape.circle,
-                  boxShadow: AppDesign.glowShadow,
-                ),
-                child: Icon(
-                  Icons.map_outlined,
-                  color: AppDesign.whiteText,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppDesign.spacing24),
-          // 타이틀 섹션
-          Container(
-            padding: EdgeInsets.all(AppDesign.spacing20),
-            decoration: BoxDecoration(
-              color: AppDesign.cardBg,
-              borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-              boxShadow: AppDesign.softShadow,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(AppDesign.spacing12),
-                  decoration: BoxDecoration(
-                    gradient: AppDesign.sunsetGradient,
-                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                  ),
-                  child: Icon(
-                    Icons.location_on_rounded,
-                    color: AppDesign.whiteText,
-                    size: 24,
-                  ),
-                ),
-                SizedBox(width: AppDesign.spacing16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '마커 정보',
-                        style: AppDesign.headingMedium,
-                      ),
-                      SizedBox(height: AppDesign.spacing4),
-                      Text(
-                        '저장된 여행지를 관리하세요',
-                        style: AppDesign.caption.copyWith(
-                          color: AppDesign.secondaryText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+                        AppPageRoute(
+                            builder: (_) =>
+                                MapPreviewView(initialListId: widget.listId))),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: AppDesign.primary,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16))),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('경로 시작')))),
       ),
     );
   }
 
-  Widget _buildHeaderInfo(int count) {
-    return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: AppDesign.spacing20,
-        vertical: AppDesign.spacing8,
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: AppDesign.spacing16,
-        vertical: AppDesign.spacing12,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppDesign.travelBlue.withOpacity(0.1),
-            AppDesign.travelPurple.withOpacity(0.1),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        border: Border.all(
-          color: AppDesign.travelBlue.withOpacity(0.2),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            color: AppDesign.travelBlue,
-            size: 20,
-          ),
-          SizedBox(width: AppDesign.spacing12),
-          Text(
-            '총 $count개의 마커가 저장되어 있습니다',
-            style: AppDesign.bodyMedium.copyWith(
-              color: AppDesign.travelBlue,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _buildPremiumAppBar(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            IconButton(
+                tooltip: '뒤로',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 21)),
+            const Expanded(
+                child: Text('TripNest',
+                    style: TextStyle(
+                        fontSize: 23,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -.8))),
+            IconButton(
+                tooltip: '알림 설정',
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/notification_settings'),
+                icon: const Icon(Icons.notifications_none_rounded)),
+            IconButton(
+                tooltip: '리스트 관리',
+                onPressed: widget.onManage ?? navigateToAddMarkersToListPage,
+                icon: const Icon(Icons.more_vert)),
+          ]),
+          const SizedBox(height: 14),
+          Consumer<MarkerInfoViewModel>(
+              builder: (context, vm, _) => ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                      height: 168,
+                      child: Stack(fit: StackFit.expand, children: [
+                        if (vm.markers.isNotEmpty)
+                          AddressPhotoPreview(
+                              address: vm.markers.first.address,
+                              title: vm.markers.first.title,
+                              size: 168)
+                        else
+                          const ColoredBox(color: Color(0xFF636C6C)),
+                        const DecoratedBox(
+                            decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                              Color(0x08000000),
+                              Color(0xB3000000)
+                            ]))),
+                        Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Text(widget.listName ?? '여행 리스트',
+                                      style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white)),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                      '저장한 장소 ${vm.markers.length}개 · ${widget.collaboratorCount + 1}명이 함께 편집 중',
+                                      style: const TextStyle(
+                                          color: Colors.white, fontSize: 12)),
+                                  const SizedBox(height: 12),
+                                  Row(children: [
+                                    Expanded(
+                                        child: SizedBox(
+                                      height: 32,
+                                      child: Stack(
+                                          children: List.generate(
+                                        (widget.collaboratorCount + 1)
+                                            .clamp(1, 3),
+                                        (index) => Positioned(
+                                          left: index * 23.0,
+                                          child: Container(
+                                              width: 32,
+                                              height: 32,
+                                              decoration: BoxDecoration(
+                                                  color:
+                                                      const Color(0xFFE4E3E0),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                      color: Colors.white,
+                                                      width: 1.5)),
+                                              child: const Icon(
+                                                  Icons.person_outline,
+                                                  color: Color(0xFF666970),
+                                                  size: 22)),
+                                        ),
+                                      )),
+                                    )),
+                                    if (widget.onCollaborate != null)
+                                      FilledButton.icon(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          foregroundColor:
+                                              AppDesign.primaryText,
+                                          minimumSize: const Size(0, 34),
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 13, vertical: 7),
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10)),
+                                        ),
+                                        onPressed: widget.onCollaborate,
+                                        icon: const Icon(Icons.people_outline,
+                                            size: 19),
+                                        label: const Text('공유하기',
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600)),
+                                      ),
+                                  ]),
+                                ])),
+                      ])))),
+          const SizedBox(height: 12),
+          Row(children: [
+            _listAction(
+                Icons.place_outlined,
+                '지도 보기',
+                () => Navigator.push(
+                    context,
+                    AppPageRoute(
+                        builder: (_) =>
+                            MapPreviewView(initialListId: widget.listId)))),
+            _listAction(
+                Icons.format_list_bulleted, '일정으로 추가', _addListToSchedule),
+            _listAction(Icons.link, '공유 링크',
+                () => Navigator.pushNamed(context, '/shared_link')),
+            _listAction(Icons.add_location_alt_outlined, '장소 추가',
+                navigateToAddMarkersToListPage),
+          ]),
+        ]),
+      );
+  Future<void> _addListToSchedule() async {
+    if (viewModel.isLoading ||
+        viewModel.error != null ||
+        viewModel.markers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('장소 목록을 불러온 뒤 장소를 추가해주세요.')));
+      return;
+    }
+    final places = List<MarkerModel>.of(viewModel.markers);
+    final result = await Navigator.push<bool>(
+        context,
+        AppPageRoute<bool>(
+            motion: AppMotion.editor,
+            builder: (_) => ScheduleEditView(
+                date: DateTime.now(),
+                initialTitle: widget.listName ?? '여행',
+                initialPlaces: places)));
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${places.length}개 장소를 일정에 추가했어요.')));
+    }
   }
+
+  Widget _listAction(IconData icon, String text, VoidCallback onTap) =>
+      Expanded(
+          child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Material(
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                      side: const BorderSide(color: Color(0xFFF0F0F2))),
+                  child: InkWell(
+                      onTap: onTap,
+                      borderRadius: BorderRadius.circular(13),
+                      child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          child: Column(children: [
+                            Icon(icon, size: 24),
+                            const SizedBox(height: 7),
+                            Text(text,
+                                style: const TextStyle(fontSize: 10),
+                                textAlign: TextAlign.center)
+                          ]))))));
+
+  Widget _buildHeaderInfo(int count) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: Row(children: [
+        Expanded(child: Text('저장한 장소 $count개', style: AppDesign.headingSmall)),
+        const Text('추가된 순', style: AppDesign.bodySmall),
+      ]));
 
   Widget _buildLoadingState() {
     return Container(
@@ -318,7 +377,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 ),
                 Icon(
                   Icons.location_on_outlined,
-                  color: AppDesign.travelBlue.withOpacity(0.3),
+                  color: AppDesign.travelBlue.withValues(alpha: 0.3),
                   size: 32,
                 ),
               ],
@@ -365,7 +424,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.red.withOpacity(0.2),
+                  color: Colors.red.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: Offset(0, 8),
                 ),
@@ -443,7 +502,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
                   ),
                   child: Icon(
@@ -463,7 +522,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 Text(
                   '새로운 여행지를 추가해보세요!',
                   style: AppDesign.bodyLarge.copyWith(
-                    color: AppDesign.whiteText.withOpacity(0.9),
+                    color: AppDesign.whiteText.withValues(alpha: 0.9),
                   ),
                 ),
               ],
@@ -483,7 +542,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 Container(
                   padding: EdgeInsets.all(AppDesign.spacing8),
                   decoration: BoxDecoration(
-                    color: AppDesign.travelBlue.withOpacity(0.1),
+                    color: AppDesign.travelBlue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
                   ),
                   child: Icon(
@@ -519,7 +578,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
         boxShadow: [
           ...AppDesign.elevatedShadow,
           BoxShadow(
-            color: AppDesign.travelBlue.withOpacity(0.3),
+            color: AppDesign.travelBlue.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: Offset(0, 8),
           ),
@@ -543,110 +602,13 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
   void _confirmDelete(
       BuildContext context, MarkerInfoViewModel vm, String markerId) async {
     final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppDesign.cardBg,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          ),
-          titlePadding: EdgeInsets.fromLTRB(
-            AppDesign.spacing24,
-            AppDesign.spacing24,
-            AppDesign.spacing24,
-            AppDesign.spacing8,
-          ),
-          contentPadding: EdgeInsets.fromLTRB(
-            AppDesign.spacing24,
-            AppDesign.spacing8,
-            AppDesign.spacing24,
-            0,
-          ),
-          actionsPadding: EdgeInsets.all(AppDesign.spacing16),
-          title: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(AppDesign.spacing8),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                child: Icon(
-                  Icons.delete_outline_rounded,
-                  color: Colors.red.shade400,
-                  size: 24,
-                ),
-              ),
-              SizedBox(width: AppDesign.spacing12),
-              Text(
-                '마커 삭제',
-                style: AppDesign.headingSmall,
-              ),
-            ],
-          ),
-          content: Text(
-            '이 마커를 삭제하시겠습니까?\n삭제한 마커는 복구할 수 없습니다.',
-            style: AppDesign.bodyMedium.copyWith(
-              color: AppDesign.secondaryText,
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppDesign.spacing20,
-                      vertical: AppDesign.spacing12,
-                    ),
-                  ),
-                  child: Text(
-                    '취소',
-                    style: AppDesign.bodyMedium.copyWith(
-                      color: AppDesign.secondaryText,
-                    ),
-                  ),
-                ),
-                SizedBox(width: AppDesign.spacing8),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.red.shade400, Colors.orange.shade400],
-                    ),
-                    borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                  ),
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppDesign.spacing24,
-                        vertical: AppDesign.spacing12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppDesign.radiusSmall),
-                      ),
-                    ),
-                    child: Text(
-                      '삭제',
-                      style: AppDesign.bodyMedium.copyWith(
-                        color: AppDesign.whiteText,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
+        context: context,
+        builder: (_) => const AppConfirmDialog(
+            title: '마커를 삭제할까요?',
+            message: '삭제한 마커는 복구할 수 없습니다.',
+            confirmLabel: '삭제',
+            destructive: true,
+            icon: Icons.delete_outline));
     if (result == true) {
       vm.deleteMarker(markerId);
     }
@@ -661,6 +623,7 @@ class _MarkerInfoCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   const _MarkerInfoCard({
+    super.key,
     required this.marker,
     required this.details,
     required this.index,
@@ -684,11 +647,11 @@ class _MarkerInfoCard extends StatelessWidget {
 
     final keywordColor = keywordColors[keyword] ?? AppDesign.travelBlue;
 
-    void _navigateToMarkerDetail(MarkerModel markerModel) {
-      final googleMarker = markerModel.toGoogleMarker();
+    void navigateToMarkerDetail(MarkerModel markerModel) {
+      final googleMarker = MarkerMapAdapter.toGoogleMarker(markerModel);
       Navigator.push(
         context,
-        MaterialPageRoute(
+        AppPageRoute(
           builder: (context) => MarkerDetailView(
             marker: googleMarker,
             keyword: markerModel.keyword,
@@ -697,219 +660,78 @@ class _MarkerInfoCard extends StatelessWidget {
       );
     }
 
-    return Container(
-      margin: EdgeInsets.only(bottom: AppDesign.spacing16),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.softShadow,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          onTap: () => _navigateToMarkerDetail(marker),
-          child: Padding(
-            padding: EdgeInsets.all(AppDesign.spacing20),
-            child: Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 인덱스 번호 표시
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            keywordColor,
-                            keywordColor.withOpacity(0.7),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius:
-                            BorderRadius.circular(AppDesign.radiusMedium),
-                        boxShadow: [
-                          BoxShadow(
-                            color: keywordColor.withOpacity(0.3),
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.place_rounded,
-                            color: AppDesign.whiteText,
-                            size: 24,
-                          ),
-                          Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                              color: AppDesign.whiteText,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: AppDesign.spacing16),
-                    Expanded(
-                      child: Column(
+    return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: ReferenceCard(
+          padding: const EdgeInsets.all(8),
+          child: InkWell(
+              onTap: () => navigateToMarkerDetail(marker),
+              child: Row(children: [
+                SizedBox(
+                    width: 96,
+                    height: 80,
+                    child: Stack(children: [
+                      ReferencePhoto(
+                          title: title,
+                          address: address,
+                          width: 96,
+                          height: 80),
+                      Positioned(
+                          top: 4,
+                          left: 4,
+                          child: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.white,
+                              child: Text('${index + 1}',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppDesign.primaryText)))),
+                    ])),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 타이틀
-                          Text(
-                            title,
-                            style: AppDesign.headingSmall,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          SizedBox(height: AppDesign.spacing8),
-                          // 주소
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical: AppDesign.spacing8,
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(AppDesign.spacing4),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppDesign.travelGreen.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(
-                                        AppDesign.radiusSmall),
-                                  ),
-                                  child: Icon(
-                                    Icons.location_city_rounded,
-                                    size: 16,
-                                    color: AppDesign.travelGreen,
-                                  ),
-                                ),
-                                SizedBox(width: AppDesign.spacing8),
-                                Expanded(
-                                  child: Text(
-                                    address,
-                                    style: AppDesign.bodyMedium.copyWith(
-                                      color: AppDesign.secondaryText,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // 키워드 태그
-                          Container(
-                            margin: EdgeInsets.only(top: AppDesign.spacing4),
-                            padding: EdgeInsets.symmetric(
-                              horizontal: AppDesign.spacing12,
-                              vertical: AppDesign.spacing8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: keywordColor.withOpacity(0.1),
-                              borderRadius:
-                                  BorderRadius.circular(AppDesign.radiusXL),
-                              border: Border.all(
-                                color: keywordColor.withOpacity(0.3),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.label_rounded,
-                                  size: 14,
-                                  color: keywordColor,
-                                ),
-                                SizedBox(width: AppDesign.spacing4),
-                                Text(
-                                  keyword,
-                                  style: AppDesign.caption.copyWith(
-                                    color: keywordColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: AppDesign.spacing8),
-                    // 삭제 버튼
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius:
-                            BorderRadius.circular(AppDesign.radiusSmall),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius:
-                              BorderRadius.circular(AppDesign.radiusSmall),
-                          onTap: onDelete,
-                          child: Icon(
-                            Icons.delete_outline_rounded,
-                            color: Colors.red.shade400,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                // 하단 액션 영역 (옵션)
-                Container(
-                  margin: EdgeInsets.only(top: AppDesign.spacing16),
-                  padding: EdgeInsets.only(top: AppDesign.spacing16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: AppDesign.borderColor,
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.touch_app_outlined,
-                        size: 14,
-                        color: AppDesign.subtleText,
-                      ),
-                      SizedBox(width: AppDesign.spacing4),
-                      Text(
-                        '탭하여 상세 정보 보기',
-                        style: AppDesign.caption.copyWith(
-                          color: AppDesign.subtleText,
-                        ),
-                      ),
-                      Spacer(),
-                      Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 14,
-                        color: AppDesign.subtleText,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+                      Row(children: [
+                        Icon(placeKeywordIcon(keyword),
+                            size: 15, color: keywordColor),
+                        const SizedBox(width: 5),
+                        Expanded(
+                            child: Text(keyword,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 11, color: keywordColor))),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 5),
+                      Row(children: [
+                        const Icon(Icons.location_on,
+                            size: 14, color: AppDesign.subtleText),
+                        const SizedBox(width: 4),
+                        Expanded(
+                            child: Text(address,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppDesign.caption)),
+                      ]),
+                    ])),
+                IconButton(
+                    tooltip: '리스트에서 삭제',
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.bookmark_remove_outlined, size: 22)),
+                ReorderableDragStartListener(
+                    index: index,
+                    child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.drag_handle,
+                            size: 22, color: AppDesign.subtleText))),
+              ])),
+        ));
   }
 }
