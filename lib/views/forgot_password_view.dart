@@ -7,6 +7,8 @@ class ForgotPasswordView extends StatelessWidget {
   final TextEditingController _emailController = TextEditingController();
   final FocusNode _emailFocusNode = FocusNode();
 
+  ForgotPasswordView({super.key});
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
@@ -79,7 +81,7 @@ class ForgotPasswordView extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -115,7 +117,7 @@ class ForgotPasswordView extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: AppDesign.sunsetGradientStart.withOpacity(0.3),
+            color: AppDesign.sunsetGradientStart.withValues(alpha: 0.3),
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -8,
@@ -153,7 +155,8 @@ class ForgotPasswordView extends StatelessWidget {
     );
   }
 
-  Widget _buildResetForm(BuildContext context, ForgotPasswordViewModel viewModel) {
+  Widget _buildResetForm(
+      BuildContext context, ForgotPasswordViewModel viewModel) {
     return Container(
       padding: const EdgeInsets.all(AppDesign.spacing32),
       decoration: BoxDecoration(
@@ -214,7 +217,7 @@ class ForgotPasswordView extends StatelessWidget {
               prefixIcon: Container(
                 margin: const EdgeInsets.all(AppDesign.spacing12),
                 decoration: BoxDecoration(
-                  color: AppDesign.travelOrange.withOpacity(0.1),
+                  color: AppDesign.travelOrange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppDesign.spacing8),
                 ),
                 child: const Icon(
@@ -235,7 +238,8 @@ class ForgotPasswordView extends StatelessWidget {
     );
   }
 
-  Widget _buildResetButton(BuildContext context, ForgotPasswordViewModel viewModel) {
+  Widget _buildResetButton(
+      BuildContext context, ForgotPasswordViewModel viewModel) {
     return Container(
       width: double.infinity,
       height: 56,
@@ -244,7 +248,7 @@ class ForgotPasswordView extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
         boxShadow: [
           BoxShadow(
-            color: AppDesign.travelOrange.withOpacity(0.15),
+            color: AppDesign.travelOrange.withValues(alpha: 0.15),
             blurRadius: 24,
             offset: const Offset(0, 8),
             spreadRadius: -8,
@@ -261,94 +265,103 @@ class ForgotPasswordView extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
           ),
         ),
-        onPressed: viewModel.isLoading ? null : () async {
-          String email = _emailController.text.trim();
-          String? errorMessage = await viewModel.sendPasswordResetEmail(email);
+        onPressed: viewModel.isLoading
+            ? null
+            : () async {
+                String email = _emailController.text.trim();
+                String? errorMessage =
+                    await viewModel.sendPasswordResetEmail(email);
 
-          if (errorMessage == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(
-                      Icons.mark_email_read_outlined,
-                      color: AppDesign.whiteText,
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppDesign.spacing8),
-                    Expanded(
-                      child: Text(
-                        '비밀번호 재설정 이메일을 보냈습니다.',
-                        style: AppDesign.bodyMedium.copyWith(
-                          color: AppDesign.whiteText,
-                        ),
+                if (errorMessage == null) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(
+                            Icons.mark_email_read_outlined,
+                            color: AppDesign.whiteText,
+                            size: 20,
+                          ),
+                          const SizedBox(width: AppDesign.spacing8),
+                          Expanded(
+                            child: Text(
+                              '비밀번호 재설정 이메일을 보냈습니다.',
+                              style: AppDesign.bodyMedium.copyWith(
+                                color: AppDesign.whiteText,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                backgroundColor: AppDesign.travelGreen,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                margin: const EdgeInsets.all(AppDesign.spacing16),
-              ),
-            );
-            Navigator.pop(context);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: AppDesign.whiteText,
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppDesign.spacing8),
-                    Expanded(
-                      child: Text(
-                        errorMessage,
-                        style: AppDesign.bodyMedium.copyWith(
-                          color: AppDesign.whiteText,
-                        ),
+                      backgroundColor: AppDesign.travelGreen,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppDesign.radiusSmall),
                       ),
+                      margin: const EdgeInsets.all(AppDesign.spacing16),
                     ),
-                  ],
-                ),
-                backgroundColor: AppDesign.sunsetGradientStart,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                margin: const EdgeInsets.all(AppDesign.spacing16),
-              ),
-            );
-          }
-        },
+                  );
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                } else {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: AppDesign.whiteText,
+                            size: 20,
+                          ),
+                          const SizedBox(width: AppDesign.spacing8),
+                          Expanded(
+                            child: Text(
+                              errorMessage,
+                              style: AppDesign.bodyMedium.copyWith(
+                                color: AppDesign.whiteText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: AppDesign.sunsetGradientStart,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppDesign.radiusSmall),
+                      ),
+                      margin: const EdgeInsets.all(AppDesign.spacing16),
+                    ),
+                  );
+                }
+              },
         child: viewModel.isLoading
             ? const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            valueColor: AlwaysStoppedAnimation<Color>(AppDesign.whiteText),
-          ),
-        )
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(AppDesign.whiteText),
+                ),
+              )
             : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.send_outlined, size: 20),
-            const SizedBox(width: AppDesign.spacing8),
-            Text(
-              '재설정 이메일 보내기',
-              style: AppDesign.bodyMedium.copyWith(
-                color: AppDesign.whiteText,
-                fontWeight: FontWeight.w600,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.send_outlined, size: 20),
+                  const SizedBox(width: AppDesign.spacing8),
+                  Text(
+                    '재설정 이메일 보내기',
+                    style: AppDesign.bodyMedium.copyWith(
+                      color: AppDesign.whiteText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -357,10 +370,10 @@ class ForgotPasswordView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppDesign.spacing24),
       decoration: BoxDecoration(
-        color: AppDesign.cardBg.withOpacity(0.7),
+        color: AppDesign.cardBg.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
         border: Border.all(
-          color: AppDesign.borderColor.withOpacity(0.5),
+          color: AppDesign.borderColor.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
@@ -371,7 +384,7 @@ class ForgotPasswordView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppDesign.spacing8),
                 decoration: BoxDecoration(
-                  color: AppDesign.travelBlue.withOpacity(0.1),
+                  color: AppDesign.travelBlue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppDesign.spacing8),
                 ),
                 child: const Icon(
