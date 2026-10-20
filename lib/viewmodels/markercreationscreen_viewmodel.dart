@@ -1,14 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../env.dart';
+import '../services/geocoding_service.dart';
 import '../services/user_service.dart';
-import '../config.dart';
 
 class MarkerCreationScreenViewModel extends ChangeNotifier {
-
+  final GeocodingService _geocodingService = const GeocodingService();
   Map<String, IconData> get keywordIcons => _keywordIcons;
 
   final Map<String, IconData> _keywordIcons = {
@@ -22,7 +19,6 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _lists = [];
   List<Map<String, dynamic>> get lists => _lists;
 
-
   Future<void> fetchUserLists() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
@@ -30,19 +26,35 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
     try {
       final response = await supabase
           .from('lists')
-          .select()
+          .select('id, name, list_bookmarks(title)')
           .eq('user_id', user.id)
           .order('created_at', ascending: false);
 
       _lists = (response as List).cast<Map<String, dynamic>>();
       notifyListeners();
     } catch (e) {
-      print('리스트 불러오기 실패: $e');
+      debugPrint('리스트 불러오기 실패: $e');
+      rethrow;
     }
   }
 
+  Future<String> createList(String name) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw StateError('로그인이 필요합니다.');
+    final result = await supabase
+        .from('lists')
+        .insert({
+          'user_id': user.id,
+          'name': name,
+          'created_at': DateTime.now().toIso8601String(),
+        })
+        .select('id')
+        .single();
+    return result['id'].toString();
+  }
+
   // 새 마커 생성
-  Future<void> saveMarker({
+  Future<bool> saveMarker({
     required Marker marker,
     required String keyword,
     required String markerImagePath,
@@ -63,39 +75,22 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
           'address': address,
           'keyword': keyword,
         });
+        return true;
       } catch (e) {
-        print('Error saving marker: $e');
+        debugPrint('Error saving marker: $e');
       }
     }
+    return false;
   }
 
-
-
-  Future<String> getAddressFromCoordinates(double latitude, double longitude) async {
-    final apiKey = Env.googleMapsApiKey;
-    final url = Uri.parse(
-      'https://maps.googleapis.com/maps/api/geocode/json?latlng=$latitude,$longitude&key=$apiKey&language=ko',
-    );
-
+  Future<String> getAddressFromCoordinates(
+      double latitude, double longitude) async {
     try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['status'] == 'OK') {
-          final results = json['results'];
-          if (results != null && results.isNotEmpty) {
-            return results[0]['formatted_address'];
-          }
-        } else {
-          print('Google Geocoding API Error: ${json['status']}');
-        }
-      } else {
-        print('HTTP Error: ${response.statusCode}');
-      }
+      return await _geocodingService.findAddress(latitude, longitude) ??
+          '주소 정보를 불러올 수 없습니다';
     } catch (e) {
-      print('Exception during reverse geocoding: $e');
+      debugPrint('Exception during reverse geocoding: $e');
+      return '주소 정보를 불러올 수 없습니다';
     }
-
-    return '주소 정보를 불러올 수 없습니다';
   }
 }
