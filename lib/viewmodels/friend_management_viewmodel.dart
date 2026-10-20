@@ -1,3 +1,4 @@
+import '../services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
@@ -42,7 +43,7 @@ class FriendManagementViewModel extends ChangeNotifier {
   }
 
   // 친구 요청 보내기
-  Future<void> sendFriendRequest(BuildContext context, String nickname) async {
+  Future<String> sendFriendRequest(String nickname) async {
     try {
       final userRes = await supabase
           .from('profiles')
@@ -51,10 +52,7 @@ class FriendManagementViewModel extends ChangeNotifier {
           .maybeSingle();
 
       if (userRes == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('사용자를 찾을 수 없습니다.')),
-        );
-        return;
+        return '사용자를 찾을 수 없습니다.';
       }
       final toUserId = userRes['id'] as String;
 
@@ -71,33 +69,29 @@ class FriendManagementViewModel extends ChangeNotifier {
           .maybeSingle();
 
       if (existingReq != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('이미 친구 요청이 존재합니다.')),
-        );
-        return;
+        return '이미 친구 요청이 존재합니다.';
       }
       if (existingFriend != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('이미 친구입니다.')),
-        );
-        return;
+        return '이미 친구입니다.';
       }
 
       // insert는 List<dynamic> 반환이므로 에러처리는 try/catch로!
-      await supabase.from('friend_requests').insert({
-        'requester_id': currentUserId,
-        'requested_id': toUserId,
-        'status': 'pending',
-      });
+      final request = await supabase
+          .from('friend_requests')
+          .insert({
+            'requester_id': currentUserId,
+            'requested_id': toUserId,
+            'status': 'pending',
+          })
+          .select('id')
+          .single();
+      await NotificationService(supabase: supabase)
+          .notifyFriendRequest(request['id'].toString());
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('친구 요청이 전송되었습니다.')),
-      );
+      return '친구 요청이 전송되었습니다.';
     } catch (e) {
-      print('오류 발생: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류 발생: $e')),
-      );
+      debugPrint('오류 발생: $e');
+      return '오류 발생: $e';
     }
   }
 
@@ -108,19 +102,20 @@ class FriendManagementViewModel extends ChangeNotifier {
     try {
       final res = await supabase
           .from('friend_requests')
-          .select('requester_id, status, requester:profiles!friend_requests_requester_id_fkey(id, nickname)')
+          .select(
+              'requester_id, status, requester:profiles!friend_requests_requester_id_fkey(id, nickname)')
           .eq('requested_id', currentUserId)
           .eq('status', 'pending');
 
       return List<Map<String, dynamic>>.from(res);
     } catch (e) {
-      print('오류 발생: $e');
+      debugPrint('오류 발생: $e');
       return [];
     }
   }
 
   // 친구 요청 수락
-  Future<void> acceptFriendRequest(BuildContext context, String requesterId) async {
+  Future<String> acceptFriendRequest(String requesterId) async {
     final currentUserId = this.currentUserId;
 
     try {
@@ -143,19 +138,15 @@ class FriendManagementViewModel extends ChangeNotifier {
         });
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('친구 요청을 수락했습니다.')),
-      );
+      return '친구 요청을 수락했습니다.';
     } catch (e) {
-      print('오류 발생: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류 발생: $e')),
-      );
+      debugPrint('오류 발생: $e');
+      return '오류 발생: $e';
     }
   }
 
   // 친구 요청 거절
-  Future<void> declineFriendRequest(BuildContext context, String requesterId) async {
+  Future<String> declineFriendRequest(String requesterId) async {
     final currentUserId = this.currentUserId;
 
     try {
@@ -165,14 +156,10 @@ class FriendManagementViewModel extends ChangeNotifier {
           .eq('requester_id', requesterId)
           .eq('requested_id', currentUserId);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('친구 요청을 거절했습니다.')),
-      );
+      return '친구 요청을 거절했습니다.';
     } catch (e) {
-      print('오류 발생: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류 발생: $e')),
-      );
+      debugPrint('오류 발생: $e');
+      return '오류 발생: $e';
     }
   }
 
@@ -200,22 +187,24 @@ class FriendManagementViewModel extends ChangeNotifier {
       });
     }
 
-    for (var f in friends1) addFriend(f['user2_id'], f['profiles']['nickname']);
-    for (var f in friends2) addFriend(f['user1_id'], f['profiles']['nickname']);
+    for (var f in friends1) {
+      addFriend(f['user2_id'], f['profiles']['nickname']);
+    }
+    for (var f in friends2) {
+      addFriend(f['user1_id'], f['profiles']['nickname']);
+    }
 
     return friendsList;
   }
 
   // 친구 삭제 메서드
-  Future<void> removeFriend(BuildContext context, String friendId) async {
+  Future<String> removeFriend(String friendId) async {
     try {
       final currentUserId = this.currentUserId;
 
       // 1. 친구 관계 삭제 (friends 테이블)
-      await supabase
-          .from('friends')
-          .delete()
-          .or('and(user1_id.eq.$currentUserId,user2_id.eq.$friendId),and(user1_id.eq.$friendId,user2_id.eq.$currentUserId)');
+      await supabase.from('friends').delete().or(
+          'and(user1_id.eq.$currentUserId,user2_id.eq.$friendId),and(user1_id.eq.$friendId,user2_id.eq.$currentUserId)');
 
       // 2. 여행 리스트 멤버 삭제 (list_members 테이블)
       // 내가 생성한 리스트들(lists 테이블의 owner) 중에서
@@ -227,7 +216,8 @@ class FriendManagementViewModel extends ChangeNotifier {
           .select('id')
           .eq('user_id', currentUserId);
 
-      final myListIds = (myListRes as List).map((e) => e['id'] as String).toList();
+      final myListIds =
+          (myListRes as List).map((e) => e['id'] as String).toList();
 
       // 2-2. 해당 리스트들 중에서 삭제할 친구가 멤버인 행 삭제
       if (myListIds.isNotEmpty) {
@@ -240,15 +230,10 @@ class FriendManagementViewModel extends ChangeNotifier {
 
       // 3. 알림 및 UI 업데이트
       notifyListeners();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('친구 삭제 및 관련 여행 협업 관계가 해제되었습니다.')),
-      );
-
+      return '친구 삭제 및 관련 여행 협업 관계가 해제되었습니다.';
     } catch (e) {
-      print('친구 삭제 오류: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류가 발생했습니다: $e')),
-      );
+      debugPrint('친구 삭제 오류: $e');
+      return '오류가 발생했습니다: $e';
     }
   }
 }
