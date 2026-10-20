@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:material_ui/material_ui.dart'
-    show MaterialUiCompatibilityBridge;
 import 'package:shimmer/shimmer.dart';
 
 import '../design/app_design.dart';
@@ -13,13 +11,11 @@ class TravelShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialUiCompatibilityBridge(
-      child: Shimmer.fromColors(
-        baseColor: AppDesign.lightGray,
-        highlightColor: AppDesign.cardBg,
-        period: const Duration(milliseconds: 1300),
-        child: child,
-      ),
+    return Shimmer.fromColors(
+      baseColor: AppDesign.lightGray,
+      highlightColor: AppDesign.cardBg,
+      period: const Duration(milliseconds: 1300),
+      child: child,
     );
   }
 }
