@@ -1,10 +1,11 @@
+import '../widgets/app_overlays.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/friend_management_viewmodel.dart';
 import 'package:flutter/material.dart';
 import '../design/app_design.dart'; // AppDesign 임포트 추가
 
 class FriendManagementView extends StatefulWidget {
-  const FriendManagementView({Key? key}) : super(key: key);
+  const FriendManagementView({super.key});
 
   @override
   State<FriendManagementView> createState() => _FriendManagementViewState();
@@ -27,26 +28,19 @@ class _FriendManagementViewState extends State<FriendManagementView>
     super.initState();
     _initializeAnimations();
     _tabController = TabController(length: 2, vsync: this);
-    _refreshData();
-    _viewModel = Provider.of<FriendManagementViewModel>(context, listen: false);
-    _viewModel!.addListener(_handleViewModelUpdate);
-    // 2. 초기화 순서: 인스턴스 확보 후 리스너 등록 및 데이터 호출
-    final vm = Provider.of<FriendManagementViewModel>(context, listen: false);
-    _viewModel = vm;
-    vm.addListener(_handleViewModelUpdate);
-
-    _refreshData();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-      _viewModel = Provider.of<FriendManagementViewModel>(context);
-      _viewModel?.addListener(_handleViewModelUpdate);
-
-      // 초기 데이터 로드
-      _refreshData();
-
+    final vm = Provider.of<FriendManagementViewModel>(context);
+    if (!identical(_viewModel, vm)) {
+      _viewModel?.removeListener(_handleViewModelUpdate);
+      _viewModel = vm;
+      vm.addListener(_handleViewModelUpdate);
+      _receivedRequestsFuture = vm.getReceivedFriendRequests();
+      _friendsListFuture = vm.getFriendsList();
+    }
   }
 
   @override
@@ -73,7 +67,8 @@ class _FriendManagementViewState extends State<FriendManagementView>
     if (_viewModel == null) return;
 
     setState(() {
-      _receivedRequestsFuture = _viewModel?.getReceivedFriendRequests() ?? Future.value([]);
+      _receivedRequestsFuture =
+          _viewModel?.getReceivedFriendRequests() ?? Future.value([]);
       _friendsListFuture = _viewModel?.getFriendsList() ?? Future.value([]);
     });
   }
@@ -82,6 +77,12 @@ class _FriendManagementViewState extends State<FriendManagementView>
     if (mounted) {
       _refreshData();
     }
+  }
+
+  void _showResult(String? message) {
+    if (!mounted || message == null) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -151,7 +152,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
                       Navigator.pushNamedAndRemoveUntil(
                         context,
                         '/home',
-                            (route) => false,
+                        (route) => false,
                       );
                     },
                     child: const Icon(
@@ -187,10 +188,10 @@ class _FriendManagementViewState extends State<FriendManagementView>
               vertical: 6,
             ),
             decoration: BoxDecoration(
-              color: AppDesign.travelPurple.withOpacity(0.1),
+              color: AppDesign.travelPurple.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: AppDesign.travelPurple.withOpacity(0.2),
+                color: AppDesign.travelPurple.withValues(alpha: 0.2),
                 width: 1,
               ),
             ),
@@ -225,7 +226,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
         borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
         boxShadow: [
           BoxShadow(
-            color: AppDesign.travelBlue.withOpacity(0.3),
+            color: AppDesign.travelBlue.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -251,7 +252,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
                   Container(
                     width: 1,
                     height: 40,
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                   ),
                   _buildStatItem(
                     Icons.person_add_rounded,
@@ -261,7 +262,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
                   Container(
                     width: 1,
                     height: 40,
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                   ),
                   _buildStatItem(
                     Icons.public_rounded,
@@ -280,7 +281,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
   Widget _buildStatItem(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, color: Colors.white.withOpacity(0.9), size: 24),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 24),
         const SizedBox(height: AppDesign.spacing8),
         Text(
           value,
@@ -291,7 +292,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
         Text(
           label,
           style: AppDesign.caption.copyWith(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
           ),
         ),
       ],
@@ -435,7 +436,9 @@ class _FriendManagementViewState extends State<FriendManagementView>
                   icon: Icons.check_rounded,
                   color: AppDesign.travelGreen,
                   onTap: () async {
-                    await _viewModel?.acceptFriendRequest(context, requesterId);
+                    _showResult(
+                      await _viewModel?.acceptFriendRequest(requesterId),
+                    );
                     _refreshData();
                   },
                 ),
@@ -444,7 +447,9 @@ class _FriendManagementViewState extends State<FriendManagementView>
                   icon: Icons.close_rounded,
                   color: Colors.red.shade400,
                   onTap: () async {
-                    await _viewModel?.declineFriendRequest(context, requesterId);
+                    _showResult(
+                      await _viewModel?.declineFriendRequest(requesterId),
+                    );
                     _refreshData();
                   },
                 ),
@@ -465,7 +470,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
       ),
       child: Material(
@@ -521,7 +526,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppDesign.primaryText.withOpacity(0.9),
+            AppDesign.primaryText.withValues(alpha: 0.9),
             AppDesign.primaryText,
           ],
         ),
@@ -544,10 +549,10 @@ class _FriendManagementViewState extends State<FriendManagementView>
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           width: 2,
                         ),
                       ),
@@ -600,9 +605,10 @@ class _FriendManagementViewState extends State<FriendManagementView>
                         ),
                         decoration: BoxDecoration(
                           color: isOnline
-                              ? AppDesign.travelGreen.withOpacity(0.2)
-                              : Colors.grey.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(AppDesign.radiusXL),
+                              ? AppDesign.travelGreen.withValues(alpha: 0.2)
+                              : Colors.grey.withValues(alpha: 0.2),
+                          borderRadius:
+                              BorderRadius.circular(AppDesign.radiusXL),
                         ),
                         child: Text(
                           isOnline ? '온라인' : '오프라인',
@@ -621,7 +627,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
                 PopupMenuButton<String>(
                   icon: Icon(
                     Icons.more_vert_rounded,
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                   ),
                   offset: const Offset(0, 40),
                   shape: RoundedRectangleBorder(
@@ -663,29 +669,20 @@ class _FriendManagementViewState extends State<FriendManagementView>
     );
   }
 
-  void _showDeleteConfirmDialog(BuildContext context, String friendId, String nickname) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDesign.radiusXL)),
-        title: const Text('친구 삭제'),
-        content: Text('$nickname 님을 친구 목록에서 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              context.read<FriendManagementViewModel>().removeFriend(context, friendId);
-
-              Navigator.pop(context); // 다이얼로그 닫기
-            },
-            child: const Text('삭제', style: TextStyle(color: Colors.red)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-        ],
-      ),
-    );
+  void _showDeleteConfirmDialog(
+      BuildContext context, String friendId, String nickname) async {
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AppConfirmDialog(
+            title: '친구를 삭제할까요?',
+            message: '$nickname 님을 친구 목록에서 삭제합니다.',
+            confirmLabel: '삭제',
+            destructive: true,
+            icon: Icons.person_remove_outlined));
+    if (confirmed == true && mounted) {
+      final message = await _viewModel?.removeFriend(friendId);
+      if (mounted) _showResult(message);
+    }
   }
 
   Widget _buildLoadingState() {
@@ -764,8 +761,8 @@ class _FriendManagementViewState extends State<FriendManagementView>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppDesign.travelBlue.withOpacity(0.1),
-                  AppDesign.travelPurple.withOpacity(0.1),
+                  AppDesign.travelBlue.withValues(alpha: 0.1),
+                  AppDesign.travelPurple.withValues(alpha: 0.1),
                 ],
               ),
               shape: BoxShape.circle,
@@ -804,8 +801,8 @@ class _FriendManagementViewState extends State<FriendManagementView>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppDesign.travelPurple.withOpacity(0.1),
-                  AppDesign.travelBlue.withOpacity(0.1),
+                  AppDesign.travelPurple.withValues(alpha: 0.1),
+                  AppDesign.travelBlue.withValues(alpha: 0.1),
                 ],
               ),
               shape: BoxShape.circle,
@@ -843,7 +840,7 @@ class _FriendManagementViewState extends State<FriendManagementView>
         boxShadow: [
           ...AppDesign.elevatedShadow,
           BoxShadow(
-            color: AppDesign.travelBlue.withOpacity(0.3),
+            color: AppDesign.travelBlue.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -864,190 +861,19 @@ class _FriendManagementViewState extends State<FriendManagementView>
     );
   }
 
-  void _showFriendRequestDialog(BuildContext context) {
-    final TextEditingController dialogController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: AppDesign.cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        ),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppDesign.cardBg,
-            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-            boxShadow: AppDesign.elevatedShadow,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(AppDesign.spacing32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 아이콘
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    gradient: AppDesign.primaryGradient,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.person_add_rounded,
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(height: AppDesign.spacing24),
-                // 타이틀
-                Text(
-                  '친구 요청 보내기',
-                  style: AppDesign.headingMedium,
-                ),
-                const SizedBox(height: AppDesign.spacing8),
-                Text(
-                  '친구의 닉네임을 입력해주세요',
-                  style: AppDesign.bodyMedium.copyWith(
-                    color: AppDesign.secondaryText,
-                  ),
-                ),
-                const SizedBox(height: AppDesign.spacing24),
-                // 입력 필드
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppDesign.lightGray,
-                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                    border: Border.all(
-                      color: AppDesign.borderColor,
-                      width: 1,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: dialogController,
-                    autofocus: true,
-                    style: AppDesign.bodyMedium,
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(
-                        Icons.alternate_email_rounded,
-                        color: AppDesign.travelBlue,
-                        size: 20,
-                      ),
-                      hintText: '닉네임 입력',
-                      hintStyle: AppDesign.bodyMedium.copyWith(
-                        color: AppDesign.subtleText,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppDesign.spacing16,
-                        vertical: AppDesign.spacing16,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppDesign.spacing32),
-                // 버튼들
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: AppDesign.borderColor,
-                            width: 1,
-                          ),
-                          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                            onTap: () => Navigator.of(context).pop(),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: AppDesign.spacing16,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '취소',
-                                  style: AppDesign.bodyMedium.copyWith(
-                                    color: AppDesign.secondaryText,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppDesign.spacing12),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: AppDesign.primaryGradient,
-                          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                          boxShadow: AppDesign.glowShadow,
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                            onTap: () async {
-                              String nickname = dialogController.text.trim();
-                              if (nickname.isNotEmpty) {
-                                await _viewModel?.sendFriendRequest(context, nickname);
-                                Navigator.of(context).pop();
-                                _refreshData();
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.error_outline,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: AppDesign.spacing8),
-                                        const Text('닉네임을 입력하세요'),
-                                      ],
-                                    ),
-                                    backgroundColor: Colors.red.shade400,
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: AppDesign.spacing16,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '요청 보내기',
-                                  style: AppDesign.bodyMedium.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+  void _showFriendRequestDialog(BuildContext context) async {
+    final nickname = await showDialog<String>(
+        context: context,
+        builder: (_) => const AppTextInputDialog(
+            title: '친구 요청 보내기',
+            subtitle: '함께 여행할 친구의 닉네임을 입력해주세요.',
+            hint: '닉네임을 입력해주세요',
+            submitLabel: '요청 보내기',
+            icon: Icons.alternate_email_rounded));
+    if (nickname == null || !mounted) return;
+    final result = await _viewModel?.sendFriendRequest(nickname);
+    if (!mounted) return;
+    _showResult(result);
+    _refreshData();
   }
 }
