@@ -13,6 +13,51 @@ class CommunityBoardViewModel extends ChangeNotifier {
 
   List<CommunityPost> get posts => List.unmodifiable(_posts);
   List<CommunityMarker> get myMarkers => List.unmodifiable(_myMarkers);
+  bool _disposed = false;
+  final Map<String, int> likeCounts = {};
+  final Map<String, int> commentCounts = {};
+  final Set<String> likedPosts = {};
+  final Set<String> pendingLikes = {};
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  Future<String?> toggleLike(String postId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return '로그인 후 좋아요를 누를 수 있습니다.';
+    if (!pendingLikes.add(postId)) return null;
+    notifyListeners();
+    final wasLiked = likedPosts.contains(postId);
+    try {
+      if (wasLiked) {
+        await _client
+            .from('travel_post_likes')
+            .delete()
+            .eq('post_id', postId)
+            .eq('user_id', user.id);
+      } else {
+        await _client
+            .from('travel_post_likes')
+            .insert({'post_id': postId, 'user_id': user.id});
+      }
+      await loadPosts();
+      return null;
+    } catch (_) {
+      return '좋아요를 반영하지 못했습니다. 다시 시도해주세요.';
+    } finally {
+      pendingLikes.remove(postId);
+      notifyListeners();
+    }
+  }
+
   bool isLoading = false;
   bool isLoadingMarkers = false;
   String? errorMessage;
@@ -23,10 +68,7 @@ class CommunityBoardViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _client
-          .from('travel_posts')
-          .select(
-          '''
+      final response = await _client.from('travel_posts').select('''
           id, 
           title, 
           content, 
@@ -40,19 +82,42 @@ class CommunityBoardViewModel extends ChangeNotifier {
           place_lat, 
           place_lng, 
           place_image_path,
-          profiles!travel_posts_author_id_fkey(nickname)   // ← 여기 수정
-          '''
-      )
-          .order('created_at', ascending: false);
+          profiles!travel_posts_author_id_fkey(nickname),
+          travel_post_likes(count),
+          travel_post_comments(count)
+          ''').order('created_at', ascending: false);
 
+      int count(dynamic value) => value is List && value.isNotEmpty
+          ? ((value.first as Map)['count'] as num?)?.toInt() ?? 0
+          : 0;
+      final nextLikes = <String>{};
+      final user = _client.auth.currentUser;
+      if (user != null && response.isNotEmpty) {
+        final ownLikes = await _client
+            .from('travel_post_likes')
+            .select('post_id')
+            .eq('user_id', user.id)
+            .inFilter('post_id', response.map((row) => row['id']).toList());
+        nextLikes.addAll(ownLikes.map((row) => row['post_id'].toString()));
+      }
+      likeCounts.clear();
+      commentCounts.clear();
+      for (final row in response) {
+        likeCounts[row['id'].toString()] = count(row['travel_post_likes']);
+        commentCounts[row['id'].toString()] =
+            count(row['travel_post_comments']);
+      }
+      likedPosts
+        ..clear()
+        ..addAll(nextLikes);
       _posts
         ..clear()
         ..addAll(
           (response as List).map(
-                  (data) => CommunityPost.fromMap(data as Map<String, dynamic>)),
+              (data) => CommunityPost.fromMap(data as Map<String, dynamic>)),
         );
     } catch (e) {
-      print('❌ loadPosts 에러: $e');
+      debugPrint('❌ loadPosts 에러: $e');
       errorMessage = '게시물을 불러오지 못했습니다.';
     } finally {
       isLoading = false;
