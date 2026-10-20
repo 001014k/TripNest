@@ -11,7 +11,8 @@ class SearchService {
 
   /// Google Places API 검색
   Future<List<Marker>> searchPlacesWithQuery(String query) async {
-    final url = Uri.parse('https://places.googleapis.com/v1/places:searchText?&key=$apiKey');
+    final url = Uri.parse(
+        'https://places.googleapis.com/v1/places:searchText?&key=$apiKey');
 
     final requestBody = json.encode({
       "textQuery": query,
@@ -22,7 +23,8 @@ class SearchService {
       url,
       headers: {
         'Content-Type': 'application/json',
-        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location'
+        'X-Goog-FieldMask':
+            'places.displayName,places.formattedAddress,places.location'
       },
       body: requestBody,
     );
