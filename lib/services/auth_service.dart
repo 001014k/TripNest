@@ -3,9 +3,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
+  Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
+
+  Future<bool> hasNickname(String userId) async {
+    final profile = await _supabase
+        .from('profiles')
+        .select('nickname')
+        .eq('id', userId)
+        .maybeSingle();
+    final nickname = profile?['nickname'] as String?;
+    return nickname != null && nickname.isNotEmpty;
+  }
 
   /// 자동 로그인 정보 저장
-  Future<void> saveUserCredentials(String email, String password, bool rememberMe) async {
+  Future<void> saveUserCredentials(
+      String email, String password, bool rememberMe) async {
     final prefs = await SharedPreferences.getInstance();
     if (rememberMe) {
       prefs.setBool('remember_me', true);
@@ -55,7 +67,8 @@ class AuthService {
   }
 
   /// 회원가입
-  Future<String?> signUp(String email, String password, String confirmPassword) async {
+  Future<String?> signUp(
+      String email, String password, String confirmPassword) async {
     if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
       return "모든 필드를 입력해주세요.";
     }
