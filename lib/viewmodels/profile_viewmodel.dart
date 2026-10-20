@@ -10,6 +10,15 @@ class ProfileViewModel extends ChangeNotifier {
   ProfileViewModel({UserService? userService})
       : _userService = userService ?? UserService();
 
+  Future<bool> signOut() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Map<String, int>? _stats;
   Map<String, int>? get stats => _stats;
 
@@ -19,13 +28,13 @@ class ProfileViewModel extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  String? _nickname;       // 닉네임 필드 추가
+  String? _nickname; // 닉네임 필드 추가
   String? get nickname => _nickname;
 
   List<UserModel> _searchResults = [];
   List<UserModel> get searchResults => _searchResults;
 
-  Set<String> _followingIds = {};
+  final Set<String> _followingIds = {};
   Set<String> get followingIds => _followingIds;
 
   Future<void> fetchUserStats(String userId) async {
@@ -50,8 +59,8 @@ class ProfileViewModel extends ChangeNotifier {
         _nickname = profile.nickname;
       }
     } catch (e, st) {
-      print('fetchUserStats 오류: $e');
-      print(st);
+      debugPrint('fetchUserStats 오류: $e');
+      debugPrint(st.toString());
       _errorMessage = "사용자 데이터를 불러오는 중 오류 발생: $e";
     }
 
@@ -74,7 +83,8 @@ class ProfileViewModel extends ChangeNotifier {
       }
 
       // 소셜 연결 해제
-      final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+      final accessToken =
+          Supabase.instance.client.auth.currentSession?.accessToken;
       final identities = user.identities ?? [];
       for (final identity in identities) {
         final provider = identity.provider;
@@ -91,13 +101,14 @@ class ProfileViewModel extends ChangeNotifier {
         'delete-account',
         body: {},
         headers: {
-          'Authorization': 'Bearer ${Supabase.instance.client.auth.currentSession?.accessToken ?? ''}',
+          'Authorization':
+              'Bearer ${Supabase.instance.client.auth.currentSession?.accessToken ?? ''}',
         },
       );
 
-      print("Edge Function Status: ${response.status}");
-      print("Edge Function Response Data: ${response.data}");
-      print("Response Data Type: ${response.data.runtimeType}");
+      debugPrint("Edge Function Status: ${response.status}");
+      debugPrint("Edge Function Response Data: ${response.data}");
+      debugPrint("Response Data Type: ${response.data.runtimeType}");
 
       final data = response.data;
 
@@ -116,17 +127,17 @@ class ProfileViewModel extends ChangeNotifier {
 
       if (isSuccess) {
         await Supabase.instance.client.auth.signOut();
-        print("회원탈퇴 성공!");
+        debugPrint("회원탈퇴 성공!");
         _isLoading = false;
         notifyListeners();
         return true;
       } else {
-        final errorMsg = (data is Map) ? (data['error'] ?? '알 수 없는 오류') : '탈퇴 처리 실패';
+        final errorMsg =
+            (data is Map) ? (data['error'] ?? '알 수 없는 오류') : '탈퇴 처리 실패';
         throw Exception(errorMsg);
       }
-
     } catch (e) {
-      print("탈퇴 실패 상세: $e");
+      debugPrint("탈퇴 실패 상세: $e");
       _errorMessage = "탈퇴 처리 중 오류가 발생했습니다. 다시 시도해주세요.";
       _isLoading = false;
       notifyListeners();
@@ -141,23 +152,24 @@ class ProfileViewModel extends ChangeNotifier {
         headers: {'Authorization': 'Bearer $accessToken'},
       );
       if (response.statusCode == 200) {
-        print("카카오 앱 완전 연동 해제 성공!");
+        debugPrint("카카오 앱 완전 연동 해제 성공!");
       }
     } catch (e) {
-      print("카카오 unlink 실패: $e");
+      debugPrint("카카오 unlink 실패: $e");
     }
   }
 
   Future<void> _revokeGoogleToken(String accessToken) async {
     try {
       final response = await http.get(
-        Uri.parse('https://accounts.google.com/o/oauth2/revoke?token=$accessToken'),
+        Uri.parse(
+            'https://accounts.google.com/o/oauth2/revoke?token=$accessToken'),
       );
       if (response.statusCode == 200) {
-        print("구글 앱 완전 연동 해제 성공!");
+        debugPrint("구글 앱 완전 연동 해제 성공!");
       }
     } catch (e) {
-      print("구글 revoke 실패: $e");
+      debugPrint("구글 revoke 실패: $e");
     }
   }
 
