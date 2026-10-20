@@ -1,6 +1,9 @@
 class ListModel {
   final String id;
   final String name;
+  final bool isOwner;
+  final String? coverTitle;
+  final List<String> keywords;
   final DateTime createdAt;
   final int markerCount;
   int collaboratorCount;
@@ -8,6 +11,9 @@ class ListModel {
   ListModel({
     required this.id,
     required this.name,
+    this.isOwner = false,
+    this.coverTitle,
+    this.keywords = const [],
     required this.createdAt,
     required this.markerCount,
     this.collaboratorCount = 0,
@@ -23,9 +29,12 @@ class ListModel {
     return ListModel(
       id: id ?? this.id,
       name: name ?? this.name,
+      isOwner: isOwner,
+      coverTitle: coverTitle,
+      keywords: keywords,
       createdAt: createdAt ?? this.createdAt,
       markerCount: markerCount ?? this.markerCount,
-      collaboratorCount: this.collaboratorCount,
+      collaboratorCount: collaboratorCount ?? this.collaboratorCount,
     );
   }
 }
