@@ -43,7 +43,8 @@ class NotificationService {
       );
 
       final token = await messaging.getToken();
-      debugPrint('📌 getToken() 결과: ${token != null ? token.substring(0, 20) + "..." : "null"}');
+      debugPrint(
+          '📌 getToken() 결과: ${token != null ? "${token.substring(0, 20)}..." : "null"}');
 
       if (token != null) {
         await _savePushToken(token);
@@ -51,7 +52,7 @@ class NotificationService {
 
       await _tokenRefreshSubscription?.cancel();
       _tokenRefreshSubscription = messaging.onTokenRefresh.listen(
-            (newToken) {
+        (newToken) {
           debugPrint('🔄 Token Refresh 발생!');
           unawaited(_savePushToken(newToken));
         },
@@ -72,10 +73,7 @@ class NotificationService {
 
     try {
       // 기존 토큰 삭제 (강제 갱신)
-      await _supabase
-          .from('user_push_tokens')
-          .delete()
-          .eq('user_id', user.id);
+      // Preserve tokens registered on the user’s other devices.
 
       // 새 토큰 저장
       await _supabase.rpc(
@@ -102,10 +100,7 @@ class NotificationService {
       final messaging = FirebaseMessaging.instance;
 
       // 기존 토큰 삭제 (서버에서)
-      await _supabase
-          .from('user_push_tokens')
-          .delete()
-          .eq('user_id', user.id);
+      // Preserve tokens registered on the user’s other devices.
 
       // 새 토큰 발급
       final token = await messaging.getToken();
@@ -156,6 +151,26 @@ class NotificationService {
     } catch (e, stackTrace) {
       debugPrint('❌ 마커 추가 알림 생성 실패: $e');
       debugPrint('$stackTrace');
+    }
+  }
+
+  Future<void> notifyFriendRequest(String requestId) =>
+      _notify('notify_friend_request', {'p_request_id': requestId});
+
+  Future<void> notifyListUpdated(String listId, String change) =>
+      _notify('notify_list_updated', {'p_list_id': listId, 'p_change': change});
+
+  Future<void> _notify(String function, Map<String, dynamic> params) async {
+    if (_supabase.auth.currentUser == null) return;
+    try {
+      final result = await _supabase.rpc(function, params: params);
+      final ids = _extractNotificationIds(result);
+      if (ids.isEmpty) return;
+      await _supabase.functions
+          .invoke('send-push-notification', body: {'notification_ids': ids});
+    } catch (error) {
+      // A notification failure must not undo the already completed user action.
+      debugPrint('알림 전송 실패 ($function): $error');
     }
   }
 
