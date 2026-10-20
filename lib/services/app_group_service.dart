@@ -1,15 +1,18 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 class AppGroupService {
-  static const MethodChannel _channel = MethodChannel('com.fluttertrip.appgroup');
+  static const MethodChannel _channel =
+      MethodChannel('com.fluttertrip.appgroup');
 
   /// AppGroup에서 공유 주소 읽기
   static Future<String?> readSharedAddress() async {
     try {
-      final String? sharedAddress = await _channel.invokeMethod<String>('getSharedAddress');
+      final String? sharedAddress =
+          await _channel.invokeMethod<String>('getSharedAddress');
       return sharedAddress;
     } catch (e) {
-      print('❌ 공유 주소 읽기 실패: $e');
+      debugPrint('❌ 공유 주소 읽기 실패: $e');
       return null;
     }
   }
@@ -19,7 +22,7 @@ class AppGroupService {
     try {
       await _channel.invokeMethod('clearSharedAddress');
     } catch (e) {
-      print('❌ 공유 주소 삭제 실패: $e');
+      debugPrint('❌ 공유 주소 삭제 실패: $e');
     }
   }
 }
