@@ -1,3 +1,5 @@
+import '../navigation/app_page_route.dart';
+import '../widgets/app_overlays.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -5,9 +7,13 @@ import '../design/app_design.dart';
 import '../viewmodels/marker_list_screen_viewmodel.dart';
 import '../views/markerdetail_view.dart';
 import '../models/marker_model.dart';
+import '../mappers/marker_map_adapter.dart';
 import '../widgets/travel_shimmer.dart';
+import '../widgets/address_photo_preview.dart';
 
 class MarkerListScreen extends StatefulWidget {
+  const MarkerListScreen({super.key});
+
   @override
   State<MarkerListScreen> createState() => _MarkerListScreenState();
 }
@@ -29,6 +35,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
     super.initState();
     _initializeAnimations();
     Future.microtask(() {
+      if (!mounted) return;
       context.read<MarkerListViewModel>().fetchMarkers();
     });
   }
@@ -188,14 +195,14 @@ class _MarkerListScreenState extends State<MarkerListScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppDesign.cardBg.withOpacity(0.95),
-            AppDesign.cardBg.withOpacity(0.9),
+            AppDesign.cardBg.withValues(alpha: 0.95),
+            AppDesign.cardBg.withValues(alpha: 0.9),
           ],
         ),
         borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
         boxShadow: AppDesign.softShadow,
         border: Border.all(
-          color: AppDesign.borderColor.withOpacity(0.2),
+          color: AppDesign.borderColor.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -226,18 +233,18 @@ class _MarkerListScreenState extends State<MarkerListScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppDesign.travelBlue.withOpacity(0.1),
-            AppDesign.travelBlue.withOpacity(0.05),
+            AppDesign.travelBlue.withValues(alpha: 0.1),
+            AppDesign.travelBlue.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppDesign.travelBlue.withOpacity(0.2),
+          color: AppDesign.travelBlue.withValues(alpha: 0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppDesign.travelBlue.withOpacity(0.1),
+            color: AppDesign.travelBlue.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -275,7 +282,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
   }
 
   Widget _buildActionButtonsRow() {
-    return Container(
+    return SizedBox(
       height: 44, // 명시적 높이 설정
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -379,8 +386,8 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                 : AppDesign.primaryGradient)
             : LinearGradient(
                 colors: [
-                  AppDesign.cardBg.withOpacity(0.95),
-                  AppDesign.cardBg.withOpacity(0.9),
+                  AppDesign.cardBg.withValues(alpha: 0.95),
+                  AppDesign.cardBg.withValues(alpha: 0.9),
                 ],
               ),
         borderRadius: BorderRadius.circular(AppDesign.radiusSmall), // radius 줄임
@@ -392,7 +399,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
         border: Border.all(
           color: isActive || isDestructive
               ? Colors.transparent
-              : AppDesign.borderColor.withOpacity(0.2),
+              : AppDesign.borderColor.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -447,14 +454,14 @@ class _MarkerListScreenState extends State<MarkerListScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppDesign.cardBg.withOpacity(0.95),
-            AppDesign.cardBg.withOpacity(0.9),
+            AppDesign.cardBg.withValues(alpha: 0.95),
+            AppDesign.cardBg.withValues(alpha: 0.9),
           ],
         ),
         borderRadius: BorderRadius.circular(AppDesign.radiusSmall), // radius 줄임
         boxShadow: AppDesign.softShadow,
         border: Border.all(
-          color: AppDesign.borderColor.withOpacity(0.2),
+          color: AppDesign.borderColor.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -494,171 +501,23 @@ class _MarkerListScreenState extends State<MarkerListScreen>
   }
 
   void _showSortBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(AppDesign.spacing16),
-        decoration: BoxDecoration(
-          color: AppDesign.cardBg,
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          boxShadow: AppDesign.elevatedShadow,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 헤더
-            Container(
-              padding: const EdgeInsets.all(AppDesign.spacing20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppDesign.travelBlue.withOpacity(0.05),
-                    Colors.transparent,
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(AppDesign.radiusLarge),
-                  topRight: Radius.circular(AppDesign.radiusLarge),
-                ),
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppDesign.borderColor,
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppDesign.spacing8),
-                    decoration: BoxDecoration(
-                      gradient: AppDesign.primaryGradient,
-                      borderRadius:
-                          BorderRadius.circular(AppDesign.radiusSmall),
-                    ),
-                    child: Icon(
-                      Icons.sort,
-                      color: AppDesign.whiteText,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: AppDesign.spacing12),
-                  Text(
-                    '정렬 옵션',
-                    style: AppDesign.headingSmall,
-                  ),
-                  const Spacer(),
-                  // 닫기 버튼
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppDesign.lightGray,
-                      borderRadius: BorderRadius.circular(AppDesign.spacing8),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppDesign.spacing8),
-                        onTap: () => Navigator.pop(context),
-                        child: Icon(
-                          Icons.close,
-                          color: AppDesign.subtleText,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // 옵션들
-            ...['최신순', '이름순', '날짜순'].map((sort) {
-              final isSelected = selectedSort == sort;
-              return Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: AppDesign.spacing16,
-                  vertical: AppDesign.spacing4,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppDesign.travelBlue.withOpacity(0.08)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppDesign.spacing16,
-                    vertical: AppDesign.spacing8,
-                  ),
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      gradient: isSelected
-                          ? AppDesign.primaryGradient
-                          : LinearGradient(
-                              colors: [
-                                AppDesign.lightGray,
-                                AppDesign.borderColor.withOpacity(0.5),
-                              ],
-                            ),
-                      borderRadius:
-                          BorderRadius.circular(AppDesign.radiusSmall),
-                    ),
-                    child: Icon(
-                      _getSortIcon(sort),
-                      size: 18,
-                      color: isSelected
-                          ? AppDesign.whiteText
-                          : AppDesign.subtleText,
-                    ),
-                  ),
-                  title: Text(
-                    sort,
-                    style: AppDesign.bodyMedium.copyWith(
-                      color: isSelected
-                          ? AppDesign.travelBlue
-                          : AppDesign.primaryText,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
-                  trailing: isSelected
-                      ? Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            gradient: AppDesign.primaryGradient,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.check,
-                            color: AppDesign.whiteText,
-                            size: 14,
-                          ),
-                        )
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      selectedSort = sort;
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-              );
-            }).toList(),
-
-            const SizedBox(height: AppDesign.spacing20),
-          ],
-        ),
-      ),
-    );
+    showAppSheet<void>(
+        context: context,
+        builder: (sheet) => AppSheet(
+              title: '정렬 옵션',
+              subtitle: '저장한 장소를 원하는 순서로 확인해보세요.',
+              children: [
+                for (final sort in ['최신순', '이름순', '날짜순'])
+                  AppSheetOption(
+                      title: sort,
+                      icon: _getSortIcon(sort),
+                      selected: selectedSort == sort,
+                      onTap: () {
+                        setState(() => selectedSort = sort);
+                        Navigator.pop(sheet);
+                      }),
+              ],
+            ));
   }
 
   IconData _getSortIcon(String sort) {
@@ -686,7 +545,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
               borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
               boxShadow: AppDesign.softShadow,
               border: Border.all(
-                color: AppDesign.borderColor.withOpacity(0.3),
+                color: AppDesign.borderColor.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -772,7 +631,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
           border: Border.all(
             color: isSelected
                 ? Colors.transparent
-                : AppDesign.borderColor.withOpacity(0.3),
+                : AppDesign.borderColor.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -885,7 +744,12 @@ class _MarkerListScreenState extends State<MarkerListScreen>
       confirmDismiss:
           selectionMode ? null : (direction) => _showDeleteDialog(marker),
       onDismissed: (direction) async {
-        await vm.deleteMarker(context, marker.id);
+        final deleted = await vm.deleteMarker(marker.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(deleted ? '삭제되었습니다.' : '삭제에 실패했습니다.')),
+          );
+        }
         setState(() {
           selectedMarkerIds.remove(marker.id);
         });
@@ -903,7 +767,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                     width: 2,
                   )
                 : Border.all(
-                    color: AppDesign.borderColor.withOpacity(0.3),
+                    color: AppDesign.borderColor.withValues(alpha: 0.3),
                     width: 1,
                   ),
           ),
@@ -915,7 +779,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                   _buildSelectionCheckbox(marker),
                   const SizedBox(width: AppDesign.spacing16),
                 ],
-                _buildMarkerIcon(marker),
+                _buildMarkerPhoto(marker),
                 const SizedBox(width: AppDesign.spacing16),
                 Expanded(
                   child: _buildMarkerInfo(marker, markerMap),
@@ -960,25 +824,18 @@ class _MarkerListScreenState extends State<MarkerListScreen>
     );
   }
 
-  Widget _buildMarkerIcon(MarkerModel marker) {
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        gradient: _getMarkerGradient(marker.keyword),
+  Widget _buildMarkerPhoto(MarkerModel marker) {
+    return SizedBox(
+      width: 64,
+      height: 64,
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        boxShadow: [
-          BoxShadow(
-            color: _getMarkerColor(marker.keyword).withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Icon(
-        _getMarkerIcon(marker.keyword),
-        color: AppDesign.whiteText,
-        size: 28,
+        child: AddressPhotoPreview(
+          key: ValueKey('saved-place-photo-${marker.id}'),
+          address: marker.address,
+          title: marker.title,
+          size: 64,
+        ),
       ),
     );
   }
@@ -999,7 +856,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
           style: AppDesign.bodyMedium.copyWith(
             color: AppDesign.secondaryText,
           ),
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: AppDesign.spacing8),
@@ -1011,7 +868,7 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                 vertical: 4,
               ),
               decoration: BoxDecoration(
-                color: _getMarkerColor(marker.keyword).withOpacity(0.1),
+                color: _getMarkerColor(marker.keyword).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppDesign.spacing12),
               ),
               child: Text(
@@ -1177,30 +1034,6 @@ class _MarkerListScreenState extends State<MarkerListScreen>
     }
   }
 
-  LinearGradient _getMarkerGradient(String keyword) {
-    final color = _getMarkerColor(keyword);
-    return LinearGradient(
-      colors: [color, color.withOpacity(0.8)],
-    );
-  }
-
-  IconData _getMarkerIcon(String keyword) {
-    switch (keyword) {
-      case '카페':
-        return Icons.coffee;
-      case '호텔':
-        return Icons.hotel;
-      case '사진':
-        return Icons.camera_alt;
-      case '음식점':
-        return Icons.restaurant;
-      case '전시회':
-        return Icons.museum;
-      default:
-        return Icons.place;
-    }
-  }
-
   void _handleMarkerTap(MarkerModel marker) {
     if (selectionMode) {
       setState(() {
@@ -1213,9 +1046,9 @@ class _MarkerListScreenState extends State<MarkerListScreen>
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(
+        AppPageRoute(
           builder: (_) => MarkerDetailView(
-            marker: marker.toGoogleMarker(),
+            marker: MarkerMapAdapter.toGoogleMarker(marker),
             keyword: marker.keyword,
           ),
         ),
@@ -1223,111 +1056,38 @@ class _MarkerListScreenState extends State<MarkerListScreen>
     }
   }
 
-  Future<bool> _showDeleteDialog(MarkerModel marker) async {
-    return await showDialog<bool>(
+  Future<bool> _showDeleteDialog(MarkerModel marker) async =>
+      await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-            ),
-            backgroundColor: AppDesign.cardBg,
-            title: Text(
-              "삭제 확인",
-              style: AppDesign.headingMedium,
-            ),
-            content: Text(
-              "'${marker.title}'을(를) 삭제하시겠습니까?",
-              style: AppDesign.bodyMedium.copyWith(
-                color: AppDesign.secondaryText,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(
-                  "취소",
-                  style: AppDesign.bodyMedium.copyWith(
-                    color: AppDesign.subtleText,
-                  ),
-                ),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.red.shade400, Colors.red.shade500],
-                  ),
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: Text(
-                    "삭제",
-                    style: AppDesign.bodyMedium.copyWith(
-                      color: AppDesign.whiteText,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
+          builder: (_) => AppConfirmDialog(
+              title: '장소를 삭제할까요?',
+              message: "'${marker.title}'을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
+              confirmLabel: '삭제',
+              destructive: true,
+              icon: Icons.delete_outline)) ??
+      false;
 
   Future<void> _showBulkDeleteDialog(MarkerListViewModel vm) async {
     final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        ),
-        backgroundColor: AppDesign.cardBg,
-        title: Text(
-          '선택 항목 삭제',
-          style: AppDesign.headingMedium,
-        ),
-        content: Text(
-          '${selectedMarkerIds.length}개를 삭제하시겠습니까?',
-          style: AppDesign.bodyMedium.copyWith(
-            color: AppDesign.secondaryText,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              '취소',
-              style: AppDesign.bodyMedium.copyWith(
-                color: AppDesign.subtleText,
-              ),
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.red.shade400, Colors.red.shade500],
-              ),
-              borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-            ),
-            child: TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(
-                '삭제',
-                style: AppDesign.bodyMedium.copyWith(
-                  color: AppDesign.whiteText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+        context: context,
+        builder: (_) => AppConfirmDialog(
+            title: '선택한 장소를 삭제할까요?',
+            message:
+                '${selectedMarkerIds.length}개 장소를 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
+            confirmLabel: '삭제',
+            destructive: true,
+            icon: Icons.delete_outline));
     if (confirm == true) {
       for (final id in selectedMarkerIds) {
-        await vm.deleteMarker(context, id);
+        if (!mounted) return;
+        final deleted = await vm.deleteMarker(id);
+        if (mounted && !deleted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('삭제에 실패했습니다.')),
+          );
+        }
       }
+      if (!mounted) return;
       setState(() {
         selectedMarkerIds.clear();
         selectionMode = false;
