@@ -11,7 +11,7 @@ class SupabaseManager {
   static Future<void> initialize() async {
     await Supabase.initialize(
       url: Env.supabaseUrl,
-      anonKey: Env.supabaseAnonKey,
+      publishableKey: Env.supabaseAnonKey,
       // 기타 설정 추가 가능
     );
   }
