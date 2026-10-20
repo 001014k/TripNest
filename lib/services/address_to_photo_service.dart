@@ -15,16 +15,18 @@ class AddressToPhotoService {
     final encoded = Uri.encodeComponent(address);
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/place/textsearch/json'
-          '?query=$encoded'
-          '&key=${Env.googleMapsApiKey}'
-          '&language=ko',
+      '?query=$encoded'
+      '&key=${Env.googleMapsApiKey}'
+      '&language=ko',
     );
 
     try {
       final res = await http.get(url);
       final data = jsonDecode(res.body);
 
-      if (data['status'] == 'OK' && data['results'] != null && data['results'].isNotEmpty) {
+      if (data['status'] == 'OK' &&
+          data['results'] != null &&
+          data['results'].isNotEmpty) {
         final photos = data['results'][0]['photos'];
         if (photos != null && photos.isNotEmpty) {
           final photoRef = photos[0]['photo_reference'];
