@@ -1,20 +1,17 @@
-import 'dart:convert';
-
+import '../navigation/app_page_route.dart';
+import '../widgets/app_overlays.dart';
+import '../widgets/reference_design.dart';
+import '../widgets/tripnest_navigation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../design/app_design.dart';
-import '../env.dart';
+import '../models/link_preview_data.dart';
 import '../models/shared_link_model.dart';
-import '../services/places_service.dart';
-import '../services/shared_link_service.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
-import '../widgets/address_photo_preview.dart';
+import '../viewmodels/shared_link_detail_viewmodel.dart';
 import 'markercreationscreen_view.dart';
-import 'shared_link_view.dart';
 
 class SharedLinkDetailView extends StatefulWidget {
   const SharedLinkDetailView({required this.link, super.key});
@@ -26,50 +23,53 @@ class SharedLinkDetailView extends StatefulWidget {
 }
 
 class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
-  LinkPreviewData? _preview;
-  List<SharedLinkModel> _places = const [];
-  bool _isLoadingPlaces = true;
-  bool _isOpeningMarkerCreation = false;
+  late final SharedLinkDetailViewModel _viewModel;
 
   @override
   void initState() {
     super.initState();
-    _loadPreview();
-    _loadPlaces();
+    _viewModel = SharedLinkDetailViewModel(widget.link);
+    _viewModel.load();
+    _viewModel.loadPlaces();
   }
 
-  Future<void> _loadPreview() async {
-    try {
-      final preview = await getPreviewData(widget.link.url);
-      if (mounted) setState(() => _preview = preview);
-    } catch (_) {
-      // 원본 사이트가 미리보기를 제공하지 않아도 주소 정보는 표시합니다.
-    }
-  }
-
-  Future<void> _loadPlaces() async {
-    try {
-      final places = await SharedLinkService().loadSharedLinkPlaces(
-        widget.link.url,
-      );
-      if (mounted) setState(() => _places = places);
-    } catch (_) {
-      // Keep the record passed by the list usable if the refresh fails.
-      if (mounted) setState(() => _places = [widget.link]);
-    } finally {
-      if (mounted) setState(() => _isLoadingPlaces = false);
-    }
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _viewModel,
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final link = widget.link;
-    final placesWithAddress = _places
+    final placesWithAddress = _viewModel.places
         .where((place) => place.placeAddress?.trim().isNotEmpty ?? false)
         .toList();
 
     return Scaffold(
       backgroundColor: AppDesign.primaryBg,
+      bottomNavigationBar: SafeArea(
+          child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                      backgroundColor: AppDesign.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16))),
+                  onPressed: _viewModel.isAdding || placesWithAddress.isEmpty
+                      ? null
+                      : () => _choosePlaceToSave(placesWithAddress),
+                  icon: const Icon(Icons.format_list_bulleted),
+                  label: const Text('리스트에 저장')))),
       body: Container(
         decoration: const BoxDecoration(gradient: AppDesign.backgroundGradient),
         child: SafeArea(
@@ -78,8 +78,9 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
             slivers: [
               SliverToBoxAdapter(
                 child: _SharedPlaceHeader(
-                  placeCount:
-                      _isLoadingPlaces ? null : placesWithAddress.length,
+                  placeCount: _viewModel.isLoadingPlaces
+                      ? null
+                      : placesWithAddress.length,
                   onBack: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -87,58 +88,56 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                 sliver: SliverToBoxAdapter(
                   child: _OriginalPreviewCard(
-                    preview: _preview,
+                    preview: _viewModel.preview,
                     link: link,
                     onTap: _openOriginalPost,
                   ),
                 ),
               ),
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          gradient: AppDesign.primaryGradient,
-                          borderRadius:
-                              BorderRadius.circular(AppDesign.radiusSmall),
-                        ),
-                        child: const Icon(
-                          Icons.place_outlined,
-                          size: 19,
-                          color: Colors.white,
+                  child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 28, 20, 14),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('추출된 장소',
+                                style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.6)),
+                            const SizedBox(height: 7),
+                            Text(
+                                _viewModel.isLoadingPlaces
+                                    ? '링크에서 장소를 확인하고 있어요.'
+                                    : '링크에서 발견한 장소 ${placesWithAddress.length}곳을 확인해보세요.',
+                                style: AppDesign.bodySmall),
+                          ]))),
+              if (!_viewModel.isLoadingPlaces &&
+                  _viewModel.placeLoadFailed &&
+                  placesWithAddress.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: Material(
+                      color: AppDesign.secondaryBg,
+                      borderRadius:
+                          BorderRadius.circular(AppDesign.radiusSmall),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppDesign.spacing12),
+                        child: Row(
+                          children: [
+                            const Expanded(child: Text('일부 장소 정보를 불러오지 못했어요.')),
+                            TextButton(
+                              onPressed: _viewModel.loadPlaces,
+                              child: const Text('다시 시도'),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: AppDesign.spacing10),
-                      Text('추출된 장소', style: AppDesign.headingMedium),
-                      const SizedBox(width: AppDesign.spacing8),
-                      if (!_isLoadingPlaces)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDesign.spacing8,
-                            vertical: AppDesign.spacing4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppDesign.secondaryBg,
-                            borderRadius:
-                                BorderRadius.circular(AppDesign.radiusSmall),
-                          ),
-                          child: Text(
-                            '${placesWithAddress.length}곳',
-                            style: AppDesign.caption.copyWith(
-                              color: AppDesign.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              if (_isLoadingPlaces)
+              if (_viewModel.isLoadingPlaces)
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding:
@@ -147,9 +146,14 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
                   ),
                 )
               else if (placesWithAddress.isEmpty)
-                const SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  sliver: SliverToBoxAdapter(child: _MissingPlaceCard()),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverToBoxAdapter(
+                    child: _MissingPlaceCard(
+                      loadFailed: _viewModel.placeLoadFailed,
+                      onRetry: _viewModel.loadPlaces,
+                    ),
+                  ),
                 )
               else
                 SliverPadding(
@@ -162,8 +166,13 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
                         key: ValueKey(
                             place.id ?? '${place.url}-${place.placeAddress}'),
                         place: place,
-                        isAdding: _isOpeningMarkerCreation,
+                        isAdding: _viewModel.isAdding,
+                        isChecking: _viewModel.isCheckingSavedMarkers,
+                        lookupFailed: _viewModel.savedMarkerLookupFailed,
+                        isSaved: _viewModel.isSaved(place),
+                        rating: _viewModel.ratingFor(place),
                         onAddToMap: () => _openMarkerCreation(place),
+                        onRetry: _viewModel.refreshSavedMarkers,
                       );
                     },
                     separatorBuilder: (_, __) =>
@@ -177,6 +186,32 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
     );
   }
 
+  Future<void> _choosePlaceToSave(List<SharedLinkModel> places) async {
+    final selected = await showAppSheet<SharedLinkModel>(
+      context: context,
+      builder: (sheet) => AppSheet(
+        title: '저장할 장소 선택',
+        subtitle: '이미 저장한 장소는 체크 표시로 알려드려요.',
+        children: [
+          for (final place in places)
+            AppSheetOption(
+              title: place.placeTitle ?? '장소',
+              subtitle: place.placeAddress,
+              icon: Icons.place_outlined,
+              selected: _viewModel.isSaved(place),
+              onTap: () => Navigator.pop(sheet, place),
+            )
+        ],
+      ),
+    );
+    if (selected == null || !mounted) return;
+    if (_viewModel.isSaved(selected)) {
+      Navigator.pushNamed(context, '/list');
+    } else {
+      await _openMarkerCreation(selected);
+    }
+  }
+
   Future<void> _openOriginalPost() async {
     final uri = Uri.tryParse(widget.link.url);
     if (uri != null && await canLaunchUrl(uri)) {
@@ -186,13 +221,16 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
 
   Future<void> _openMarkerCreation(SharedLinkModel link) async {
     final address = link.placeAddress;
-    if (address == null || address.isEmpty) return;
+    if (address == null ||
+        address.isEmpty ||
+        _viewModel.isSaved(link) ||
+        _viewModel.isAdding) {
+      return;
+    }
 
-    setState(() => _isOpeningMarkerCreation = true);
+    _viewModel.setAdding(true);
     try {
-      final position = link.placeLatitude != null && link.placeLongitude != null
-          ? LatLng(link.placeLatitude!, link.placeLongitude!)
-          : await _geocodeAddress(address);
+      final position = await _viewModel.resolvePosition(link);
       if (!mounted) return;
       if (position == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -201,7 +239,7 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
         return;
       }
       final result = await Navigator.of(context).push<Map<String, dynamic>>(
-        MaterialPageRoute(
+        AppPageRoute(motion: AppMotion.editor,
           builder: (_) => MarkerCreationScreen(
             initialLatLng: position,
             initialTitle: link.placeTitle,
@@ -220,7 +258,7 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
         return;
       }
 
-      await context.read<MapSampleViewModel>().addMarker(
+      final saved = await context.read<MapSampleViewModel>().addMarker(
             title: title,
             snippet: result['snippet'] as String?,
             position: position,
@@ -229,256 +267,131 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
             listId: result['listId'] as String?,
             onTapCallback: (_) {},
           );
-
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('내 지도에 마커를 저장했습니다.')),
-      );
+      if (saved) {
+        _viewModel.markSaved(link);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('내 지도에 마커를 저장했습니다.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('마커를 저장하지 못했습니다. 다시 시도해주세요.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('마커를 저장하지 못했습니다. 다시 시도해주세요.')),
+        );
+      }
+      debugPrint('공유 장소 마커 저장 실패: $error');
     } finally {
-      if (mounted) setState(() => _isOpeningMarkerCreation = false);
+      _viewModel.setAdding(false);
     }
-  }
-
-  Future<LatLng?> _geocodeAddress(String address) async {
-    final response = await http.get(
-      Uri.https('maps.googleapis.com', '/maps/api/geocode/json', {
-        'address': address,
-        'language': 'ko',
-        'region': 'kr',
-        'key': Env.googleMapsApiKey,
-      }),
-    );
-    if (response.statusCode != 200) return null;
-    final results = (jsonDecode(response.body)['results'] as List?) ?? const [];
-    if (results.isEmpty) return null;
-    final location = (results.first as Map)['geometry']?['location'] as Map?;
-    final latitude = (location?['lat'] as num?)?.toDouble();
-    final longitude = (location?['lng'] as num?)?.toDouble();
-    if (latitude == null || longitude == null) return null;
-    return LatLng(latitude, longitude);
   }
 }
 
 class _OriginalPreviewCard extends StatelessWidget {
-  const _OriginalPreviewCard({
-    required this.preview,
-    required this.link,
-    required this.onTap,
-  });
-
+  const _OriginalPreviewCard(
+      {required this.preview, required this.link, required this.onTap});
   final LinkPreviewData? preview;
   final SharedLinkModel link;
   final VoidCallback onTap;
-
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppDesign.cardBg,
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        side: const BorderSide(color: AppDesign.borderColor),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppDesign.radiusMedium),
-              ),
-              child: SizedBox(
-                height: 184,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (preview?.image != null)
-                      Image.network(
-                        preview!.image!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const ColoredBox(
-                          color: AppDesign.lightGray,
-                          child: Icon(
-                            Icons.link_rounded,
-                            color: AppDesign.travelBlue,
-                            size: 40,
-                          ),
-                        ),
-                      )
-                    else
-                      const ColoredBox(
-                        color: AppDesign.lightGray,
-                        child: Icon(
-                          Icons.link_rounded,
-                          color: AppDesign.travelBlue,
-                          size: 40,
-                        ),
-                      ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Color(0x55000000)],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: AppDesign.spacing12,
-                      left: AppDesign.spacing12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppDesign.spacing10,
-                          vertical: AppDesign.spacing6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.92),
-                          borderRadius:
-                              BorderRadius.circular(AppDesign.radiusSmall),
-                        ),
-                        child: Text(
-                          '원본 링크',
-                          style: AppDesign.caption.copyWith(
-                            color: AppDesign.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppDesign.spacing16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          preview?.title ?? link.placeTitle ?? link.platform,
-                          style: AppDesign.bodyMedium.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+  Widget build(BuildContext context) => Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: AppDesign.borderColor)),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(children: [
+                ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                        width: 86,
+                        height: 104,
+                        child: preview?.image != null
+                            ? Image.network(preview!.image!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.link,
+                                    color: AppDesign.secondaryText))
+                            : const ColoredBox(
+                                color: AppDesign.lightGray,
+                                child: Icon(Icons.link)))),
+                const SizedBox(width: 14),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      ReferencePlatform(platform: link.platform),
+                      const SizedBox(height: 5),
+                      Text(Uri.tryParse(link.url)?.host ?? link.url,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppDesign.caption),
+                      const SizedBox(height: 10),
+                      Text(preview?.title ?? link.placeTitle ?? '원본 링크 보기',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: AppDesign.spacing12),
-                      const Icon(
-                        Icons.open_in_new_rounded,
-                        color: AppDesign.travelBlue,
-                        size: 20,
-                      ),
-                    ],
-                  ),
-                  if (preview?.description?.isNotEmpty ?? false) ...[
-                    const SizedBox(height: AppDesign.spacing6),
-                    Text(
-                      preview!.description!,
-                      style: AppDesign.bodySmall.copyWith(
-                        color: AppDesign.secondaryText,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: AppDesign.spacing8),
-                  Text(
-                    Uri.tryParse(link.url)?.host ?? link.url,
-                    style: AppDesign.caption.copyWith(
-                      color: AppDesign.secondaryText,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
+                          style: AppDesign.bodyMedium),
+                      if (preview?.description?.isNotEmpty ?? false)
+                        Text(preview!.description!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppDesign.caption),
+                    ])),
+                const SizedBox(width: 8),
+                const Icon(Icons.open_in_new_rounded,
+                    size: 18, color: AppDesign.secondaryText),
+              ])),
         ),
-      ),
-    );
-  }
+      );
 }
 
 class _SharedPlaceHeader extends StatelessWidget {
   const _SharedPlaceHeader({required this.placeCount, required this.onBack});
-
   final int? placeCount;
   final VoidCallback onBack;
-
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      child: Row(
-        children: [
-          Material(
-            color: AppDesign.cardBg,
-            borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-            child: InkWell(
-              onTap: onBack,
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-              child: const SizedBox(
-                width: 46,
-                height: 46,
-                child: Icon(Icons.arrow_back_ios_new_rounded, size: 19),
-              ),
-            ),
-          ),
-          const SizedBox(width: AppDesign.spacing12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('SAVED LINK', style: AppDesign.overline),
-                const SizedBox(height: 2),
-                Text('공유한 장소', style: AppDesign.headingLarge),
-              ],
-            ),
-          ),
-          if (placeCount != null)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDesign.spacing12,
-                vertical: AppDesign.spacing8,
-              ),
-              decoration: BoxDecoration(
-                gradient: AppDesign.sunsetGradient,
-                borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-              ),
-              child: Text(
-                '$placeCount곳',
-                style: AppDesign.bodySmall.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        TripNestHeader(onBack: onBack),
+        const SizedBox(height: 18),
+        const Text('링크 상세',
+            style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.8)),
+      ]));
 }
 
 class _ExtractedPlaceCard extends StatelessWidget {
   const _ExtractedPlaceCard({
     required this.place,
     required this.isAdding,
+    required this.isChecking,
+    required this.lookupFailed,
+    required this.isSaved,
+    required this.rating,
     required this.onAddToMap,
+    required this.onRetry,
     super.key,
   });
 
   final SharedLinkModel place;
   final bool isAdding;
+  final bool isChecking;
+  final bool lookupFailed;
+  final bool isSaved;
+  final PlaceRating? rating;
   final VoidCallback onAddToMap;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -486,131 +399,90 @@ class _ExtractedPlaceCard extends StatelessWidget {
     final title = savedTitle.isNotEmpty ? savedTitle : '이름을 확인할 수 없는 장소';
     final address = place.placeAddress!;
 
-    return Container(
-      padding: const EdgeInsets.all(AppDesign.spacing16),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        boxShadow: AppDesign.softShadow,
-        border: Border.all(color: AppDesign.borderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-            child: AddressPhotoPreview(
-              address: address,
-              title: savedTitle.isEmpty ? null : savedTitle,
-              size: 136,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE8F1FF),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.location_on_rounded,
-                  color: AppDesign.travelBlue,
-                ),
-              ),
-              const SizedBox(width: AppDesign.spacing12),
-              Expanded(
-                child: Column(
+    return ReferenceCard(
+        padding: const EdgeInsets.all(9),
+        child: Row(children: [
+          ReferencePhoto(
+              title: title, address: address, width: 102, height: 104),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(title, style: AppDesign.headingSmall),
-                        ),
-                        _PlaceRatingBadge(title: title, address: address),
-                      ],
-                    ),
-                    const SizedBox(height: AppDesign.spacing4),
-                    Text(address, style: AppDesign.bodySmall),
-                    const SizedBox(height: AppDesign.spacing12),
-                    OutlinedButton.icon(
-                      onPressed: isAdding ? null : onAddToMap,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppDesign.primary,
-                        side: const BorderSide(color: AppDesign.borderColor),
-                      ),
-                      icon: isAdding
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.add_location_alt_outlined),
-                      label: const Text('내 지도에 추가'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+                Text(title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 10),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.place_outlined,
+                      size: 15, color: AppDesign.secondaryText),
+                  const SizedBox(width: 4),
+                  Expanded(
+                      child: Text(address,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppDesign.bodySmall))
+                ]),
+                const SizedBox(height: 8),
+                _PlaceRatingBadge(rating: rating),
+              ])),
+          const SizedBox(width: 8),
+          SizedBox(
+              width: 49,
+              child: OutlinedButton(
+                onPressed: isAdding || isChecking || isSaved
+                    ? null
+                    : lookupFailed
+                        ? onRetry
+                        : onAddToMap,
+                style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13)),
+                    side: const BorderSide(color: AppDesign.borderColor)),
+                child: Column(children: [
+                  if (isAdding || isChecking)
+                    const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                  else
+                    Icon(
+                        isSaved
+                            ? Icons.bookmark
+                            : lookupFailed
+                                ? Icons.refresh
+                                : Icons.bookmark_border,
+                        size: 23,
+                        color: AppDesign.primaryText),
+                  const SizedBox(height: 5),
+                  Text(
+                      isSaved
+                          ? '저장됨'
+                          : lookupFailed
+                              ? '재시도'
+                              : '저장',
+                      style: const TextStyle(
+                          fontSize: 11, color: AppDesign.primaryText)),
+                ]),
+              )),
+        ]));
   }
 }
 
-class _PlaceRatingBadge extends StatefulWidget {
-  const _PlaceRatingBadge({required this.title, required this.address});
+class _PlaceRatingBadge extends StatelessWidget {
+  const _PlaceRatingBadge({required this.rating});
 
-  final String title;
-  final String address;
-
-  @override
-  State<_PlaceRatingBadge> createState() => _PlaceRatingBadgeState();
-}
-
-class _PlaceRatingBadgeState extends State<_PlaceRatingBadge> {
-  double? _rating;
-  int? _ratingCount;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRating();
-  }
-
-  Future<void> _loadRating() async {
-    try {
-      final places = await PlacesService().searchPlacesByKeyword(
-        '${widget.title} ${widget.address}',
-      );
-      if (places.isEmpty || !mounted) return;
-
-      final place = places.first;
-      final rating = (place['rating'] as num?)?.toDouble();
-      final ratingCount = (place['userRatingCount'] as num?)?.toInt();
-      if (rating != null) {
-        setState(() {
-          _rating = rating;
-          _ratingCount = ratingCount;
-        });
-      }
-    } catch (_) {
-      // Ratings are supplemental. The place card remains usable without one.
-    }
-  }
+  final PlaceRating? rating;
 
   @override
   Widget build(BuildContext context) {
-    if (_rating == null) return const SizedBox.shrink();
+    if (rating == null) return const SizedBox.shrink();
 
-    final countLabel = _ratingCount == null ? '' : ' ($_ratingCount)';
+    final countLabel = rating!.count == null ? '' : ' (${rating!.count})';
     return Container(
-      margin: const EdgeInsets.only(left: AppDesign.spacing8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: AppDesign.secondaryBg,
@@ -619,14 +491,11 @@ class _PlaceRatingBadgeState extends State<_PlaceRatingBadge> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.star_rounded,
-            color: AppDesign.travelOrange,
-            size: 16,
-          ),
+          const Icon(Icons.star_rounded,
+              color: AppDesign.travelOrange, size: 16),
           const SizedBox(width: 2),
           Text(
-            '${_rating!.toStringAsFixed(1)}$countLabel',
+            '${rating!.score.toStringAsFixed(1)}$countLabel',
             style: AppDesign.caption.copyWith(
               color: AppDesign.primary,
               fontWeight: FontWeight.w700,
@@ -639,7 +508,10 @@ class _PlaceRatingBadgeState extends State<_PlaceRatingBadge> {
 }
 
 class _MissingPlaceCard extends StatelessWidget {
-  const _MissingPlaceCard();
+  const _MissingPlaceCard({required this.loadFailed, required this.onRetry});
+
+  final bool loadFailed;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -649,9 +521,19 @@ class _MissingPlaceCard extends StatelessWidget {
         color: AppDesign.cardBg,
         borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
       ),
-      child: Text(
-        '이전에 저장된 링크라 장소 정보가 없습니다.',
-        style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            loadFailed ? '장소 정보를 불러오지 못했어요.' : '주소가 확인된 장소가 없어요.',
+            style:
+                AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText),
+          ),
+          if (loadFailed) ...[
+            const SizedBox(height: AppDesign.spacing12),
+            TextButton(onPressed: onRetry, child: const Text('다시 시도')),
+          ],
+        ],
       ),
     );
   }
