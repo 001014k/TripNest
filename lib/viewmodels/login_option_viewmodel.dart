@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 
 class LoginViewModel extends ChangeNotifier {
+  bool _disposed = false;
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
   final AuthService _authService = AuthService();
   final NotificationService _notificationService = NotificationService();
 
@@ -19,18 +24,20 @@ class LoginViewModel extends ChangeNotifier {
   String get password => _password;
 
   void setEmail(String value) {
+    if (_email == value) return;
     _email = value;
-    notifyListeners();
+    _notify();
   }
 
   void setPassword(String value) {
+    if (_password == value) return;
     _password = value;
-    notifyListeners();
+    _notify();
   }
 
   void setRememberMe(bool value) {
     _rememberMe = value;
-    notifyListeners();
+    _notify();
   }
 
   /// 이메일/비밀번호 로그인
@@ -40,7 +47,7 @@ class LoginViewModel extends ChangeNotifier {
     }
 
     _isLoading = true;
-    notifyListeners();
+    _notify();
 
     try {
       final res = await Supabase.instance.client.auth.signInWithPassword(
@@ -59,7 +66,7 @@ class LoginViewModel extends ChangeNotifier {
       return e.toString();
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -69,7 +76,13 @@ class LoginViewModel extends ChangeNotifier {
     _rememberMe = data['rememberMe'] ?? false;
     _email = data['email'] ?? '';
     _password = data['password'] ?? '';
-    notifyListeners();
+    _notify();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   /// 구글 로그인
