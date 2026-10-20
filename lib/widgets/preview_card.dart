@@ -25,7 +25,7 @@ class PreviewCard extends StatelessWidget {
       child: Material(
         borderRadius: BorderRadius.circular(16),
         elevation: 6,
-        shadowColor: Colors.black.withOpacity(0.2),
+        shadowColor: Colors.black.withValues(alpha: 0.2),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
@@ -57,12 +57,12 @@ class PreviewCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
                               Container(
-                                height: 100,
-                                width: width,
-                                color: Colors.grey.shade300,
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.broken_image),
-                              ),
+                            height: 100,
+                            width: width,
+                            color: Colors.grey.shade300,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.broken_image),
+                          ),
                         ),
                         Positioned(
                           bottom: 0,
@@ -75,7 +75,7 @@ class PreviewCard extends StatelessWidget {
                               gradient: LinearGradient(
                                 colors: [
                                   Colors.transparent,
-                                  Colors.black.withOpacity(0.7),
+                                  Colors.black.withValues(alpha: 0.7),
                                 ],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
@@ -90,7 +90,7 @@ class PreviewCard extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                                 shadows: [
                                   Shadow(
-                                    color: Colors.black.withOpacity(0.7),
+                                    color: Colors.black.withValues(alpha: 0.7),
                                     offset: const Offset(0, 1),
                                     blurRadius: 2,
                                   ),
@@ -118,7 +118,7 @@ class PreviewCard extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Text(
                       subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
