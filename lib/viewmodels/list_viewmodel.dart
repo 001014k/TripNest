@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:supabase/supabase.dart';
 import '../models/list_model.dart';
 
 class ListViewModel extends ChangeNotifier {
   final SupabaseClient supabase = Supabase.instance.client;
 
   List<ListModel> lists = [];
-  bool isLoading = false;  // 초기 false로 변경
+  bool isLoading = false; // 초기 false로 변경
   String? errorMessage;
 
   // 생성자에서 loadLists 호출 제거
@@ -24,17 +23,11 @@ class ListViewModel extends ChangeNotifier {
       final tempLists = <String, ListModel>{};
 
       // 1️⃣ 내가 만든 리스트 조회 Future
-      final myListsFuture = supabase
-          .from('lists')
-          .select(
-          '''
-          id, name, created_at,
-          list_bookmarks(id, title, lat, lng),
+      final myListsFuture = supabase.from('lists').select('''
+          id, name, created_at, user_id,
+          list_bookmarks(id, title, lat, lng, keyword),
           list_members(id, user_id)
-          '''
-      )
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false);
+          ''').eq('user_id', user.id).order('created_at', ascending: false);
 
       // 2️⃣ 내가 멤버로 초대받은 리스트 list_id 조회 Future
       final invitedListMembersFuture = supabase
@@ -43,7 +36,8 @@ class ListViewModel extends ChangeNotifier {
           .eq('user_id', user.id);
 
       // 두 Future 동시에 실행
-      final results = await Future.wait([myListsFuture, invitedListMembersFuture]);
+      final results =
+          await Future.wait([myListsFuture, invitedListMembersFuture]);
 
       final myListsResponse = results[0] as List;
       final invitedListMembers = results[1] as List;
@@ -58,7 +52,21 @@ class ListViewModel extends ChangeNotifier {
           name: item['name'] as String,
           createdAt: DateTime.parse(item['created_at'] as String),
           markerCount: bookmarks.length,
-          collaboratorCount: members.length,
+          collaboratorCount: members
+              .map((member) => member['user_id'])
+              .where((id) => id != null && id != item['user_id'])
+              .toSet()
+              .length,
+          keywords: bookmarks
+              .map((entry) => entry['keyword']?.toString().trim() ?? '')
+              .where((keyword) => keyword.isNotEmpty)
+              .toSet()
+              .toList(),
+          isOwner: true,
+          coverTitle: bookmarks
+              .map((entry) => entry['title']?.toString().trim() ?? '')
+              .where((title) => title.isNotEmpty)
+              .firstOrNull,
         );
       }
 
@@ -68,21 +76,14 @@ class ListViewModel extends ChangeNotifier {
         final listId = member['list_id'] as String?;
         if (listId == null) return null;
 
-        final listResponse = await supabase
-            .from('lists')
-            .select(
-            '''
-            id, name, created_at,
-            list_bookmarks(id, title, lat, lng),
+        final listResponse = await supabase.from('lists').select('''
+            id, name, created_at, user_id,
+            list_bookmarks(id, title, lat, lng, keyword),
             list_members(id, user_id)
-            '''
-        )
-            .eq('id', listId)
-            .single();
+            ''').eq('id', listId).single();
 
-        if (listResponse == null) return null;
-
-        final bookmarks = listResponse['list_bookmarks'] as List<dynamic>? ?? [];
+        final bookmarks =
+            listResponse['list_bookmarks'] as List<dynamic>? ?? [];
         final members = listResponse['list_members'] as List<dynamic>? ?? [];
 
         return ListModel(
@@ -90,7 +91,20 @@ class ListViewModel extends ChangeNotifier {
           name: listResponse['name'] as String,
           createdAt: DateTime.parse(listResponse['created_at'] as String),
           markerCount: bookmarks.length,
-          collaboratorCount: members.length,
+          collaboratorCount: members
+              .map((member) => member['user_id'])
+              .where((id) => id != null && id != listResponse['user_id'])
+              .toSet()
+              .length,
+          keywords: bookmarks
+              .map((entry) => entry['keyword']?.toString().trim() ?? '')
+              .where((keyword) => keyword.isNotEmpty)
+              .toSet()
+              .toList(),
+          coverTitle: bookmarks
+              .map((entry) => entry['title']?.toString().trim() ?? '')
+              .where((title) => title.isNotEmpty)
+              .firstOrNull,
         );
       }).toList();
 
@@ -98,7 +112,7 @@ class ListViewModel extends ChangeNotifier {
 
       for (final listModel in invitedListsResults) {
         if (listModel != null) {
-          tempLists[listModel.id] = listModel; // 중복 자동 제거
+          tempLists.putIfAbsent(listModel.id, () => listModel); // 중복 자동 제거
         }
       }
 
@@ -143,7 +157,11 @@ class ListViewModel extends ChangeNotifier {
 
     try {
       await supabase.from('list_bookmarks').delete().eq('list_id', listId);
-      await supabase.from('lists').delete().eq('id', listId).eq('user_id', user.id);
+      await supabase
+          .from('lists')
+          .delete()
+          .eq('id', listId)
+          .eq('user_id', user.id);
       lists.removeWhere((list) => list.id == listId);
       notifyListeners();
     } catch (e) {
@@ -158,12 +176,10 @@ class ListViewModel extends ChangeNotifier {
     if (index != -1) {
       final currentList = lists[index];
 
-      lists[index] = ListModel(
-        id: currentList.id,
-        name: currentList.name,
-        createdAt: currentList.createdAt,
-        markerCount: currentList.markerCount,
-        collaboratorCount: (currentList.collaboratorCount ?? 0) - 1,
+      lists[index] = currentList.copyWith(
+        collaboratorCount: currentList.collaboratorCount > 0
+            ? currentList.collaboratorCount - 1
+            : 0,
       );
 
       notifyListeners();
