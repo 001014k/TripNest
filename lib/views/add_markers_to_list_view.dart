@@ -1,3 +1,4 @@
+import '../widgets/address_photo_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
@@ -6,7 +7,7 @@ import '../design/app_design.dart'; // AppDesign 임포트 추가
 class AddMarkersToListPage extends StatelessWidget {
   final String listId;
 
-  const AddMarkersToListPage({required this.listId});
+  const AddMarkersToListPage({super.key, required this.listId});
 
   @override
   Widget build(BuildContext context) {
@@ -206,8 +207,8 @@ class AddMarkersToListPage extends StatelessWidget {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                AppDesign.travelBlue.withOpacity(0.1),
-                                AppDesign.travelPurple.withOpacity(0.1),
+                                AppDesign.travelBlue.withValues(alpha: 0.1),
+                                AppDesign.travelPurple.withValues(alpha: 0.1),
                               ],
                             ),
                             shape: BoxShape.circle,
@@ -252,14 +253,14 @@ class AddMarkersToListPage extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppDesign.travelBlue.withOpacity(0.1),
-                            AppDesign.travelPurple.withOpacity(0.1),
+                            AppDesign.travelBlue.withValues(alpha: 0.1),
+                            AppDesign.travelPurple.withValues(alpha: 0.1),
                           ],
                         ),
                         borderRadius:
                             BorderRadius.circular(AppDesign.radiusMedium),
                         border: Border.all(
-                          color: AppDesign.travelBlue.withOpacity(0.2),
+                          color: AppDesign.travelBlue.withValues(alpha: 0.2),
                         ),
                       ),
                       child: Row(
@@ -323,9 +324,9 @@ class AddMarkersToListPage extends StatelessWidget {
                                     ? LinearGradient(
                                         colors: [
                                           AppDesign.travelGreen
-                                              .withOpacity(0.1),
+                                              .withValues(alpha: 0.1),
                                           AppDesign.travelGreen
-                                              .withOpacity(0.05),
+                                              .withValues(alpha: 0.05),
                                         ],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
@@ -336,7 +337,8 @@ class AddMarkersToListPage extends StatelessWidget {
                                     AppDesign.radiusLarge),
                                 border: Border.all(
                                   color: isSelected
-                                      ? AppDesign.travelGreen.withOpacity(0.3)
+                                      ? AppDesign.travelGreen
+                                          .withValues(alpha: 0.3)
                                       : AppDesign.borderColor,
                                   width: isSelected ? 2 : 1,
                                 ),
@@ -344,7 +346,7 @@ class AddMarkersToListPage extends StatelessWidget {
                                     ? [
                                         BoxShadow(
                                           color: AppDesign.travelGreen
-                                              .withOpacity(0.15),
+                                              .withValues(alpha: 0.15),
                                           blurRadius: 12,
                                           offset: Offset(0, 4),
                                         ),
@@ -360,41 +362,40 @@ class AddMarkersToListPage extends StatelessWidget {
                                   // 다시 추가 요청을 보내지 않습니다.
                                   onTap: isSelected
                                       ? null
-                                      : () => viewModel.addMarkerToList(
-                                          marker, listId, context),
+                                      : () async {
+                                          final result = await viewModel
+                                              .addMarkerToList(marker, listId);
+                                          if (!context.mounted) return;
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                                content: Text(result.isEmpty
+                                                    ? '${marker.infoWindow.title ?? "장소"}이(가) 리스트에 추가되었습니다.'
+                                                    : result)),
+                                          );
+                                          if (result.isEmpty) {
+                                            Navigator.pop(context, true);
+                                          }
+                                        },
                                   child: Padding(
                                     padding:
                                         EdgeInsets.all(AppDesign.spacing20),
                                     child: Row(
                                       children: [
-                                        // 아이콘 컨테이너
-                                        AnimatedContainer(
-                                          duration: Duration(milliseconds: 300),
-                                          padding: EdgeInsets.all(
-                                              AppDesign.spacing12),
-                                          decoration: BoxDecoration(
-                                            gradient: isSelected
-                                                ? AppDesign.greenGradient
-                                                : null,
-                                            color: isSelected
-                                                ? null
-                                                : AppDesign.lightGray,
-                                            borderRadius: BorderRadius.circular(
-                                                AppDesign.radiusMedium),
-                                          ),
-                                          child: AnimatedSwitcher(
-                                            duration:
-                                                Duration(milliseconds: 300),
-                                            child: Icon(
-                                              isSelected
-                                                  ? Icons.check_circle_rounded
-                                                  : Icons
-                                                      .add_location_alt_outlined,
-                                              key: ValueKey(isSelected),
-                                              color: isSelected
-                                                  ? AppDesign.whiteText
-                                                  : AppDesign.secondaryText,
-                                              size: 24,
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                              AppDesign.radiusMedium),
+                                          child: SizedBox(
+                                            width: 64,
+                                            height: 64,
+                                            child: AddressPhotoPreview(
+                                              key: ValueKey(
+                                                  marker.markerId.value),
+                                              address:
+                                                  marker.infoWindow.snippet ??
+                                                      '',
+                                              title: marker.infoWindow.title,
+                                              size: 64,
                                             ),
                                           ),
                                         ),
@@ -475,7 +476,7 @@ class AddMarkersToListPage extends StatelessWidget {
                                           decoration: BoxDecoration(
                                             color: isSelected
                                                 ? AppDesign.travelGreen
-                                                    .withOpacity(0.1)
+                                                    .withValues(alpha: 0.1)
                                                 : AppDesign.lightGray,
                                             shape: BoxShape.circle,
                                           ),
