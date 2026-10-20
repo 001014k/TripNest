@@ -1,466 +1,248 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../design/app_design.dart';
+import '../viewmodels/security_settings_viewmodel.dart';
+import '../widgets/tripnest_navigation.dart';
 
 class SecuritySettingsView extends StatelessWidget {
   const SecuritySettingsView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
-    final providers = _connectedProviders(user);
-
+    final vm = SecuritySettingsViewModel();
     return Scaffold(
-      backgroundColor: AppDesign.primaryBg,
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppDesign.backgroundGradient),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _SecurityAppBar(onBack: () => Navigator.pop(context)),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.all(AppDesign.spacing20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SecurityHeader(user: user, providers: providers),
-                      const SizedBox(height: AppDesign.spacing24),
-                      const _SectionLabel(label: '연결된 로그인 계정'),
-                      const SizedBox(height: AppDesign.spacing12),
-                      _ConnectedAccountGroup(
-                        accounts: [
-                          _AccountProviderItem.email(
-                            isConnected: providers.contains('email'),
-                            email: user?.email,
-                          ),
-                          _AccountProviderItem.google(
-                            isConnected: providers.contains('google'),
-                          ),
-                          _AccountProviderItem.kakao(
-                            isConnected: providers.contains('kakao'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppDesign.spacing24),
-                      const _SectionLabel(label: '계정 보호'),
-                      const SizedBox(height: AppDesign.spacing12),
-                      const _SecurityTipCard(),
-                    ],
-                  ),
-                ),
+      backgroundColor: const Color(0xFFFCFCFD),
+      body: SafeArea(
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 10, 16, 14),
+            child: TripNestHeader(
+              onBack: () => Navigator.pop(context),
+              trailing: const SizedBox.shrink(),
+            ),
+          ),
+          Expanded(
+              child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('로그인 및 보안',
+                  style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
+                      letterSpacing: -1,
+                      height: 1.3)),
+              const SizedBox(height: 10),
+              const Text('연결된 로그인 계정을 확인하세요.',
+                  style:
+                      TextStyle(fontSize: 16, color: _secondary, height: 1.5)),
+              const SizedBox(height: 22),
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFF3F3F5),
+                    borderRadius: BorderRadius.circular(16)),
+                child: Row(children: [
+                  const Icon(Icons.verified_user_outlined,
+                      size: 23, color: Colors.black),
+                  const SizedBox(width: 14),
+                  Expanded(
+                      child: Text('로그인 계정 ${vm.connectedCount}개 연결됨',
+                          style: const TextStyle(
+                              fontSize: 15, color: Color(0xFF50535D)))),
+                ]),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Set<String> _connectedProviders(User? user) {
-    final providers = <String>{};
-
-    for (final identity in user?.identities ?? const []) {
-      final provider = identity.provider.toLowerCase();
-      if (provider.isNotEmpty) {
-        providers.add(provider);
-      }
-    }
-
-    _addProvider(providers, user?.appMetadata['provider']);
-    _addProvider(providers, user?.appMetadata['providers']);
-
-    return providers;
-  }
-
-  void _addProvider(Set<String> providers, Object? value) {
-    if (value is String && value.isNotEmpty) {
-      providers.add(value.toLowerCase());
-    }
-
-    if (value is List) {
-      for (final item in value) {
-        _addProvider(providers, item);
-      }
-    }
-  }
-}
-
-class _SecurityAppBar extends StatelessWidget {
-  final VoidCallback onBack;
-
-  const _SecurityAppBar({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDesign.spacing16,
-        vertical: AppDesign.spacing12,
-      ),
-      child: Row(
-        children: [
-          Material(
-            color: AppDesign.cardBg,
-            borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-            child: InkWell(
-              onTap: onBack,
-              borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-              child: Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.arrow_back_ios_new,
-                  color: AppDesign.primaryText,
-                  size: 20,
-                ),
+              const SizedBox(height: 36),
+              const _SectionTitle('연결된 로그인 계정'),
+              const SizedBox(height: 14),
+              Container(
+                decoration: _cardDecoration,
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: Column(children: [
+                  _AccountRow(
+                      title: '이메일',
+                      connected: vm.providers.contains('email'),
+                      description: '이메일 계정이 연결되어 있어요.',
+                      detail: vm.providers.contains('email') ? vm.email : null,
+                      icon: const Icon(Icons.mail_outline_rounded,
+                          size: 31, color: Colors.black)),
+                  const Divider(
+                      height: 1, thickness: .7, color: Color(0xFFE4E5E8)),
+                  _AccountRow(
+                      title: 'Google',
+                      connected: vm.providers.contains('google'),
+                      description: 'Google 계정이 연결되어 있어요.',
+                      icon: const SizedBox(
+                          width: 31,
+                          height: 31,
+                          child: CustomPaint(painter: _GoogleMarkPainter()))),
+                  const Divider(
+                      height: 1, thickness: .7, color: Color(0xFFE4E5E8)),
+                  _AccountRow(
+                      title: 'Kakao',
+                      connected: vm.providers.contains('kakao'),
+                      description: '카카오 계정이 연결되어 있어요.',
+                      icon: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset('assets/kakao_icon.png',
+                              width: 38, height: 38))),
+                ]),
               ),
-            ),
-          ),
-          const SizedBox(width: AppDesign.spacing16),
-          Text(
-            '로그인 및 보안',
-            style: AppDesign.headingMedium.copyWith(
-              color: AppDesign.primaryText,
-            ),
-          ),
-        ],
+              const SizedBox(height: 30),
+              const _SectionTitle('계정 보호'),
+              const SizedBox(height: 14),
+              Container(
+                decoration: _cardDecoration,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+                child: const Row(children: [
+                  Icon(Icons.lock_outline_rounded,
+                      size: 31, color: Colors.black),
+                  SizedBox(width: 19),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text('공용 기기에서는 로그아웃해 주세요.',
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                                letterSpacing: -.5,
+                                height: 1.4)),
+                        SizedBox(height: 5),
+                        Text('낯선 로그인 내역이 있다면 계정 정보를 확인해 주세요.',
+                            style: TextStyle(
+                                fontSize: 12, color: _secondary, height: 1.5)),
+                      ])),
+                ]),
+              ),
+            ]),
+          )),
+        ]),
       ),
     );
   }
 }
 
-class _SecurityHeader extends StatelessWidget {
-  final User? user;
-  final Set<String> providers;
+const _secondary = Color(0xFF6B6E79);
+final _cardDecoration = BoxDecoration(
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(15),
+  border: Border.all(color: const Color(0xFFECEDEF)),
+  boxShadow: const [
+    BoxShadow(color: Color(0x04000000), blurRadius: 18, offset: Offset(0, 5))
+  ],
+);
 
-  const _SecurityHeader({required this.user, required this.providers});
-
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
   @override
-  Widget build(BuildContext context) {
-    final connectedCount = _providerCount(user, providers);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppDesign.spacing24),
-      decoration: BoxDecoration(
-        gradient: AppDesign.primaryGradient,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.glowShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.verified_user_outlined,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing16),
-          const Text(
-            '계정 접근 수단을 확인해요',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing8),
-          Text(
-            connectedCount == 0
-                ? '현재 연결된 로그인 정보를 불러오지 못했어요.'
-                : '$connectedCount개의 로그인 계정이 연결되어 있어요.',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.white.withValues(alpha: 0.78),
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _providerCount(User? user, Set<String> providers) {
-    final normalized = {...providers};
-    return normalized.intersection({'email', 'google', 'kakao'}).length;
-  }
+  Widget build(BuildContext context) => Text(text,
+      style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+          letterSpacing: -.5));
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String label;
-
-  const _SectionLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: AppDesign.caption.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        color: AppDesign.subtleText,
-        letterSpacing: 0.8,
-      ),
-    );
-  }
-}
-
-class _ConnectedAccountGroup extends StatelessWidget {
-  final List<_AccountProviderItem> accounts;
-
-  const _ConnectedAccountGroup({required this.accounts});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        border: Border.all(color: AppDesign.borderColor),
-      ),
-      child: Column(
-        children: accounts.asMap().entries.map((entry) {
-          final index = entry.key;
-          final account = entry.value;
-
-          return Column(
-            children: [
-              if (index != 0)
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: AppDesign.borderColor,
-                  indent: 20,
-                  endIndent: 20,
-                ),
-              _ConnectedAccountTile(account: account),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _AccountProviderItem {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
+class _AccountRow extends StatelessWidget {
   final String title;
-  final String connectedText;
-  final String disconnectedText;
-  final bool isConnected;
+  final String description;
   final String? detail;
-
-  const _AccountProviderItem({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
-    required this.title,
-    required this.connectedText,
-    required this.disconnectedText,
-    required this.isConnected,
-    this.detail,
-  });
-
-  factory _AccountProviderItem.email({
-    required bool isConnected,
-    required String? email,
-  }) {
-    return _AccountProviderItem(
-      icon: Icons.alternate_email,
-      iconColor: AppDesign.travelBlue,
-      iconBg: const Color(0xFFEFF6FF),
-      title: '이메일',
-      connectedText: '이메일과 비밀번호로 로그인할 수 있어요',
-      disconnectedText: '이메일 로그인이 설정되어 있지 않아요',
-      isConnected: isConnected,
-      detail: isConnected ? email : null,
-    );
-  }
-
-  factory _AccountProviderItem.google({required bool isConnected}) {
-    return _AccountProviderItem(
-      icon: Icons.g_mobiledata,
-      iconColor: AppDesign.travelOrange,
-      iconBg: const Color(0xFFFFFBEB),
-      title: 'Google',
-      connectedText: 'Google 계정으로 로그인할 수 있어요',
-      disconnectedText: 'Google 계정이 연결되어 있지 않아요',
-      isConnected: isConnected,
-    );
-  }
-
-  factory _AccountProviderItem.kakao({required bool isConnected}) {
-    return _AccountProviderItem(
-      icon: Icons.chat_bubble_outline,
-      iconColor: const Color(0xFF3A2929),
-      iconBg: const Color(0xFFFFF7CC),
-      title: 'Kakao',
-      connectedText: '카카오톡 API로 로그인할 수 있어요',
-      disconnectedText: 'Kakao 계정이 연결되어 있지 않아요',
-      isConnected: isConnected,
-    );
-  }
-}
-
-class _ConnectedAccountTile extends StatelessWidget {
-  final _AccountProviderItem account;
-
-  const _ConnectedAccountTile({required this.account});
+  final bool connected;
+  final Widget icon;
+  const _AccountRow(
+      {required this.title,
+      required this.description,
+      required this.connected,
+      required this.icon,
+      this.detail});
 
   @override
   Widget build(BuildContext context) {
-    final statusColor =
-        account.isConnected ? AppDesign.travelGreen : AppDesign.subtleText;
-    final statusBg =
-        account.isConnected ? const Color(0xFFECFDF5) : AppDesign.secondaryBg;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDesign.spacing20,
-        vertical: AppDesign.spacing16,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: account.iconBg,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(account.icon, color: account.iconColor, size: 22),
-          ),
-          const SizedBox(width: AppDesign.spacing16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  account.title,
-                  style: AppDesign.bodyMedium.copyWith(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppDesign.primaryText,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  account.isConnected
-                      ? account.connectedText
-                      : account.disconnectedText,
-                  style: AppDesign.caption.copyWith(
-                    fontSize: 12,
-                    color: AppDesign.subtleText,
-                  ),
-                ),
-                if (account.detail?.isNotEmpty ?? false) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    account.detail!,
-                    style: AppDesign.caption.copyWith(
-                      fontSize: 12,
-                      color: AppDesign.secondaryText,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: AppDesign.spacing12),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDesign.spacing10,
-              vertical: AppDesign.spacing6,
-            ),
-            decoration: BoxDecoration(
-              color: statusBg,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              account.isConnected ? '연결됨' : '미연결',
-              style: AppDesign.caption.copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: statusColor,
-                height: 1,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SecurityTipCard extends StatelessWidget {
-  const _SecurityTipCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppDesign.spacing20),
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
       decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        border: Border.all(color: AppDesign.borderColor),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F3FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.lock_outline,
-              color: AppDesign.travelPurple,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: AppDesign.spacing16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '공용 기기에서는 로그아웃해주세요',
-                  style: AppDesign.bodyMedium.copyWith(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: AppDesign.spacing4),
-                Text(
-                  '연결된 로그인 계정이 낯설게 보이면 비밀번호를 재설정하거나 다시 로그인해주세요.',
-                  style: AppDesign.caption.copyWith(
-                    fontSize: 12,
-                    color: AppDesign.secondaryText,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          color: connected ? const Color(0xFF161616) : const Color(0xFFF3F4F5),
+          borderRadius: BorderRadius.circular(30)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (connected) ...[
+          const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+          const SizedBox(width: 5),
         ],
-      ),
+        Text(connected ? '연결됨' : '미연결',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: connected ? Colors.white : const Color(0xFF5A5D67))),
+      ]),
+    );
+    final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Row(children: [
+        SizedBox(width: 40, child: Center(child: icon)),
+        const SizedBox(width: 16),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                  height: 1.3)),
+          const SizedBox(height: 4),
+          Text(connected ? description : '연결된 계정이 없어요.',
+              style: const TextStyle(
+                  fontSize: 12, color: _secondary, height: 1.4)),
+          if (detail?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 4),
+            Text(detail!,
+                style: const TextStyle(
+                    fontSize: 12, color: _secondary, height: 1.4)),
+          ],
+          if (largeText) ...[const SizedBox(height: 8), badge],
+        ])),
+        if (!largeText) ...[const SizedBox(width: 8), badge],
+      ]),
     );
   }
+}
+
+/// Four-color G without the dark circular background of the sign-in asset.
+class _GoogleMarkPainter extends CustomPainter {
+  const _GoogleMarkPainter();
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 32, size.height / 32);
+    final pen = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6;
+    const rect = Rect.fromLTWH(4, 4, 24, 24);
+    for (final segment in [
+      (40.0, 95.0, const Color(0xFF34A853)),
+      (135.0, 60.0, const Color(0xFFFBBC05)),
+      (195.0, 115.0, const Color(0xFFEA4335)),
+      (-5.0, 45.0, const Color(0xFF4285F4)),
+    ]) {
+      canvas.drawArc(rect, segment.$1 * math.pi / 180,
+          segment.$2 * math.pi / 180, false, pen..color = segment.$3);
+    }
+    canvas.drawPath(
+        Path()
+          ..moveTo(17, 16)
+          ..lineTo(29, 16)
+          ..lineTo(29, 19),
+        pen..color = const Color(0xFF4285F4));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _GoogleMarkPainter oldDelegate) => false;
 }
