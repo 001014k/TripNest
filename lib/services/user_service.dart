@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../models/userprofile_model.dart';
@@ -48,8 +49,8 @@ class UserService {
         'shared_links': results[3].length,
       };
     } catch (e, stack) {
-      print('getUserStats 오류: $e');
-      print(stack);
+      debugPrint('getUserStats 오류: $e');
+      debugPrint(stack.toString());
       return {
         'markers': 0,
         'lists': 0,
@@ -64,10 +65,8 @@ class UserService {
     final user = supabase.auth.currentUser;
     if (user == null) return [];
 
-    final response = await supabase
-        .from('lists')
-        .select()
-        .eq('user_id', user.id);
+    final response =
+        await supabase.from('lists').select().eq('user_id', user.id);
 
     return List<Map<String, dynamic>>.from(response);
   }
@@ -90,11 +89,10 @@ class UserService {
       return trimmed.isNotEmpty;
     } catch (e) {
       // 오류 발생 시 false로 처리 (안전하게 닉네임 설정 화면으로 이동)
-      print('닉네임 체크 오류: $e');
+      debugPrint('닉네임 체크 오류: $e');
       return false;
     }
   }
-
 
   /// 닉네임으로 사용자 검색
   Future<List<UserModel>> searchUsersByNickname(String nickname) async {
@@ -108,7 +106,7 @@ class UserService {
 
   Future<UserProfile?> getProfileById(String userId) async {
     if (userId.isEmpty) {
-      print('getProfileById: 빈 userId로 호출됨');
+      debugPrint('getProfileById: 빈 userId로 호출됨');
       return null;
     }
 
@@ -120,32 +118,30 @@ class UserService {
           .maybeSingle();
 
       if (response == null) {
-        print('getProfileById: 프로필이 존재하지 않음');
+        debugPrint('getProfileById: 프로필이 존재하지 않음');
         return null;
       }
 
       return UserProfile.fromMap(response);
     } catch (e) {
-      print('getProfileById 에러: $e');
+      debugPrint('getProfileById 에러: $e');
       return null;
     }
   }
-
 
   /// 닉네임 중복 여부 체크
   Future<bool> isNicknameAvailable(String nickname) async {
     final response = await supabase
         .from('profiles')
         .select('nickname')
-        .eq('nickname', nickname.trim())  // trim() 추가 권장
+        .eq('nickname', nickname.trim()) // trim() 추가 권장
         .limit(1);
 
     // debug print 추가
-    print('닉네임 중복 검사 결과: $response');
+    debugPrint('닉네임 중복 검사 결과: $response');
 
-    return (response as List).isEmpty;  // 결과가 비어있으면 사용 가능(true)
+    return (response as List).isEmpty; // 결과가 비어있으면 사용 가능(true)
   }
-
 
   /// 닉네임 업데이트
   Future<void> updateNickname(String userId, String nickname) async {
@@ -167,8 +163,7 @@ class UserService {
       // update
       await supabase
           .from('profiles')
-          .update({'nickname': nickname.trim()})
-          .eq('id', userId);
+          .update({'nickname': nickname.trim()}).eq('id', userId);
     }
   }
 }
