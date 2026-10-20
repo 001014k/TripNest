@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../env.dart';
+import 'shared_link_platform.dart';
 
 class ApifyService {
   static const String _baseUrl = 'https://api.apify.com/v2';
@@ -17,9 +18,16 @@ class ApifyService {
   Future<List<dynamic>> fetchInstagramData({
     required String instagramUrl,
   }) async {
+    final uri = Uri.tryParse(instagramUrl.trim());
+    if (uri == null ||
+        !['http', 'https'].contains(uri.scheme) ||
+        uri.userInfo.isNotEmpty ||
+        !SharedLinkPlatform.domain(uri.host.toLowerCase(), 'instagram.com')) {
+      throw const FormatException('Apify는 인스타그램 링크에만 사용할 수 있습니다.');
+    }
     final token = Env.apifyApiToken;
 
-    if (token == null || token.isEmpty) {
+    if (token.isEmpty) {
       throw Exception('Apify API Token이 설정되지 않았습니다.');
     }
 
@@ -41,7 +49,7 @@ class ApifyService {
     if (runResponse.statusCode < 200 || runResponse.statusCode >= 300) {
       throw Exception(
         'Apify Actor 실행 실패: '
-            '${runResponse.statusCode} ${runResponse.body}',
+        '${runResponse.statusCode} ${runResponse.body}',
       );
     }
 
@@ -67,11 +75,10 @@ class ApifyService {
       ),
     );
 
-    if (datasetResponse.statusCode < 200 ||
-        datasetResponse.statusCode >= 300) {
+    if (datasetResponse.statusCode < 200 || datasetResponse.statusCode >= 300) {
       throw Exception(
         'Apify Dataset 조회 실패: '
-            '${datasetResponse.statusCode} ${datasetResponse.body}',
+        '${datasetResponse.statusCode} ${datasetResponse.body}',
       );
     }
 
@@ -102,7 +109,7 @@ class ApifyService {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception(
           'Apify 실행 상태 조회 실패: '
-              '${response.statusCode} ${response.body}',
+          '${response.statusCode} ${response.body}',
         );
       }
 
