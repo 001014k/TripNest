@@ -4,11 +4,49 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../env.dart';
 import '../models/marker_model.dart';
+import '../models/link_preview_data.dart';
 import '../models/shared_link_model.dart'; // SharedLinkModel 임포트
 import '../services/marker_service.dart';
+import '../services/link_preview_service.dart';
 import '../services/shared_link_service.dart';
 
 class HomeDashboardViewModel extends ChangeNotifier {
+  bool _disposed = false;
+  final Map<String, LinkPreviewData?> _previewCache = {};
+  final Map<String, Future<LinkPreviewData?>> _previewRequests = {};
+
+  // Desktop Naver shells and mobile articles must not share stale shell metadata.
+  String _previewKey(String url) {
+    final uri = Uri.tryParse(url);
+    return uri?.host.toLowerCase() == 'blog.naver.com'
+        ? uri!.replace(host: 'm.blog.naver.com').toString()
+        : url;
+  }
+
+  bool hasPreview(String url) => _previewCache.containsKey(_previewKey(url));
+  LinkPreviewData? previewFor(String url) => _previewCache[_previewKey(url)];
+
+  Future<LinkPreviewData?> loadPreview(String url) {
+    url = _previewKey(url);
+    if (_previewCache.containsKey(url)) {
+      return Future.value(_previewCache[url]);
+    }
+    return _previewRequests.putIfAbsent(url, () async {
+      try {
+        final preview = await const LinkPreviewService().load(url);
+        _previewCache[url] = preview;
+        if (!_disposed) notifyListeners();
+        return preview;
+      } catch (_) {
+        _previewCache[url] = null;
+        if (!_disposed) notifyListeners();
+        return null;
+      } finally {
+        _previewRequests.remove(url);
+      }
+    });
+  }
+
   final List<MarkerModel> _recentMarkers = [];
   final List<SharedLinkModel> _sharedLinks = [];
 
@@ -57,14 +95,14 @@ class HomeDashboardViewModel extends ChangeNotifier {
   }
 
   String _getQueryKey(MarkerModel marker) {
-    return (marker.title != null && marker.title!.isNotEmpty)
+    return (marker.title.isNotEmpty)
         ? '${marker.title} ${marker.address}'
         : marker.address;
   }
 
   // loadRecentMarkers() 안에 _loadRatings() 호출 유지
   Future<void> loadRecentMarkers() async {
-    final rawMarkers = await MarkerService().getRecentMarkers(limit: 3);
+    final rawMarkers = await MarkerService().getRecentMarkers(limit: 5);
     _recentMarkers.clear();
     _recentMarkers
         .addAll(rawMarkers.map((e) => MarkerModel.fromMap(e)).toList());
@@ -117,7 +155,7 @@ class HomeDashboardViewModel extends ChangeNotifier {
       final detailsData = jsonDecode(detailsRes.body);
       return (detailsData['rating'] as num?)?.toDouble();
     } catch (e) {
-      print('Google Rating Error: $e');
+      debugPrint('Google Rating Error: $e');
       return null;
     }
   }
@@ -132,6 +170,7 @@ class HomeDashboardViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _realtimeChannel?.unsubscribe();
     super.dispose();
   }
