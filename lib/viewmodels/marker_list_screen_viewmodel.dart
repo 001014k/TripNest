@@ -28,19 +28,19 @@ class MarkerListViewModel extends ChangeNotifier {
 
       markers = List<Map<String, dynamic>>.from(data);
     } catch (e) {
-      print('fetchMarkers error: $e');
+      debugPrint('fetchMarkers error: $e');
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> deleteMarker(BuildContext context, String markerId) async {
+  Future<bool> deleteMarker(String markerId) async {
     try {
       final user = supabase.auth.currentUser;
-      if (user == null) return;
+      if (user == null) return false;
 
-      final response = await supabase
+      await supabase
           .from('user_markers')
           .delete()
           .eq('id', markerId)
@@ -50,13 +50,10 @@ class MarkerListViewModel extends ChangeNotifier {
       markers.removeWhere((m) => m['id'] == markerId);
       notifyListeners();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('삭제되었습니다.')),
-      );
+      return true;
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('삭제 실패: $e')),
-      );
+      debugPrint('deleteMarker error: $e');
+      return false;
     }
   }
 }
