@@ -11,16 +11,46 @@ class EmailLoginPage extends StatefulWidget {
 }
 
 class _EmailLoginPageState extends State<EmailLoginPage> {
+  late final LoginViewModel _viewModel;
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
+  bool _emailEdited = false;
+  bool _passwordEdited = false;
 
   @override
   void initState() {
     super.initState();
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
+    _viewModel = LoginViewModel();
+    _emailController.addListener(() {
+      _emailEdited = true;
+      _viewModel.setEmail(_emailController.text);
+    });
+    _passwordController.addListener(
+      () {
+        _passwordEdited = true;
+        _viewModel.setPassword(_passwordController.text);
+      },
+    );
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    await _viewModel.loadUserPreferences();
+    if (!mounted) return;
+    if (_emailEdited) {
+      _viewModel.setEmail(_emailController.text);
+    } else {
+      _emailController.text = _viewModel.email;
+    }
+    if (_passwordEdited) {
+      _viewModel.setPassword(_passwordController.text);
+    } else {
+      _passwordController.text = _viewModel.password;
+    }
   }
 
   @override
@@ -29,29 +59,16 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
     _passwordController.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
+    _viewModel.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => LoginViewModel()..loadUserPreferences(),
+    return ChangeNotifierProvider.value(
+      value: _viewModel,
       child: Consumer<LoginViewModel>(
         builder: (context, viewModel, child) {
-          _emailController.text = viewModel.email;
-          _passwordController.text = viewModel.password;
-
-          _emailController.addListener(() {
-            if (_emailController.text != viewModel.email) {
-              viewModel.setEmail(_emailController.text);
-            }
-          });
-          _passwordController.addListener(() {
-            if (_passwordController.text != viewModel.password) {
-              viewModel.setPassword(_passwordController.text);
-            }
-          });
-
           return Scaffold(
             backgroundColor: AppDesign.primaryBg,
             body: Container(
@@ -108,7 +125,7 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
               borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -258,7 +275,7 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
               prefixIcon: Container(
                 margin: const EdgeInsets.all(AppDesign.spacing12),
                 decoration: BoxDecoration(
-                  color: AppDesign.travelBlue.withOpacity(0.1),
+                  color: AppDesign.travelBlue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppDesign.spacing8),
                 ),
                 child: Icon(
@@ -327,68 +344,71 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
             borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
           ),
         ),
-        onPressed: viewModel.isLoading ? null : () async {
-          String? error = await viewModel.login();
-          if (error == null) {
-            String route = viewModel.email == 'hm4854@gmail.com'
-                ? '/user_list'
-                : '/home';
-            if (!mounted) return;
-            Navigator.pushReplacementNamed(context, route);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: AppDesign.whiteText,
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppDesign.spacing8),
-                    Expanded(
-                      child: Text(
-                        error,
-                        style: AppDesign.bodyMedium.copyWith(
-                          color: AppDesign.whiteText,
-                        ),
+        onPressed: viewModel.isLoading
+            ? null
+            : () async {
+                String? error = await viewModel.login();
+                if (error == null) {
+                  if (!mounted) return;
+                  if (!context.mounted) return;
+                  Navigator.pushReplacementNamed(context, '/home');
+                } else {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: AppDesign.whiteText,
+                            size: 20,
+                          ),
+                          const SizedBox(width: AppDesign.spacing8),
+                          Expanded(
+                            child: Text(
+                              error,
+                              style: AppDesign.bodyMedium.copyWith(
+                                color: AppDesign.whiteText,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                      backgroundColor: AppDesign.sunsetGradientStart,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppDesign.radiusSmall),
+                      ),
+                      margin: const EdgeInsets.all(AppDesign.spacing16),
                     ),
-                  ],
-                ),
-                backgroundColor: AppDesign.sunsetGradientStart,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                margin: const EdgeInsets.all(AppDesign.spacing16),
-              ),
-            );
-          }
-        },
+                  );
+                }
+              },
         child: viewModel.isLoading
             ? const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            valueColor: AlwaysStoppedAnimation<Color>(AppDesign.whiteText),
-          ),
-        )
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(AppDesign.whiteText),
+                ),
+              )
             : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.login, size: 20),
-            const SizedBox(width: AppDesign.spacing8),
-            Text(
-              '로그인',
-              style: AppDesign.bodyMedium.copyWith(
-                color: AppDesign.whiteText,
-                fontWeight: FontWeight.w600,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.login, size: 20),
+                  const SizedBox(width: AppDesign.spacing8),
+                  Text(
+                    '로그인',
+                    style: AppDesign.bodyMedium.copyWith(
+                      color: AppDesign.whiteText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
