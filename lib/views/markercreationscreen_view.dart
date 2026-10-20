@@ -1,744 +1,423 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:elegant_notification/elegant_notification.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/markercreationscreen_viewmodel.dart';
-import '../design/app_design.dart'; // AppDesign 임포트 추가
+import '../widgets/address_photo_preview.dart';
+import '../widgets/place_keyword_icon.dart';
+import '../widgets/app_overlays.dart';
+import '../viewmodels/list_viewmodel.dart';
 
 class MarkerCreationScreen extends StatefulWidget {
   final LatLng initialLatLng;
   final String? initialTitle;
   final String? initialAddress;
-
-  const MarkerCreationScreen({
-    required this.initialLatLng,
-    this.initialTitle,
-    this.initialAddress,
-    super.key,
-  });
-
+  const MarkerCreationScreen(
+      {required this.initialLatLng,
+      this.initialTitle,
+      this.initialAddress,
+      super.key});
   @override
-  _MarkerCreationScreenState createState() => _MarkerCreationScreenState();
+  State<MarkerCreationScreen> createState() => _MarkerCreationScreenState();
 }
 
-class _MarkerCreationScreenState extends State<MarkerCreationScreen>
-    with TickerProviderStateMixin {
-  TextEditingController _titleController = TextEditingController();
-  TextEditingController _snippetController = TextEditingController();
-  String? _selectedKeyword;
-  String? _selectedListId;
-  File? _image;
-  String _address = '주소 불러오는 중...';
-
-  late AnimationController _fadeAnimationController;
-  late Animation<double> _fadeAnimation;
-  late AnimationController _slideAnimationController;
-  late Animation<Offset> _slideAnimation;
+class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
+  late final TextEditingController _title;
+  final _memo = TextEditingController();
+  final _scroll = ScrollController();
+  int _step = 0;
+  String? _keyword;
+  String? _listId;
+  String _address = '주소 불러오는 중…';
+  bool _loadingLists = true;
+  bool _listError = false;
+  bool _creating = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
+    _title = TextEditingController(text: widget.initialTitle ?? '');
+    _address = widget.initialAddress?.trim() ?? '';
     _loadAddress();
-    _loadUserLists();
-    _titleController = TextEditingController(text: widget.initialTitle ?? '');
-
-    if (widget.initialAddress != null && widget.initialAddress!.isNotEmpty) {
-      setState(() {
-        _address = widget.initialAddress!;
-      });
-    }
-  }
-
-  void _initializeAnimations() {
-    _fadeAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeAnimationController, curve: Curves.easeOut),
-    );
-
-    _slideAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-          parent: _slideAnimationController, curve: Curves.easeOutCubic),
-    );
-
-    _fadeAnimationController.forward();
-    _slideAnimationController.forward();
+    _loadLists();
   }
 
   Future<void> _loadAddress() async {
-    if (widget.initialAddress != null && widget.initialAddress!.isNotEmpty) {
-      return;
-    }
-    final viewModel =
-        Provider.of<MarkerCreationScreenViewModel>(context, listen: false);
-    final result = await viewModel.getAddressFromCoordinates(
-      widget.initialLatLng.latitude,
-      widget.initialLatLng.longitude,
-    );
-    setState(() {
-      _address = result;
-    });
+    if (_address.isNotEmpty) return;
+    final vm = context.read<MarkerCreationScreenViewModel>();
+    final address = await vm.getAddressFromCoordinates(
+        widget.initialLatLng.latitude, widget.initialLatLng.longitude);
+    if (mounted) setState(() => _address = address);
   }
 
-  Future<void> _loadUserLists() async {
-    final viewModel =
-        Provider.of<MarkerCreationScreenViewModel>(context, listen: false);
-    await viewModel.fetchUserLists();
-    if (viewModel.lists.isNotEmpty) {
-      setState(() {
-        _selectedListId = viewModel.lists.first['id'];
+  Future<void> _loadLists() async {
+    setState(() {
+      _loadingLists = true;
+      _listError = false;
+    });
+    try {
+      await context.read<MarkerCreationScreenViewModel>().fetchUserLists();
+    } catch (_) {
+      if (mounted) setState(() => _listError = true);
+    } finally {
+      if (mounted) setState(() => _loadingLists = false);
+    }
+  }
+
+  void _next() {
+    if (_step == 0 && _title.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('장소 이름을 입력해주세요.')));
+      return;
+    }
+    if (_step == 1 && _keyword == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('카테고리를 선택해주세요.')));
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    if (_step < 2) {
+      setState(() => _step++);
+      _scroll.jumpTo(0);
+    } else {
+      Navigator.pop(context, <String, dynamic>{
+        'title': _title.text.trim(),
+        'snippet': _memo.text.trim(),
+        'keyword': _keyword,
+        'image': null,
+        'listId': _listId,
+        'address': _address,
       });
+    }
+  }
+
+  Future<void> _createList() async {
+    final name = await showDialog<String>(
+        context: context,
+        builder: (_) => const AppTextInputDialog(
+            title: '새 리스트 만들기',
+            hint: '리스트 이름',
+            submitLabel: '만들기',
+            icon: Icons.playlist_add_rounded));
+    if (!mounted || name == null || name.trim().isEmpty) return;
+    setState(() => _creating = true);
+    try {
+      final id = await context
+          .read<MarkerCreationScreenViewModel>()
+          .createList(name.trim());
+      if (!mounted) return;
+      setState(() => _listId = id);
+      await _loadLists();
+      if (mounted) await context.read<ListViewModel>().loadLists();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('리스트를 만들지 못했어요. 다시 시도해주세요.')));
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
     }
   }
 
   @override
   void dispose() {
-    _fadeAnimationController.dispose();
-    _slideAnimationController.dispose();
-    _titleController.dispose();
-    _snippetController.dispose();
+    _title.dispose();
+    _memo.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = Provider.of<MarkerCreationScreenViewModel>(context);
-    final List<String> keywords = viewModel.keywordIcons.keys.toList();
-    final List<Map<String, dynamic>> userLists = viewModel.lists;
-
+    final vm = context.watch<MarkerCreationScreenViewModel>();
     return Scaffold(
-      backgroundColor: AppDesign.primaryBg,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppDesign.backgroundGradient,
-        ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                // 프리미엄 헤더
-                SliverToBoxAdapter(
-                  child: _buildPremiumHeader(context),
-                ),
-
-                // 메인 폼 컨텐츠
-                SliverToBoxAdapter(
-                  child: SlideTransition(
-                    position: _slideAnimation,
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppDesign.spacing20),
-                      child: Column(
-                        children: [
-                          // 위치 정보 카드
-                          _buildLocationCard(),
-                          const SizedBox(height: AppDesign.spacing20),
-
-                          // 기본 정보 입력 카드
-                          _buildBasicInfoCard(),
-                          const SizedBox(height: AppDesign.spacing20),
-
-                          // 카테고리 선택 카드
-                          _buildCategoryCard(keywords, viewModel),
-                          const SizedBox(height: AppDesign.spacing20),
-
-                          // 리스트 선택 카드
-                          _buildListSelectionCard(userLists),
-                          const SizedBox(height: AppDesign.spacing32),
-
-                          // 저장 버튼
-                          _buildSaveButton(),
-                          const SizedBox(height: AppDesign.spacing40),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+      backgroundColor: const Color(0xFFFCFCFD),
+      appBar: AppBar(
+          backgroundColor: const Color(0xFFFCFCFD),
+          surfaceTintColor: Colors.transparent,
+          centerTitle: true,
+          title: const Text('마커 추가하기',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          leading: IconButton(
+              tooltip: '닫기',
+              icon: const Icon(Icons.close, size: 22),
+              onPressed: () => Navigator.pop(context))),
+      bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+            child: FilledButton(
+                onPressed: _creating ? null : _next,
+                style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF191919),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(54),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18))),
+                child: Text(_step == 2 ? '저장하기' : '다음',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600))),
+          )),
+      body: Column(children: [
+        Padding(
+            padding: const EdgeInsets.fromLTRB(32, 4, 32, 20),
+            child: Row(
+                children: List.generate(
+                    3,
+                    (index) => Expanded(
+                            child: InkWell(
+                          onTap: index < _step
+                              ? () {
+                                  setState(() => _step = index);
+                                  _scroll.jumpTo(0);
+                                }
+                              : null,
+                          child: Column(children: [
+                            Row(children: [
+                              Expanded(
+                                  child: Container(
+                                      height: 1,
+                                      color: index == 0
+                                          ? Colors.transparent
+                                          : index <= _step
+                                              ? Colors.black
+                                              : const Color(0xFFD7D8DC))),
+                              Container(
+                                  width: 18,
+                                  height: 18,
+                                  decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: index <= _step
+                                          ? Colors.black
+                                          : const Color(0xFFC6C8CD)),
+                                  child: index == _step
+                                      ? const Icon(Icons.check,
+                                          color: Colors.white, size: 12)
+                                      : null),
+                              Expanded(
+                                  child: Container(
+                                      height: 1,
+                                      color: index == 2
+                                          ? Colors.transparent
+                                          : index < _step
+                                              ? Colors.black
+                                              : const Color(0xFFD7D8DC))),
+                            ]),
+                            const SizedBox(height: 9),
+                            Text(['기본 정보', '카테고리', '저장하기'][index],
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: index == _step
+                                        ? Colors.black
+                                        : const Color(0xFF858892))),
+                          ]),
+                        ))))),
+        Expanded(
+            child: ListView(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
+                children: [
+              if (_step == 0) ...[
+                ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: SizedBox(
+                        height: 190,
+                        child: AddressPhotoPreview(
+                            address: _address,
+                            title: widget.initialTitle ?? _title.text,
+                            size: 190))),
+                const SizedBox(height: 22),
+                _label('장소 이름'),
+                TextField(
+                    controller: _title,
+                    textInputAction: TextInputAction.next,
+                    decoration: _input('장소 이름을 입력해주세요.')),
+                const SizedBox(height: 20),
+                _label('설명 (선택)'),
+                TextField(
+                    controller: _memo,
+                    minLines: 3,
+                    maxLines: 5,
+                    decoration: _input('이 장소에 대한 소개나 메모를 남겨주세요.')),
+                const SizedBox(height: 20),
+                _label('주소'),
+                Container(
+                    padding: const EdgeInsets.all(13),
+                    decoration: _border,
+                    child: Row(children: [
+                      const Icon(Icons.location_on_outlined,
+                          size: 20, color: Color(0xFF737782)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: Text(
+                              _address.isEmpty ? '주소 불러오는 중…' : _address,
+                              style: const TextStyle(fontSize: 13)))
+                    ])),
               ],
-            ),
-          ),
-        ),
-      ),
+              if (_step == 1) ...[
+                _heading('카테고리 선택', '이 장소에 가장 잘 맞는 카테고리를 선택해주세요.'),
+                LayoutBuilder(
+                    builder: (context, box) => GridView.count(
+                          crossAxisCount:
+                              MediaQuery.textScalerOf(context).scale(1) > 1.4
+                                  ? 2
+                                  : 3,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 1,
+                          children: vm.keywordIcons.keys
+                              .map((keyword) => Semantics(
+                                    selected: _keyword == keyword,
+                                    child: InkWell(
+                                      onTap: () =>
+                                          setState(() => _keyword = keyword),
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                          decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                              border: Border.all(
+                                                  color: _keyword == keyword
+                                                      ? Colors.black
+                                                      : const Color(0xFFE6E7EB),
+                                                  width: _keyword == keyword
+                                                      ? 1.5
+                                                      : 1)),
+                                          child: Stack(children: [
+                                            Center(
+                                                child: Column(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                  Icon(
+                                                      placeKeywordIcon(keyword),
+                                                      size: 30),
+                                                  const SizedBox(height: 12),
+                                                  Text(
+                                                      keyword == '음식점'
+                                                          ? '맛집'
+                                                          : keyword == '호텔'
+                                                              ? '숙소'
+                                                              : keyword,
+                                                      style: const TextStyle(
+                                                          fontSize: 13)),
+                                                ])),
+                                            if (_keyword == keyword)
+                                              const Positioned(
+                                                  top: 7,
+                                                  right: 7,
+                                                  child: Icon(
+                                                      Icons.check_circle,
+                                                      size: 20)),
+                                          ])),
+                                    ),
+                                  ))
+                              .toList(),
+                        )),
+              ],
+              if (_step == 2) ...[
+                _heading('저장할 리스트 선택', '이 장소를 어떤 리스트에 저장할까요?'),
+                _listTile(
+                    title: _creating ? '리스트 만드는 중…' : '새 리스트에 저장하기',
+                    leading: const Icon(Icons.add_circle_outline, size: 30),
+                    onTap: _creating ? null : _createList),
+                if (_loadingLists)
+                  const LinearProgressIndicator(color: Colors.black)
+                else if (_listError)
+                  TextButton(
+                      onPressed: _loadLists, child: const Text('리스트 다시 불러오기'))
+                else
+                  ...vm.lists.map((list) {
+                    final bookmarks = list['list_bookmarks'] as List? ?? [];
+                    final title = bookmarks.isEmpty
+                        ? list['name'].toString()
+                        : bookmarks.first['title']?.toString() ??
+                            list['name'].toString();
+                    return _listTile(
+                        title: list['name']?.toString() ?? '여행 리스트',
+                        subtitle: '${bookmarks.length}개 장소',
+                        selected: _listId == list['id'],
+                        leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(9),
+                            child: SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: AddressPhotoPreview(
+                                    address: '', title: title, size: 48))),
+                        onTap: () =>
+                            setState(() => _listId = list['id'].toString()));
+                  }),
+                _listTile(
+                    title: '리스트 없이 저장',
+                    subtitle: '내 지도에만 장소를 저장해요.',
+                    leading: const Icon(Icons.map_outlined),
+                    selected: _listId == null,
+                    onTap: () => setState(() => _listId = null)),
+              ],
+            ])),
+      ]),
     );
   }
 
-  Widget _buildPremiumHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // 뒤로가기 버튼
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppDesign.cardBg,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                  boxShadow: AppDesign.softShadow,
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                    onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: AppDesign.primaryText,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              // 지도 아이콘
-              Container(
-                padding: const EdgeInsets.all(AppDesign.spacing12),
-                decoration: BoxDecoration(
-                  gradient: AppDesign.primaryGradient,
-                  shape: BoxShape.circle,
-                  boxShadow: AppDesign.glowShadow,
-                ),
-                child: const Icon(
-                  Icons.add_location_alt_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDesign.spacing32),
-          // 타이틀 섹션
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: AppDesign.travelBlue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppDesign.travelBlue.withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Text(
-              '새로운 장소',
-              style: AppDesign.caption.copyWith(
-                color: AppDesign.travelBlue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing12),
-          const Text('마커 만들기', style: AppDesign.headingXL),
-          const SizedBox(height: AppDesign.spacing8),
-          Text(
-            '여행지 정보를 입력해주세요 ✏️',
-            style: AppDesign.bodyLarge.copyWith(
-              color: AppDesign.secondaryText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLocationCard() {
-    return Container(
-      padding: const EdgeInsets.all(AppDesign.spacing20),
-      decoration: BoxDecoration(
-        gradient: AppDesign.sunsetGradient,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-            color: AppDesign.sunsetGradientStart.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-            ),
-            child: const Icon(
-              Icons.location_on_rounded,
+  BoxDecoration get _border => BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE1E3E7)));
+  InputDecoration _input(String hint) => InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.white,
+      hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9699A2)),
+      contentPadding: const EdgeInsets.all(14),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFE1E3E7))),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)));
+  Widget _label(String text) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(text,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)));
+  Widget _heading(String title, String subtitle) => Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title,
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        Text(subtitle,
+            style: const TextStyle(
+                fontSize: 13, color: Color(0xFF6D7079), height: 1.5)),
+      ]));
+  Widget _listTile(
+          {required String title,
+          String? subtitle,
+          required Widget leading,
+          bool selected = false,
+          VoidCallback? onTap}) =>
+      Padding(
+          padding: const EdgeInsets.only(bottom: 9),
+          child: Material(
               color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: AppDesign.spacing16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '선택한 위치',
-                  style: AppDesign.caption.copyWith(
-                    color: Colors.white.withOpacity(0.9),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: AppDesign.spacing4),
-                Text(
-                  _address,
-                  style: AppDesign.bodyMedium.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBasicInfoCard() {
-    return Container(
-      padding: const EdgeInsets.all(AppDesign.spacing24),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 섹션 헤더
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppDesign.spacing8),
-                decoration: BoxDecoration(
-                  gradient: AppDesign.primaryGradient,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                child: const Icon(
-                  Icons.edit_rounded,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: AppDesign.spacing12),
-              Text(
-                '기본 정보',
-                style: AppDesign.headingSmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDesign.spacing24),
-
-          // 제목 입력
-          Text(
-            '장소 이름',
-            style: AppDesign.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppDesign.primaryText,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing8),
-          Container(
-            decoration: BoxDecoration(
-              color: AppDesign.lightGray,
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-              border: Border.all(
-                color: AppDesign.borderColor,
-                width: 1,
-              ),
-            ),
-            child: TextFormField(
-              controller: _titleController,
-              style: AppDesign.bodyMedium,
-              decoration: InputDecoration(
-                prefixIcon: Icon(
-                  Icons.place_outlined,
-                  color: AppDesign.travelBlue,
-                  size: 20,
-                ),
-                hintText: '예: 에펠탑, 루브르 박물관',
-                hintStyle: AppDesign.bodyMedium.copyWith(
-                  color: AppDesign.subtleText,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppDesign.spacing16,
-                  vertical: AppDesign.spacing16,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing20),
-
-          // 설명 입력
-          Text(
-            '설명',
-            style: AppDesign.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppDesign.primaryText,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing8),
-          Container(
-            decoration: BoxDecoration(
-              color: AppDesign.lightGray,
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-              border: Border.all(
-                color: AppDesign.borderColor,
-                width: 1,
-              ),
-            ),
-            child: TextFormField(
-              controller: _snippetController,
-              style: AppDesign.bodyMedium,
-              maxLines: 3,
-              decoration: InputDecoration(
-                prefixIcon: Padding(
-                  padding: const EdgeInsets.only(
-                    left: AppDesign.spacing12,
-                    right: AppDesign.spacing12,
-                    bottom: 40,
-                  ),
-                  child: Icon(
-                    Icons.notes_rounded,
-                    color: AppDesign.travelPurple,
-                    size: 20,
-                  ),
-                ),
-                hintText: '이 장소에 대한 메모나 특별한 기억을 남겨주세요',
-                hintStyle: AppDesign.bodyMedium.copyWith(
-                  color: AppDesign.subtleText,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppDesign.spacing16,
-                  vertical: AppDesign.spacing16,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryCard(
-      List<String> keywords, MarkerCreationScreenViewModel viewModel) {
-    return Container(
-      padding: const EdgeInsets.all(AppDesign.spacing24),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 섹션 헤더
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppDesign.spacing8),
-                decoration: BoxDecoration(
-                  gradient: AppDesign.greenGradient,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                child: const Icon(
-                  Icons.category_rounded,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: AppDesign.spacing12),
-              Text(
-                '카테고리',
-                style: AppDesign.headingSmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDesign.spacing20),
-
-          // 키워드 선택 그리드
-          Text(
-            '이 장소의 카테고리를 선택하세요',
-            style: AppDesign.bodyMedium.copyWith(
-              color: AppDesign.secondaryText,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing16),
-          Wrap(
-            spacing: AppDesign.spacing12,
-            runSpacing: AppDesign.spacing12,
-            children: keywords.map((keyword) {
-              final isSelected = _selectedKeyword == keyword;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedKeyword = keyword;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDesign.spacing16,
-                    vertical: AppDesign.spacing12,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: isSelected ? AppDesign.primaryGradient : null,
-                    color: isSelected ? null : AppDesign.lightGray,
-                    borderRadius: BorderRadius.circular(AppDesign.radiusXL),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppDesign.travelBlue.withOpacity(0.3)
-                          : AppDesign.borderColor,
-                      width: isSelected ? 2 : 1,
-                    ),
-                    boxShadow: isSelected ? AppDesign.glowShadow : null,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        viewModel.keywordIcons[keyword],
-                        color:
-                            isSelected ? Colors.white : AppDesign.secondaryText,
-                        size: 18,
-                      ),
-                      const SizedBox(width: AppDesign.spacing8),
-                      Text(
-                        keyword,
-                        style: AppDesign.bodyMedium.copyWith(
-                          color:
-                              isSelected ? Colors.white : AppDesign.primaryText,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildListSelectionCard(List<Map<String, dynamic>> userLists) {
-    return Container(
-      padding: const EdgeInsets.all(AppDesign.spacing24),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 섹션 헤더
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppDesign.spacing8),
-                decoration: BoxDecoration(
-                  color: AppDesign.travelOrange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                child: Icon(
-                  Icons.folder_rounded,
-                  color: AppDesign.travelOrange,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: AppDesign.spacing12),
-              Text(
-                '리스트에 추가',
-                style: AppDesign.headingSmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDesign.spacing20),
-
-          Text(
-            '이 마커를 추가할 리스트를 선택하세요',
-            style: AppDesign.bodyMedium.copyWith(
-              color: AppDesign.secondaryText,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing16),
-
-          Container(
-            decoration: BoxDecoration(
-              color: AppDesign.lightGray,
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-              border: Border.all(
-                color: AppDesign.borderColor,
-                width: 1,
-              ),
-            ),
-            child: DropdownButtonFormField<String>(
-              value: _selectedListId,
-              isExpanded: true,
-              style: AppDesign.bodyMedium,
-              icon: Icon(
-                Icons.expand_more_rounded,
-                color: AppDesign.travelOrange,
-              ),
-              decoration: InputDecoration(
-                prefixIcon: Icon(
-                  Icons.list_rounded,
-                  color: AppDesign.travelOrange,
-                  size: 20,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppDesign.spacing16,
-                  vertical: AppDesign.spacing4,
-                ),
-              ),
-              dropdownColor: AppDesign.cardBg,
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-              items: [
-                DropdownMenuItem<String>(
-                  value: null,
-                  child: Text(
-                    '리스트에 추가하지 않음',
-                    style: AppDesign.bodyMedium.copyWith(
-                      color: AppDesign.subtleText,
-                    ),
-                  ),
-                ),
-                ...userLists.map((list) {
-                  return DropdownMenuItem<String>(
-                    value: list['id'],
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          margin:
-                              const EdgeInsets.only(right: AppDesign.spacing8),
-                          decoration: BoxDecoration(
-                            color: AppDesign.travelOrange,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        Text(
-                          list['name'],
-                          style: AppDesign.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ],
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedListId = newValue;
-                });
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSaveButton() {
-    return GestureDetector(
-      onTapDown: (_) {},
-      onTapUp: (_) {
-        if (_titleController.text.isEmpty) {
-          _showErrorSnackBar('장소 이름을 입력해주세요');
-          return;
-        }
-        if (_selectedKeyword == null) {
-          _showErrorSnackBar('카테고리를 선택해주세요');
-          return;
-        }
-
-        Navigator.pop(context, {
-          'title': _titleController.text,
-          'snippet': _snippetController.text,
-          'keyword': _selectedKeyword,
-          'image': _image,
-          'listId': _selectedListId,
-          'address': _address,
-        });
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: AppDesign.spacing20),
-        decoration: BoxDecoration(
-          gradient: AppDesign.primaryGradient,
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          boxShadow: [
-            ...AppDesign.elevatedShadow,
-            BoxShadow(
-              color: AppDesign.travelBlue.withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.save_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
-            const SizedBox(width: AppDesign.spacing12),
-            Text(
-              '마커 저장하기',
-              style: AppDesign.bodyLarge.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showErrorSnackBar(String message) {
-    ElegantNotification(
-      description: Text(message, style: AppDesign.bodyMedium),
-      icon: const Icon(Icons.error_outline, color: AppDesign.travelStamp),
-      background: AppDesign.cardBg,
-      verticalDividerColor: AppDesign.borderColor,
-      progressIndicatorColor: AppDesign.travelStamp,
-      progressIndicatorBackground: AppDesign.secondaryBg,
-      borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-      border: Border.all(color: AppDesign.borderColor),
-      shadow: AppDesign.softShadow.first,
-      position: Alignment.topCenter,
-    ).show(context);
-  }
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                      color:
+                          selected ? Colors.black : const Color(0xFFE8E9EC))),
+              child: ListTile(
+                  onTap: onTap,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  leading: leading,
+                  title: Text(title,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  subtitle: subtitle == null
+                      ? null
+                      : Text(subtitle,
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF858892))),
+                  trailing: selected
+                      ? const Icon(Icons.check_circle, color: Colors.black)
+                      : null)));
 }
