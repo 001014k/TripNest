@@ -96,14 +96,13 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addMarkerToList(
-      Marker marker, String listId, BuildContext context) async {
+  Future<String> addMarkerToList(Marker marker, String listId) async {
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null) return '로그인이 필요합니다.';
 
     // UI 상태가 갱신되기 전의 연속 탭도 중복 추가로 이어지지 않게 막습니다.
     if (isMarkerInList(marker, listId)) {
-      return;
+      return '${marker.infoWindow.title ?? "이 장소"}는 이미 리스트에 있습니다.';
     }
 
     try {
@@ -129,41 +128,20 @@ class AddMarkersToListViewModel extends ChangeNotifier {
       _markersInLists.putIfAbsent(listId, () => <String>{});
       _markersInLists[listId]!.add(marker.markerId.value);
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('${marker.infoWindow.title ?? "장소"}이(가) 리스트에 추가되었습니다.')),
-        );
-
-        Navigator.pop(context, true);
-      }
       _error = null;
+      notifyListeners();
+      return '';
     } on PostgrestException catch (e) {
       _error = 'Failed to add marker to list: ${e.message}';
-      if (context.mounted) {
-        if (e.message.contains('Marker already exists')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    '${marker.infoWindow.title ?? "이 장소"}는 이미 리스트에 있습니다.')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('마커 추가 실패: ${e.message}')),
-          );
-        }
-      }
+      notifyListeners();
+      return e.message.contains('Marker already exists')
+          ? '${marker.infoWindow.title ?? "이 장소"}는 이미 리스트에 있습니다.'
+          : '마커 추가 실패: ${e.message}';
     } catch (e) {
       _error = 'Failed to add marker to list: $e';
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('마커 추가 실패: $e')),
-        );
-      }
+      notifyListeners();
+      return '마커 추가 실패: $e';
     }
-
-    notifyListeners();
   }
 
   Future<void> loadMarkersInList(String listId) async {
@@ -216,16 +194,19 @@ class AddMarkersToListViewModel extends ChangeNotifier {
           'p_orders': markerOrders, // 함수 파라미터 이름에 맞게 'p_orders'로
         },
       );
-      print('✅ RPC 호출 성공 결과: $result');
+      debugPrint('✅ RPC 호출 성공 결과: $result');
+      await _notificationService.notifyListUpdated(listId, 'reordered');
     } on PostgrestException catch (e) {
       // RPC 스키마 불일치/RLS 등 상세 로그 확인
-      print('❌ RPC PostgrestException: ${e.message}, code=${e.code}');
-      print('➡️ 개별 업데이트 폴백을 시도합니다.');
+      debugPrint('❌ RPC PostgrestException: ${e.message}, code=${e.code}');
+      debugPrint('➡️ 개별 업데이트 폴백을 시도합니다.');
       await _fallbackUpdateOrders(listId, markerOrders);
+      await _notificationService.notifyListUpdated(listId, 'reordered');
     } catch (e) {
-      print('❌ Marker order update error: $e');
-      print('➡️ 개별 업데이트 폴백을 시도합니다.');
+      debugPrint('❌ Marker order update error: $e');
+      debugPrint('➡️ 개별 업데이트 폴백을 시도합니다.');
       await _fallbackUpdateOrders(listId, markerOrders);
+      await _notificationService.notifyListUpdated(listId, 'reordered');
     }
   }
 
@@ -241,12 +222,14 @@ class AddMarkersToListViewModel extends ChangeNotifier {
             .eq('list_id', listId)
             .eq('marker_id', markerId);
       } on PostgrestException catch (e) {
-        print('❌ 개별 정렬 업데이트 실패 (marker_id=$markerId): ${e.message}');
+        debugPrint('❌ 개별 정렬 업데이트 실패 (marker_id=$markerId): ${e.message}');
+        rethrow;
       } catch (e) {
-        print('❌ 개별 정렬 업데이트 예외 (marker_id=$markerId): $e');
+        debugPrint('❌ 개별 정렬 업데이트 예외 (marker_id=$markerId): $e');
+        rethrow;
       }
     }
 
-    print('✅ 폴백 개별 업데이트 완료');
+    debugPrint('✅ 폴백 개별 업데이트 완료');
   }
 }
