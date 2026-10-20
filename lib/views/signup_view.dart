@@ -6,10 +6,13 @@ import '../design/app_design.dart'; // 디자인 시스템 import
 class SignupPage extends StatelessWidget {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
   final FocusNode _confirmPasswordFocusNode = FocusNode();
+
+  SignupPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +50,6 @@ class SignupPage extends StatelessWidget {
                             _buildSignupForm(context, viewModel),
 
                             const SizedBox(height: AppDesign.spacing24),
-
                           ],
                         ),
                       ),
@@ -76,7 +78,7 @@ class SignupPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -238,7 +240,7 @@ class SignupPage extends StatelessWidget {
               prefixIcon: Container(
                 margin: const EdgeInsets.all(AppDesign.spacing12),
                 decoration: BoxDecoration(
-                  color: AppDesign.travelGreen.withOpacity(0.1),
+                  color: AppDesign.travelGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppDesign.spacing8),
                 ),
                 child: Icon(
@@ -268,7 +270,7 @@ class SignupPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
         boxShadow: [
           BoxShadow(
-            color: AppDesign.travelGreen.withOpacity(0.15),
+            color: AppDesign.travelGreen.withValues(alpha: 0.15),
             blurRadius: 24,
             offset: const Offset(0, 8),
             spreadRadius: -8,
@@ -285,97 +287,106 @@ class SignupPage extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
           ),
         ),
-        onPressed: viewModel.isLoading ? null : () async {
-          String email = _emailController.text.trim();
-          String password = _passwordController.text.trim();
-          String confirmPassword = _confirmPasswordController.text.trim();
+        onPressed: viewModel.isLoading
+            ? null
+            : () async {
+                String email = _emailController.text.trim();
+                String password = _passwordController.text.trim();
+                String confirmPassword = _confirmPasswordController.text.trim();
 
-          String? errorMessage = await viewModel.signUp(email, password, confirmPassword);
+                String? errorMessage =
+                    await viewModel.signUp(email, password, confirmPassword);
 
-          if (errorMessage == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(
-                      Icons.check_circle_outline,
-                      color: AppDesign.whiteText,
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppDesign.spacing8),
-                    Expanded(
-                      child: Text(
-                        '회원가입 성공! 로그인 페이지로 이동합니다.',
-                        style: AppDesign.bodyMedium.copyWith(
-                          color: AppDesign.whiteText,
-                        ),
+                if (errorMessage == null) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_outline,
+                            color: AppDesign.whiteText,
+                            size: 20,
+                          ),
+                          const SizedBox(width: AppDesign.spacing8),
+                          Expanded(
+                            child: Text(
+                              '회원가입 성공! 로그인 페이지로 이동합니다.',
+                              style: AppDesign.bodyMedium.copyWith(
+                                color: AppDesign.whiteText,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                backgroundColor: AppDesign.travelGreen,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                margin: const EdgeInsets.all(AppDesign.spacing16),
-              ),
-            );
-            Navigator.pushReplacementNamed(context, '/login');
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: AppDesign.whiteText,
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppDesign.spacing8),
-                    Expanded(
-                      child: Text(
-                        errorMessage,
-                        style: AppDesign.bodyMedium.copyWith(
-                          color: AppDesign.whiteText,
-                        ),
+                      backgroundColor: AppDesign.travelGreen,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppDesign.radiusSmall),
                       ),
+                      margin: const EdgeInsets.all(AppDesign.spacing16),
                     ),
-                  ],
-                ),
-                backgroundColor: AppDesign.sunsetGradientStart,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                margin: const EdgeInsets.all(AppDesign.spacing16),
-              ),
-            );
-          }
-        },
+                  );
+                  if (!context.mounted) return;
+                  Navigator.pushReplacementNamed(context, '/login');
+                } else {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: AppDesign.whiteText,
+                            size: 20,
+                          ),
+                          const SizedBox(width: AppDesign.spacing8),
+                          Expanded(
+                            child: Text(
+                              errorMessage,
+                              style: AppDesign.bodyMedium.copyWith(
+                                color: AppDesign.whiteText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: AppDesign.sunsetGradientStart,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppDesign.radiusSmall),
+                      ),
+                      margin: const EdgeInsets.all(AppDesign.spacing16),
+                    ),
+                  );
+                }
+              },
         child: viewModel.isLoading
             ? const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            valueColor: AlwaysStoppedAnimation<Color>(AppDesign.whiteText),
-          ),
-        )
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(AppDesign.whiteText),
+                ),
+              )
             : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.person_add_outlined, size: 20),
-            const SizedBox(width: AppDesign.spacing8),
-            Text(
-              '회원가입',
-              style: AppDesign.bodyMedium.copyWith(
-                color: AppDesign.whiteText,
-                fontWeight: FontWeight.w600,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_add_outlined, size: 20),
+                  const SizedBox(width: AppDesign.spacing8),
+                  Text(
+                    '회원가입',
+                    style: AppDesign.bodyMedium.copyWith(
+                      color: AppDesign.whiteText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
