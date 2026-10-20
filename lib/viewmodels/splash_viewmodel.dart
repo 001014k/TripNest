@@ -1,13 +1,6 @@
-import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertrip/viewmodels/list_viewmodel.dart';
-import 'package:fluttertrip/viewmodels/profile_viewmodel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
-import '../main.dart';
-import '../services/app_group_handler_service.dart';
-import 'mapsample_viewmodel.dart';
-import 'package:provider/provider.dart';
 
 class SplashViewModel extends ChangeNotifier {
   bool _isLoading = true;
@@ -20,9 +13,13 @@ class SplashViewModel extends ChangeNotifier {
 
   StreamSubscription<AuthState>? _authSub;
   StreamSubscription<Uri>? _deepLinkSub;
-  bool _alreadyNavigated = false;
+  final bool _alreadyNavigated = false;
+  Future<void> Function(String userId)? _prepareAuthenticatedUser;
 
-  Future<void> startSplash() async {
+  Future<void> startSplash({
+    Future<void> Function(String userId)? prepareAuthenticatedUser,
+  }) async {
+    _prepareAuthenticatedUser = prepareAuthenticatedUser;
     if (_alreadyNavigated) return;
 
     _isLoading = true;
@@ -32,8 +29,6 @@ class SplashViewModel extends ChangeNotifier {
 
     // 1. 최소 Splash 표시 시간
     await Future.delayed(const Duration(seconds: 3));
-
-    final context = navigatorKey.currentContext;
 
     // 2. 현재 로그인 상태를 가장 먼저 확인
     final session = Supabase.instance.client.auth.currentSession;
@@ -99,31 +94,11 @@ class SplashViewModel extends ChangeNotifier {
 
       debugPrint('🏠 [Splash] 정상 사용자 → 앱 초기화 시작');
 
-      if (context != null) {
-        // 공유 주소 처리
-        await SharedAppGroupHandler.checkAndHandleSharedAddress(
-          context,
-          navigateToSharedLink: false,
-        );
-
-        // 위치 정보
-        await context
-            .read<MapSampleViewModel>()
-            .checkLocationPermissionAndFetch();
-
-        // 리스트
-        await context.read<ListViewModel>().loadLists();
-
-        // 프로필 통계
-        await context
-            .read<ProfileViewModel>()
-            .fetchUserStats(userId);
-      }
+      await _prepareAuthenticatedUser?.call(userId);
 
       _nextRoute = '/home';
 
       debugPrint('🏠 [Splash] → /home');
-
     } catch (e) {
       debugPrint('❌ [Splash] 초기화 실패: $e');
 
@@ -144,7 +119,7 @@ class SplashViewModel extends ChangeNotifier {
     _authSub?.cancel();
 
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen(
-          (data) async {
+      (data) async {
         if (_alreadyNavigated) return;
 
         final event = data.event;
@@ -156,10 +131,6 @@ class SplashViewModel extends ChangeNotifier {
 
         if (event == AuthChangeEvent.signedIn && session != null) {
           final userId = session.user.id;
-
-          final context = navigatorKey.currentContext;
-
-          if (context == null) return;
 
           try {
             final response = await Supabase.instance.client
@@ -174,19 +145,12 @@ class SplashViewModel extends ChangeNotifier {
               _nextRoute = '/nickname_setup';
               _arguments = userId;
             } else {
-              await context
-                  .read<ListViewModel>()
-                  .loadLists();
-
-              await context
-                  .read<ProfileViewModel>()
-                  .fetchUserStats(userId);
+              await _prepareAuthenticatedUser?.call(userId);
 
               _nextRoute = '/home';
             }
 
             notifyListeners();
-
           } catch (e) {
             debugPrint(
               '❌ [Auth] 닉네임 조회 실패: $e',
@@ -200,9 +164,15 @@ class SplashViewModel extends ChangeNotifier {
     );
   }
 
+  void stopWatchingAuth() {
+    _authSub?.cancel();
+    _authSub = null;
+    _prepareAuthenticatedUser = null;
+  }
+
   @override
   void dispose() {
-    _authSub?.cancel();
+    stopWatchingAuth();
     _deepLinkSub?.cancel();
     super.dispose();
   }
