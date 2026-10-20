@@ -7,11 +7,13 @@ class SignupViewModel extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  Future<String?> signUp(String email, String password, String confirmPassword) async {
+  Future<String?> signUp(
+      String email, String password, String confirmPassword) async {
     _isLoading = true;
     notifyListeners();
 
-    String? errorMessage = await _authService.signUp(email, password, confirmPassword);
+    String? errorMessage =
+        await _authService.signUp(email, password, confirmPassword);
 
     _isLoading = false;
     notifyListeners();
