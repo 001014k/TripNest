@@ -1,3 +1,5 @@
+import 'notification_service.dart';
+import 'package:flutter/foundation.dart';
 import 'database_helper.dart';
 import 'connectivity_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,7 +9,69 @@ class MarkerService {
   final ConnectivityService _connectivityService = ConnectivityService();
   final SupabaseClient supabase = Supabase.instance.client;
 
-  Future<void> saveMarkerOfflineOrOnline(Map<String, dynamic> markerData) async {
+  Future<Map<String, dynamic>?> loadMarkerDetail(String markerId) => supabase
+      .from('user_markers')
+      .select('title, address, keyword, snippet')
+      .eq('id', markerId)
+      .maybeSingle();
+
+  Future<void> deleteUserMarker(String markerId) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw StateError('로그인이 필요합니다.');
+    await supabase
+        .from('user_markers')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('id', markerId);
+  }
+
+  Future<bool> createUserMarker({
+    required String id,
+    required String? title,
+    required String? snippet,
+    required double latitude,
+    required double longitude,
+    required String keyword,
+    required String imagePath,
+    required String address,
+    String? listId,
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return false;
+    await supabase.from('user_markers').insert({
+      'id': id,
+      'user_id': user.id,
+      'title': title,
+      'snippet': snippet,
+      'lat': latitude,
+      'lng': longitude,
+      'keyword': keyword,
+      'marker_image_path': imagePath,
+      'address': address,
+    });
+    if (listId != null) {
+      try {
+        await supabase.from('list_bookmarks').insert({
+          'list_id': listId,
+          'marker_id': id,
+          'title': title,
+          'keyword': keyword,
+          'lat': latitude,
+          'lng': longitude,
+          'snippet': snippet,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        await NotificationService(supabase: supabase).notifyMarkerAddedToList(
+            listId: listId, markerId: id, markerTitle: title ?? '장소');
+      } catch (error) {
+        debugPrint('list_bookmarks Insert 실패: $error');
+      }
+    }
+    return true;
+  }
+
+  Future<void> saveMarkerOfflineOrOnline(
+      Map<String, dynamic> markerData) async {
     final isConnected = await _connectivityService.isConnected();
 
     final user = supabase.auth.currentUser;
@@ -27,11 +91,12 @@ class MarkerService {
         'description': markerData['description'],
         'lat': markerData['latitude'],
         'lng': markerData['longitude'],
-        'created_at': markerData['created_at'] ?? DateTime.now().toIso8601String(),
+        'created_at':
+            markerData['created_at'] ?? DateTime.now().toIso8601String(),
       });
 
       if (response.error != null) {
-        print('Supabase 저장 오류: ${response.error!.message}');
+        debugPrint('Supabase 저장 오류: ${response.error!.message}');
         return;
       }
 
@@ -59,7 +124,7 @@ class MarkerService {
       });
 
       if (response.error != null) {
-        print('Supabase 동기화 실패: ${response.error!.message}');
+        debugPrint('Supabase 동기화 실패: ${response.error!.message}');
         continue;
       }
 
@@ -85,7 +150,7 @@ class MarkerService {
       // response는 List<Map<String, dynamic>> 타입임
       return (response as List).cast<Map<String, dynamic>>();
     } catch (error) {
-      print('Supabase 마커 조회 오류: $error');
+      debugPrint('Supabase 마커 조회 오류: $error');
       return [];
     }
   }
