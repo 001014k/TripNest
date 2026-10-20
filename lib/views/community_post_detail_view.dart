@@ -5,8 +5,9 @@ import 'package:provider/provider.dart';
 import '../design/app_design.dart';
 import '../models/community_post_model.dart';
 import '../viewmodels/community_post_detail_viewmodel.dart';
-import '../widgets/address_photo_preview.dart';
-import '../widgets/dashed_border.dart';
+import '../widgets/community_post_photo.dart';
+import '../widgets/app_photo_hero.dart';
+import '../widgets/tripnest_navigation.dart';
 
 class CommunityPostDetailView extends StatelessWidget {
   const CommunityPostDetailView({required this.post, super.key});
@@ -67,19 +68,9 @@ class _CommunityPostDetailBodyState extends State<_CommunityPostDetailBody> {
         backgroundColor: AppDesign.primaryBg,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('TRAVEL JOURNAL', style: AppDesign.overline),
-            const SizedBox(height: 2),
-            Text(
-              post.isMarkerShare ? '마커 공유' : '여행 이야기',
-              style: AppDesign.journalTitleSmall,
-            ),
-          ],
-        ),
+        automaticallyImplyLeading: false,
+        titleSpacing: 16,
+        title: TripNestHeader(onBack: () => Navigator.pop(context)),
       ),
       body: Container(
         decoration: const BoxDecoration(gradient: AppDesign.backgroundGradient),
@@ -92,6 +83,11 @@ class _CommunityPostDetailBodyState extends State<_CommunityPostDetailBody> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
+                    Text(post.isMarkerShare ? '마커 공유' : '여행 이야기',
+                        style: AppDesign.headingLarge),
+                    const SizedBox(height: 6),
+                    Text('여행자가 남긴 장소와 이야기를 만나보세요.', style: AppDesign.bodySmall),
+                    const SizedBox(height: 20),
                     _PostDetailCard(post: post),
                     const SizedBox(height: 12),
                     _InteractionBar(viewModel: viewModel),
@@ -108,14 +104,14 @@ class _CommunityPostDetailBodyState extends State<_CommunityPostDetailBody> {
                     if (viewModel.isLoading && viewModel.comments.isEmpty)
                       const Center(
                           child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: CircularProgressIndicator(),
-                          ))
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator(),
+                      ))
                     else if (viewModel.comments.isEmpty)
                       const _EmptyComments()
                     else
                       ...viewModel.comments.map(
-                            (comment) => Padding(
+                        (comment) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _CommentCard(comment: comment),
                         ),
@@ -144,29 +140,24 @@ class _PostDetailCard extends StatelessWidget {
 
   final CommunityPost post;
 
-  bool get _hasPlacePhoto =>
-      post.isMarkerShare &&
-          post.placeAddress != null &&
-          post.placeAddress!.isNotEmpty;
-
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: AppDesign.cardBg,
         borderRadius: const BorderRadius.all(AppDesign.r16),
-        boxShadow: AppDesign.softShadow,
+        border: Border.all(color: AppDesign.borderColor),
       ),
       child: ClipRRect(
         borderRadius: const BorderRadius.all(AppDesign.r16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_hasPlacePhoto)
-              AddressPhotoPreview(
-                address: post.placeAddress!,
-                title: post.placeTitle,
-                size: 180,
+            if (post.isMarkerShare)
+              AppPhotoHero(
+                tag: 'community-photo-${post.id}',
+                child: AspectRatio(
+                    aspectRatio: 1.6, child: CommunityPostPhoto(post: post)),
               ),
             Padding(
               padding: const EdgeInsets.all(20),
@@ -181,7 +172,9 @@ class _PostDetailCard extends StatelessWidget {
                       const SizedBox(height: 16),
                       const Divider(height: 1, color: AppDesign.separator),
                       const SizedBox(height: 16),
-                      Text('추천 이유', style: AppDesign.caption11),
+                      Text('이 장소를 추천하는 이유',
+                          style: AppDesign.bodyMedium
+                              .copyWith(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 6),
                       Text(
                         post.content,
@@ -190,7 +183,7 @@ class _PostDetailCard extends StatelessWidget {
                       ),
                     ],
                   ] else ...[
-                    Text(post.title, style: AppDesign.journalTitle),
+                    Text(post.title, style: AppDesign.headingLarge),
                     const SizedBox(height: 14),
                     Text(
                       post.content,
@@ -221,29 +214,29 @@ class _AuthorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date = DateFormat('yyyy년 M월 d일').format(post.createdAt.toLocal());
-    final accent =
-    post.isMarkerShare ? AppDesign.travelStamp : AppDesign.travelGreen;
-    final initial = Text(
-      post.authorNickname.characters.first,
-      style: TextStyle(
-        color: accent,
-        fontWeight: FontWeight.w700,
-        fontSize: post.isMarkerShare ? 12 : 14,
-      ),
-    );
-
     return Row(
       children: [
-        post.isMarkerShare
-            ? DashedCircleBorder(color: accent, size: 36, child: initial)
-            : CircleAvatar(
-          radius: 18,
-          backgroundColor: accent.withValues(alpha: 0.15),
-          child: initial,
-        ),
+        CircleAvatar(
+            radius: 18,
+            backgroundColor: AppDesign.secondaryBg,
+            child: Text(
+                post.authorNickname.isEmpty
+                    ? '여'
+                    : post.authorNickname.characters.first,
+                style: const TextStyle(
+                    color: AppDesign.primaryText,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14))),
         const SizedBox(width: 10),
-        Expanded(child: Text(post.authorNickname, style: AppDesign.bodyMedium)),
-        Text(date, style: AppDesign.caption11),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(post.authorNickname,
+              style:
+                  AppDesign.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(date, style: AppDesign.caption),
+        ])),
       ],
     );
   }
@@ -263,11 +256,11 @@ class _PlaceInfoSection extends StatelessWidget {
         if (post.placeCategory != null && post.placeCategory!.isNotEmpty) ...[
           Text(
             post.placeCategory!,
-            style: AppDesign.caption11.copyWith(color: AppDesign.travelBlue),
+            style: AppDesign.caption.copyWith(color: AppDesign.secondaryText),
           ),
           const SizedBox(height: 4),
         ],
-        Text(post.placeTitle!, style: AppDesign.headingSmall),
+        Text(post.placeTitle ?? post.title, style: AppDesign.headingLarge),
         if (post.placeAddress != null && post.placeAddress!.isNotEmpty) ...[
           const SizedBox(height: 6),
           Row(
@@ -295,34 +288,17 @@ class _DestinationTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DashedPillBorder(
-      color: AppDesign.travelBlue.withValues(alpha: 0.5),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: AppDesign.travelBlue.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.flight_takeoff_rounded,
-                  size: 11, color: AppDesign.travelBlue),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppDesign.bodySmall.copyWith(
-                color: AppDesign.travelBlue,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+          color: AppDesign.secondaryBg,
+          borderRadius: BorderRadius.circular(10)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.place_outlined,
+            size: 16, color: AppDesign.secondaryText),
+        const SizedBox(width: 6),
+        Flexible(child: Text(label, style: AppDesign.bodySmall)),
+      ]),
     );
   }
 }
@@ -344,11 +320,11 @@ class _InteractionBar extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: viewModel.isLiked
-                    ? AppDesign.travelOrange.withValues(alpha: 0.12)
+                    ? AppDesign.secondaryBg
                     : AppDesign.cardBg,
                 border: Border.all(
                   color: viewModel.isLiked
-                      ? AppDesign.travelOrange.withValues(alpha: 0.45)
+                      ? AppDesign.primary
                       : AppDesign.borderColor,
                 ),
                 borderRadius: const BorderRadius.all(AppDesign.r12),
@@ -359,7 +335,7 @@ class _InteractionBar extends StatelessWidget {
                   Icon(
                     viewModel.isLiked ? Icons.favorite : Icons.favorite_border,
                     color: viewModel.isLiked
-                        ? AppDesign.travelOrange
+                        ? AppDesign.primary
                         : AppDesign.label3,
                     size: 20,
                   ),
@@ -396,8 +372,11 @@ class _CommentCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(comment.authorNickname, style: AppDesign.bodyMedium),
-              const Spacer(),
+              Expanded(
+                  child: Text(comment.authorNickname,
+                      style: AppDesign.bodyMedium
+                          .copyWith(fontWeight: FontWeight.w600))),
+              const SizedBox(width: 8),
               Text(date, style: AppDesign.caption11),
             ],
           ),
@@ -449,6 +428,7 @@ class _CommentComposer extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              enabled: !isSubmitting,
               minLines: 1,
               maxLines: 4,
               textInputAction: TextInputAction.newline,
@@ -457,7 +437,7 @@ class _CommentComposer extends StatelessWidget {
                 filled: true,
                 fillColor: AppDesign.lightGray,
                 contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: const BorderRadius.all(AppDesign.r12),
                   borderSide: BorderSide.none,
@@ -466,11 +446,19 @@ class _CommentComposer extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
+          IconButton.filled(
+            style: IconButton.styleFrom(
+                backgroundColor: AppDesign.primary,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(48, 48)),
             tooltip: '댓글 등록',
             onPressed: isSubmitting ? null : onSubmit,
-            icon: Icon(Icons.send_rounded,
-                color: isSubmitting ? AppDesign.label3 : AppDesign.primary),
+            icon: isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.arrow_upward_rounded, color: Colors.white),
           ),
         ],
       ),
