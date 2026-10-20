@@ -22,7 +22,7 @@ class AddressPhotoPreview extends StatefulWidget {
 }
 
 class _AddressPhotoPreviewState extends State<AddressPhotoPreview> {
-  late final AddressPhotoPreviewViewModel _vm;
+  late AddressPhotoPreviewViewModel _vm;
 
   @override
   void initState() {
@@ -38,8 +38,21 @@ class _AddressPhotoPreviewState extends State<AddressPhotoPreview> {
   }
 
   @override
+  void didUpdateWidget(covariant AddressPhotoPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.address != widget.address ||
+        oldWidget.title != widget.title) {
+      _vm.removeListener(_updateUI);
+      _vm.dispose();
+      _vm = AddressPhotoPreviewViewModel(widget.address, widget.title);
+      _vm.addListener(_updateUI);
+    }
+  }
+
+  @override
   void dispose() {
     _vm.removeListener(_updateUI);
+    _vm.dispose();
     super.dispose();
   }
 
@@ -73,11 +86,12 @@ class _AddressPhotoPreviewState extends State<AddressPhotoPreview> {
       width: double.infinity,
       height: widget.size,
       decoration: BoxDecoration(
-        gradient: AppDesign.primaryGradient,
+        color: AppDesign.lightGray,
         borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
       ),
       child: const Center(
-        child: Icon(Icons.place, color: Colors.white, size: 40),
+        child:
+            Icon(Icons.photo_outlined, color: AppDesign.subtleText, size: 30),
       ),
     );
   }
