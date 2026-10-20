@@ -1,11 +1,8 @@
+import '../design/map_style.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' as ui;
-import 'dart:typed_data';
-import 'dart:ui';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
@@ -13,18 +10,33 @@ import 'package:location/location.dart' as location;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart'
     as cluster_manager;
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../env.dart';
 import '../models/marker_model.dart';
 import '../models/place_model.dart';
+import '../services/marker_icon_service.dart';
+import '../services/marker_service.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
 import 'package:geolocator/geolocator.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
+  final MarkerIconService _markerIconService = MarkerIconService();
+  final MarkerService _markerService = MarkerService();
   // 확대해도 가까운 장소는 계속 묶고, 확대 단계마다 군집 범위를 줄인다.
-  static const List<double> clusterLevels =
-      [1, 4, 7, 9, 11, 13, 14, 15, 16, 17, 18, 20];
+  static const List<double> clusterLevels = [
+    1,
+    4,
+    7,
+    9,
+    11,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    20
+  ];
   void Function(Marker)? onSearchMarkerTapped;
   void Function(List<Marker> searchMarkers)? onSearchCompleted;
 
@@ -60,14 +72,8 @@ class MapSampleViewModel extends ChangeNotifier {
 
   List<LatLng> get polygonPoints => _polygonPoints;
 
-  cluster_manager.ClusterManager<Place>? _clusterManager;
+  cluster_manager.ClusterManager<Place>? clusterManager;
   Timer? _clusterRefreshTimer;
-
-  cluster_manager.ClusterManager<Place>? get clusterManager => _clusterManager;
-
-  set clusterManager(cluster_manager.ClusterManager<Place>? manager) {
-    _clusterManager = manager;
-  }
 
   // list_bookmarks 테이블의 row id를 marker_id로 역참조하기 위한 매핑
   final Map<String, String> _listBookmarkRowIdByMarkerId = {};
@@ -75,6 +81,7 @@ class MapSampleViewModel extends ChangeNotifier {
   List<Place> _filteredPlaces = [];
   Set<Marker> _allMarkers = {}; // 모든 마커 저장
 
+  final Map<String, Map<String, dynamic>> searchPlaceMetadata = {};
   List<Marker> _searchResults = [];
 
   List<Marker> get searchResults => _searchResults;
@@ -105,23 +112,17 @@ class MapSampleViewModel extends ChangeNotifier {
 
   LatLng get seoulCityHall => _seoulCityHall;
 
-  String get mapStyle => _mapStyle;
+  String get mapStyle => tripNestMapStyle;
   double currentZoom = 15.0; // GoogleMap의 initialCameraPosition과 일치
   Set<String> activeKeywords = {}; //활성화 된 키워드 저장
   final location.Location _location = location.Location();
   late Set<Marker> _markers = {};
-  GoogleMapController? _controller;
-
-  GoogleMapController? get controller => _controller;
-
-  set controller(GoogleMapController? controller) {
-    _controller = controller;
-  }
+  GoogleMapController? controller;
 
   List<Marker> bookmarkedMarkers = [];
   final supabase = Supabase.instance.client;
   final SupabaseClient _supabase = Supabase.instance.client;
-  List<Map<String, dynamic>> _userLists = [];
+  final List<Map<String, dynamic>> _userLists = [];
 
   List<Map<String, dynamic>> get userLists => _userLists;
   final Map<String, String> keywordMarkerImages = {
@@ -132,19 +133,6 @@ class MapSampleViewModel extends ChangeNotifier {
     '전시회': 'assets/exhibition_marker.png',
   };
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
-  final String _mapStyle = '''
-  [
-    {
-      "featureType": "poi",
-      "elementType": "labels.icon",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    }
-  ]
-  ''';
 
   Map<String, IconData> get keywordIcons => _keywordIcons;
 
@@ -168,8 +156,8 @@ class MapSampleViewModel extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _clusterRefreshTimer?.cancel();
-    _clusterManager = null;
-    _controller = null;
+    clusterManager = null;
+    controller = null;
     super.dispose();
   }
 
@@ -217,7 +205,7 @@ class MapSampleViewModel extends ChangeNotifier {
     final Map<MarkerId, String> newKeywords = {};
 
     for (final model in markerModels) {
-      final String keyword = model.keyword ?? 'default';
+      final String keyword = model.keyword;
       final String? markerImagePath = keywordMarkerImages[keyword];
 
       final BitmapDescriptor markerIcon = markerImagePath != null
@@ -251,12 +239,12 @@ class MapSampleViewModel extends ChangeNotifier {
       );
     }).toList();
 
-    _clusterManager?.setItems(_filteredPlaces);
+    clusterManager?.setItems(_filteredPlaces);
     notifyListeners();
   }
 
   Future<void> _forceClusterUpdate() async {
-    if (_isDisposed || _controller == null || _clusterManager == null) return;
+    if (_isDisposed || controller == null || clusterManager == null) return;
 
     debugPrint('Forcing cluster update...');
 
@@ -264,8 +252,8 @@ class MapSampleViewModel extends ChangeNotifier {
     const maxRetry = 5;
     while (retry < maxRetry) {
       try {
-        await _controller!.getVisibleRegion(); // Check if channel is ready
-        _clusterManager!.updateMap();
+        await controller!.getVisibleRegion(); // Check if channel is ready
+        clusterManager!.updateMap();
         notifyListeners(); // Notify UI to rebuild with new markers
         debugPrint('Force cluster update successful.');
         break;
@@ -294,7 +282,7 @@ class MapSampleViewModel extends ChangeNotifier {
   }
 
   void setMapController(GoogleMapController controller) {
-    _controller = controller;
+    this.controller = controller;
   }
 
   void clearMarkers() {
@@ -329,10 +317,10 @@ class MapSampleViewModel extends ChangeNotifier {
     // _currentLocation = null;
 
     // 🔐 클러스터 매니저 dispose + null 처리
-    _clusterManager = null;
+    clusterManager = null;
 
     // 필요하면 구글맵 컨트롤러도 null 처리 (대개는 안 함)
-    // _controller = null;
+    // controller = null;
 
     notifyListeners();
   }
@@ -346,12 +334,13 @@ class MapSampleViewModel extends ChangeNotifier {
   }
 
   Future<void> toggleKeyword(String keyword) async {
-    if (activeKeywords.contains(keyword)) {
-      activeKeywords.remove(keyword);
-    } else {
-      activeKeywords.add(keyword);
-    }
+    final next = Set<String>.of(activeKeywords);
+    if (!next.add(keyword)) next.remove(keyword);
+    await applyKeywords(next);
+  }
 
+  Future<void> applyKeywords(Set<String> keywords) async {
+    activeKeywords = Set<String>.of(keywords);
     if (activeKeywords.isEmpty) {
       _filteredMarkers = _allMarkers;
     } else {
@@ -379,29 +368,29 @@ class MapSampleViewModel extends ChangeNotifier {
       );
     }).toList();
 
-    print("Active Keywords: $activeKeywords");
-    print('Filtered Markers count: ${_filteredMarkers.length}');
-    print(
+    debugPrint("Active Keywords: $activeKeywords");
+    debugPrint('Filtered Markers count: ${_filteredMarkers.length}');
+    debugPrint(
         'Filtered Marker IDs: ${_filteredMarkers.map((m) => m.markerId.value).toSet().length}');
 
-    print('Clustered Markers count: ${_clusteredMarkers.length}');
-    print(
+    debugPrint('Clustered Markers count: ${_clusteredMarkers.length}');
+    debugPrint(
         'Clustered Marker IDs: ${_clusteredMarkers.map((m) => m.markerId.value).toSet().length}');
 
-    _clusterManager?.setItems(_filteredPlaces); // 키워드에 맞게 클러스터링에 있는 마커 갯수 표현
+    clusterManager?.setItems(_filteredPlaces); // 키워드에 맞게 클러스터링에 있는 마커 갯수 표현
     notifyListeners(); // 상태 변경알림
   }
 
   void onItemTapped(int index) {
     // 구글 맵 화면으로 이동하는 경우 맵 초기화
-    if (index == 0 && _controller != null) {
-      _controller!.animateCamera(
+    if (index == 0 && controller != null) {
+      controller!.animateCamera(
         CameraUpdate.newLatLngZoom(_seoulCityHall, 15.0),
       );
     }
   }
 
-  Future<void> addMarker({
+  Future<bool> addMarker({
     required String? title,
     required String? snippet,
     required LatLng position,
@@ -431,44 +420,30 @@ class MapSampleViewModel extends ChangeNotifier {
     _filteredMarkers = _allMarkers;
     _markerKeywords[marker.markerId] = keyword;
 
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user != null) {
-      try {
-        final response =
-            await Supabase.instance.client.from('user_markers').insert({
-          'id': uuid, // ✅ 여기서 Supabase에 저장할 마커 ID
-          'user_id': user.id,
-          'title': title,
-          'snippet': snippet,
-          'lat': position.latitude,
-          'lng': position.longitude,
-          'keyword': keyword,
-          'marker_image_path': markerImagePath,
-          'address': address,
-        }).select();
+    var saved = false;
+    try {
+      saved = await _markerService.createUserMarker(
+        id: uuid,
+        title: title,
+        snippet: snippet,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        keyword: keyword,
+        imagePath: markerImagePath,
+        address: address,
+        listId: listId,
+      );
+    } catch (error) {
+      debugPrint('Supabase insert 실패: $error');
+    }
 
-        print('Insert 성공: $response');
-      } catch (error) {
-        print('Supabase insert 실패: $error');
-      }
-
-      if (listId != null) {
-        try {
-          await Supabase.instance.client.from('list_bookmarks').insert({
-            'list_id': listId,
-            'marker_id': uuid,
-            'title': title,
-            'keyword': keyword,
-            'lat': position.latitude,
-            'lng': position.longitude,
-            'snippet': snippet,
-            'created_at': DateTime.now().toIso8601String(),
-          });
-          print('list_bookmarks Insert 성공');
-        } catch (error) {
-          print('list_bookmarks Insert 실패: $error');
-        }
-      }
+    if (!saved) {
+      _markers.remove(marker);
+      _allMarkers.remove(marker);
+      _filteredMarkers.remove(marker);
+      _markerKeywords.remove(markerId);
+      notifyListeners();
+      return false;
     }
 
     _filteredPlaces = _filteredMarkers.map((marker) {
@@ -480,8 +455,9 @@ class MapSampleViewModel extends ChangeNotifier {
       );
     }).toList();
 
-    _clusterManager?.setItems(_filteredPlaces);
+    clusterManager?.setItems(_filteredPlaces);
     notifyListeners();
+    return true;
   }
 
   Future<void> loadMarkers() async {
@@ -541,12 +517,22 @@ class MapSampleViewModel extends ChangeNotifier {
       );
     }).toList();
 
-    _clusterManager?.setItems(_filteredPlaces);
-    _clusterManager?.updateMap();
+    clusterManager?.setItems(_filteredPlaces);
+    clusterManager?.updateMap();
     notifyListeners();
   }
 
-  void _updateMarkers(markers) {
+  Future<void> initializeMapMarkers(GoogleMapController controller) async {
+    await loadMarkers();
+    try {
+      await fetchAllAccessibleMarkers();
+    } catch (error) {
+      debugPrint('공유 마커 조회 실패: $error');
+    }
+    await applyMarkersToCluster(controller);
+  }
+
+  void _updateMarkers(Set<Marker> markers) {
     debugPrint('Updating clustered markers count: ${markers.length}');
     _clusteredMarkers = markers.toSet();
     notifyListeners();
@@ -561,7 +547,7 @@ class MapSampleViewModel extends ChangeNotifier {
   /// 경로 데이터와 마커 데이터는 서로 독립적으로 유지합니다.
   void showAllMarkers() {
     setFilteredMarkers(_allMarkers.toList());
-    _clusterManager?.updateMap();
+    clusterManager?.updateMap();
   }
 
   Future<void> reorderMarkers(
@@ -570,8 +556,6 @@ class MapSampleViewModel extends ChangeNotifier {
     String listId,
     AddMarkersToListViewModel addMarkersVM,
   ) async {
-    if (oldIndex < newIndex) newIndex -= 1;
-
     final marker = _orderedMarkers.removeAt(oldIndex);
     _orderedMarkers.insert(newIndex, marker);
 
@@ -581,9 +565,9 @@ class MapSampleViewModel extends ChangeNotifier {
 
     try {
       await updateMarkerOrdersForList(listId);
-      print('✅ updateMarkerOrdersForList 호출 성공');
+      debugPrint('✅ updateMarkerOrdersForList 호출 성공');
     } catch (e) {
-      print('❌ updateMarkerOrdersForList 호출 에러: $e');
+      debugPrint('❌ updateMarkerOrdersForList 호출 에러: $e');
     }
     await loadMarkersForList(listId); // 여기서 notifyListeners 포함
   }
@@ -603,12 +587,11 @@ class MapSampleViewModel extends ChangeNotifier {
         .eq('list_id', listId)
         .order('sort_order', ascending: true) // 정렬 보장
         .limit(100)
-        .withConverter<List<Map<String, dynamic>>>(
-            (data) => data as List<Map<String, dynamic>>);
+        .withConverter<List<Map<String, dynamic>>>((data) => data);
 
-    print('DB에서 불러온 마커 ID 및 순서:');
+    debugPrint('DB에서 불러온 마커 ID 및 순서:');
     for (final item in response) {
-      print('ID: ${item['id']}, sort_order: ${item['sort_order']}');
+      debugPrint('ID: ${item['id']}, sort_order: ${item['sort_order']}');
     }
 
     // 매핑 초기화 후 최신 매핑 저장
@@ -639,7 +622,7 @@ class MapSampleViewModel extends ChangeNotifier {
       );
     }).toList());
 
-    print(
+    debugPrint(
         'ViewModel _orderedMarkers ID 순서: ${markers.map((m) => m.markerId.value).toList()}');
     _orderedMarkers = markers;
     setFilteredMarkers(markers);
@@ -656,11 +639,11 @@ class MapSampleViewModel extends ChangeNotifier {
     if (user == null) return;
 
     // 현재 메모리상의 순서를 list_bookmarks의 row id 기준으로 변환
-    print(
+    debugPrint(
         'updateMarkerOrdersForList: _orderedMarkers.length=${_orderedMarkers.length}');
-    print(
+    debugPrint(
         'updateMarkerOrdersForList: ordered markerIds=${_orderedMarkers.map((m) => m.markerId.value).toList()}');
-    print(
+    debugPrint(
         'updateMarkerOrdersForList: mapping keys=${_listBookmarkRowIdByMarkerId.keys.toList()}');
     final List<Map<String, dynamic>> orders = _orderedMarkers
         .asMap()
@@ -679,7 +662,7 @@ class MapSampleViewModel extends ChangeNotifier {
         .toList();
 
     if (orders.isEmpty) {
-      print(
+      debugPrint(
           '⚠️ updateMarkerOrdersForList: 업데이트할 orders가 비어있습니다. 매핑 리프레시를 시도합니다.');
       await _ensureRowIdMappingForList(listId);
 
@@ -700,7 +683,7 @@ class MapSampleViewModel extends ChangeNotifier {
           .toList();
 
       if (refreshedOrders.isEmpty) {
-        print(
+        debugPrint(
             '⚠️ updateMarkerOrdersForList: 리프레시 후에도 orders 비어있음 → marker_id 기반 폴백 업데이트 수행');
         await _fallbackUpdateOrdersByMarkerId(listId);
         return;
@@ -724,14 +707,14 @@ class MapSampleViewModel extends ChangeNotifier {
           'p_orders': orders,
         },
       );
-      print('✅ RPC(update_marker_orders) 결과: $result');
+      debugPrint('✅ RPC(update_marker_orders) 결과: $result');
     } on PostgrestException catch (e) {
-      print('❌ RPC PostgrestException: ${e.message}, code=${e.code}');
-      print('➡️ 두 단계 폴백(id 기반)을 시도합니다.');
+      debugPrint('❌ RPC PostgrestException: ${e.message}, code=${e.code}');
+      debugPrint('➡️ 두 단계 폴백(id 기반)을 시도합니다.');
       await _fallbackUpdateOrdersByRowId(listId, orders);
     } catch (e) {
-      print('❌ RPC 예외: $e');
-      print('➡️ 두 단계 폴백(id 기반)을 시도합니다.');
+      debugPrint('❌ RPC 예외: $e');
+      debugPrint('➡️ 두 단계 폴백(id 기반)을 시도합니다.');
       await _fallbackUpdateOrdersByRowId(listId, orders);
     }
   }
@@ -740,7 +723,7 @@ class MapSampleViewModel extends ChangeNotifier {
       String listId, List<Map<String, dynamic>> orders) async {
     // 1) 현재 최대 sort_order를 조회하여 충돌 없는 스테이징 오프셋 계산
     final int offset = await _getSortOrderOffset(listId);
-    print('fallbackByRowId: using offset=$offset');
+    debugPrint('fallbackByRowId: using offset=$offset');
 
     // 2) 1차: 각 행을 고유한 스테이징 값으로 이동 (offset + index)
     for (final order in orders) {
@@ -754,9 +737,9 @@ class MapSampleViewModel extends ChangeNotifier {
             .eq('id', rowId)
             .eq('list_id', listId);
       } on PostgrestException catch (e) {
-        print('❌ 1차(스테이징) 업데이트 실패 (row id=$rowId): ${e.message}');
+        debugPrint('❌ 1차(스테이징) 업데이트 실패 (row id=$rowId): ${e.message}');
       } catch (e) {
-        print('❌ 1차(스테이징) 업데이트 예외 (row id=$rowId): $e');
+        debugPrint('❌ 1차(스테이징) 업데이트 예외 (row id=$rowId): $e');
       }
     }
 
@@ -771,13 +754,13 @@ class MapSampleViewModel extends ChangeNotifier {
             .eq('id', rowId)
             .eq('list_id', listId);
       } on PostgrestException catch (e) {
-        print('❌ 2차(최종) 업데이트 실패 (row id=$rowId): ${e.message}');
+        debugPrint('❌ 2차(최종) 업데이트 실패 (row id=$rowId): ${e.message}');
       } catch (e) {
-        print('❌ 2차(최종) 업데이트 예외 (row id=$rowId): $e');
+        debugPrint('❌ 2차(최종) 업데이트 예외 (row id=$rowId): $e');
       }
     }
 
-    print('✅ 폴백 개별 업데이트(id 기반, 2단계) 완료');
+    debugPrint('✅ 폴백 개별 업데이트(id 기반, 2단계) 완료');
   }
 
   Future<void> _fallbackUpdateOrdersByMarkerId(String listId) async {
@@ -792,7 +775,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
     // 1) 현재 최대 sort_order를 조회하여 충돌 없는 스테이징 오프셋 계산
     final int offset = await _getSortOrderOffset(listId);
-    print('fallbackByMarkerId: using offset=$offset');
+    debugPrint('fallbackByMarkerId: using offset=$offset');
 
     // 2) 1차: 스테이징 값으로 이동
     for (final order in markerIdOrders) {
@@ -806,9 +789,9 @@ class MapSampleViewModel extends ChangeNotifier {
             .eq('list_id', listId)
             .eq('marker_id', markerId);
       } on PostgrestException catch (e) {
-        print('❌ 1차(스테이징) 업데이트 실패 (marker_id=$markerId): ${e.message}');
+        debugPrint('❌ 1차(스테이징) 업데이트 실패 (marker_id=$markerId): ${e.message}');
       } catch (e) {
-        print('❌ 1차(스테이징) 업데이트 예외 (marker_id=$markerId): $e');
+        debugPrint('❌ 1차(스테이징) 업데이트 예외 (marker_id=$markerId): $e');
       }
     }
 
@@ -823,13 +806,13 @@ class MapSampleViewModel extends ChangeNotifier {
             .eq('list_id', listId)
             .eq('marker_id', markerId);
       } on PostgrestException catch (e) {
-        print('❌ 2차(최종) 업데이트 실패 (marker_id=$markerId): ${e.message}');
+        debugPrint('❌ 2차(최종) 업데이트 실패 (marker_id=$markerId): ${e.message}');
       } catch (e) {
-        print('❌ 2차(최종) 업데이트 예외 (marker_id=$markerId): $e');
+        debugPrint('❌ 2차(최종) 업데이트 예외 (marker_id=$markerId): $e');
       }
     }
 
-    print('✅ 폴백 개별 업데이트(marker_id 기반, 2단계) 완료');
+    debugPrint('✅ 폴백 개별 업데이트(marker_id 기반, 2단계) 완료');
   }
 
   Future<int> _getSortOrderOffset(String listId) async {
@@ -850,7 +833,7 @@ class MapSampleViewModel extends ChangeNotifier {
       }
       return maxOrder + 1000; // 넉넉한 오프셋
     } catch (e) {
-      print('sort_order offset 조회 실패: $e');
+      debugPrint('sort_order offset 조회 실패: $e');
       return 1000; // 조회 실패 시 기본 오프셋
     }
   }
@@ -871,10 +854,10 @@ class MapSampleViewModel extends ChangeNotifier {
         }
       }
 
-      print(
+      debugPrint(
           'ensureRowIdMapping: mapping size=${_listBookmarkRowIdByMarkerId.length}');
     } catch (e) {
-      print('ensureRowIdMapping 실패: $e');
+      debugPrint('ensureRowIdMapping 실패: $e');
     }
   }
 
@@ -885,17 +868,17 @@ class MapSampleViewModel extends ChangeNotifier {
           return Marker(
             markerId: MarkerId(cluster.getId()),
             position: cluster.location,
-            icon: await _getMarkerBitmap(
-              125,
-              text: cluster.count.toString(),
+            icon: await _markerIconService.createClusterMarker(
+              cluster.count >= 10 ? 46 : 40,
+              cluster.count.toString(),
             ),
             onTap: () async {
-              if (_controller != null) {
-                final currentZoom = await _controller!.getZoomLevel();
+              if (controller != null) {
+                final currentZoom = await controller!.getZoomLevel();
                 double nextZoom = currentZoom + 2;
                 if (nextZoom > 21) nextZoom = 21;
 
-                await _controller!.animateCamera(
+                await controller!.animateCamera(
                   CameraUpdate.newLatLngZoom(cluster.location, nextZoom),
                 );
 
@@ -943,47 +926,8 @@ class MapSampleViewModel extends ChangeNotifier {
 
   void onSinglePlaceTap(Place place) {
     // 여기서 place에 대한 상세 처리 구현
-    print('단일 마커 클릭됨: ${place.title}');
+    debugPrint('단일 마커 클릭됨: ${place.title}');
     // 예: _selectedPlace = place; notifyListeners(); 등
-  }
-
-  Future<BitmapDescriptor> _getMarkerBitmap(int size, {String? text}) async {
-    final PictureRecorder pictureRecorder = PictureRecorder();
-    final Canvas canvas = Canvas(pictureRecorder);
-    final Paint paint1 = Paint()..color = Colors.blue; // 외곽 원 색
-    final Paint paint2 = Paint()..color = Colors.white; // 내부 원 색
-
-    // 외곽 원
-    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint1);
-    // 내부 원
-    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.2, paint2);
-    // 더 작은 외곽 원
-    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.8, paint1);
-
-    // 텍스트가 있으면 중앙에 숫자 표시
-    if (text != null) {
-      TextPainter painter = TextPainter(
-        textDirection: TextDirection.ltr,
-      );
-      painter.text = TextSpan(
-        text: text,
-        style: TextStyle(
-          fontSize: size / 3,
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      );
-      painter.layout();
-      painter.paint(
-        canvas,
-        Offset(size / 2 - painter.width / 2, size / 2 - painter.height / 2),
-      );
-    }
-
-    // 이미지로 변환
-    final img = await pictureRecorder.endRecording().toImage(size, size);
-    final data = await img.toByteData(format: ImageByteFormat.png);
-    return BitmapDescriptor.fromBytes(data!.buffer.asUint8List());
   }
 
   Future<void> applyMarkersToCluster(GoogleMapController? controller) async {
@@ -996,8 +940,8 @@ class MapSampleViewModel extends ChangeNotifier {
     if (Platform.isIOS) await Future.delayed(const Duration(milliseconds: 400));
 
     // ClusterManager 초기화
-    if (_clusterManager == null) {
-      _clusterManager = cluster_manager.ClusterManager<Place>(
+    if (clusterManager == null) {
+      clusterManager = cluster_manager.ClusterManager<Place>(
         _filteredPlaces,
         _updateMarkers,
         markerBuilder: _markerBuilder,
@@ -1007,13 +951,13 @@ class MapSampleViewModel extends ChangeNotifier {
       );
 
       try {
-        _clusterManager!.setMapId(controller.mapId);
+        clusterManager!.setMapId(controller.mapId);
       } catch (e) {
         debugPrint('setMapId failed: $e');
         return; // 채널 연결 실패 시 종료
       }
     } else {
-      _clusterManager!.setItems(_filteredPlaces);
+      clusterManager!.setItems(_filteredPlaces);
     }
 
     // updateMap 안전 실행 (채널 준비 확인 + 재시도)
@@ -1022,7 +966,7 @@ class MapSampleViewModel extends ChangeNotifier {
     while (retry < maxRetry) {
       try {
         await controller.getVisibleRegion(); // 채널 연결 확인
-        _clusterManager!.updateMap(); // updateMap은 void
+        clusterManager!.updateMap(); // updateMap은 void
         break; // 성공하면 루프 종료
       } catch (e) {
         retry++;
@@ -1045,18 +989,18 @@ class MapSampleViewModel extends ChangeNotifier {
   void onCameraMove(CameraPosition position) {
     currentZoom = position.zoom;
     _currentCameraPosition = position;
-    _clusterManager?.onCameraMove(position);
+    clusterManager?.onCameraMove(position);
     // 카메라 이동 중에도 갱신하되 매 프레임마다 지도 채널을 호출하지 않는다.
     _clusterRefreshTimer ??= Timer(const Duration(milliseconds: 150), () {
       _clusterRefreshTimer = null;
-      if (!_isDisposed) _clusterManager?.updateMap();
+      if (!_isDisposed) clusterManager?.updateMap();
     });
   }
 
   void onCameraIdle() {
     _clusterRefreshTimer?.cancel();
     _clusterRefreshTimer = null;
-    _clusterManager?.updateMap();
+    clusterManager?.updateMap();
   }
 
   void onEdit(Marker updatedMarker) async {
@@ -1064,7 +1008,7 @@ class MapSampleViewModel extends ChangeNotifier {
     final markerImagePath = keywordMarkerImages[keyword];
 
     if (markerImagePath != null) {
-      final customMarker = await BitmapDescriptor.fromAssetImage(
+      final customMarker = await BitmapDescriptor.asset(
         const ImageConfiguration(size: Size(48, 48)),
         markerImagePath,
       );
@@ -1084,24 +1028,11 @@ class MapSampleViewModel extends ChangeNotifier {
 
   Future<BitmapDescriptor> createCustomMarkerImage(
       String imagePath, int width, int height) async {
-    print('커스텀 마커 이미지 생성 시작: $imagePath, 크기: ${width}x$height');
-    // 이미지 파일 로드
-    final ByteData data = await rootBundle.load(imagePath);
-    final Uint8List bytes = data.buffer.asUint8List();
-
-    // 이미지 디코딩 및 크기 조정
-    final ui.Codec codec = await ui.instantiateImageCodec(bytes,
-        targetWidth: width, targetHeight: height);
-    final ui.FrameInfo frameInfo = await codec.getNextFrame();
-    final ByteData? byteData =
-        await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
-
-    // 크기 조정된 이미지 데이터를 바이트 배열로 변환
-    final Uint8List resizedBytes = byteData!.buffer.asUint8List();
-
-    print('커스텀 마커 이미지 생성 완료: $imagePath');
-    // BitmapDescriptor로 변환
-    return BitmapDescriptor.fromBytes(resizedBytes);
+    return _markerIconService.createCustomMarkerImage(
+      imagePath,
+      width,
+      height,
+    );
   }
 
   void updateMarker(
@@ -1120,7 +1051,7 @@ class MapSampleViewModel extends ChangeNotifier {
           .eq('id', marker.markerId.value);
 
       if (response.error != null) {
-        print('Error updating marker: ${response.error!.message}');
+        debugPrint('Error updating marker: ${response.error!.message}');
       }
     }
   }
@@ -1135,14 +1066,14 @@ class MapSampleViewModel extends ChangeNotifier {
       }
     }
     final locationData = await _location.getLocation();
-    _currentLocation = LatLng(locationData.latitude!, locationData.longitude!);
+    _currentLocation = LatLng(locationData.latitude, locationData.longitude);
     notifyListeners();
 
     // 위치 변경 스트림 구독
     _location.onLocationChanged.listen((location.LocationData newLocationData) {
       _currentLocation = LatLng(
-        newLocationData.latitude!,
-        newLocationData.longitude!,
+        newLocationData.latitude,
+        newLocationData.longitude,
       );
       notifyListeners();
     });
@@ -1162,9 +1093,9 @@ class MapSampleViewModel extends ChangeNotifier {
     }).toList();
 
     // 클러스터 매니저에 새 데이터 세팅
-    if (_clusterManager != null) {
-      _clusterManager!.setItems(_filteredPlaces);
-      _clusterManager!.updateMap();
+    if (clusterManager != null) {
+      clusterManager!.setItems(_filteredPlaces);
+      clusterManager!.updateMap();
     }
 
     notifyListeners();
@@ -1178,13 +1109,14 @@ class MapSampleViewModel extends ChangeNotifier {
       // 1️⃣ 내가 생성한 리스트
       final List<dynamic> myLists = await Supabase.instance.client
           .from('lists')
-          .select()
+          .select('*, list_bookmarks(title), list_members(user_id)')
           .eq('user_id', user.id);
 
       // 2️⃣ 내가 멤버로 속한 리스트
       final List<dynamic> invitedLists = await Supabase.instance.client
           .from('list_members')
-          .select('lists(*)') // list_members에 연결된 리스트를 가져오기
+          .select(
+              'lists(*, list_bookmarks(title), list_members(user_id))') // list_members에 연결된 리스트를 가져오기
           .eq('user_id', user.id);
 
       // invitedLists에서 lists 필드만 추출
@@ -1205,56 +1137,66 @@ class MapSampleViewModel extends ChangeNotifier {
 
       return tempLists.values.toList();
     } catch (e) {
-      print('Error fetching user lists: $e');
+      debugPrint('Error fetching user lists: $e');
       return [];
     }
   }
 
   Future<void> checkLocationPermissionAndFetch() async {
-    print("📍 checkLocationPermissionAndFetch 호출됨");
-    LocationPermission permission = await Geolocator.checkPermission();
+    debugPrint('📍 checkLocationPermissionAndFetch 호출됨');
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
 
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        print('❌ 위치 권한이 거부되었습니다.');
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          debugPrint('❌ 위치 권한이 거부되었습니다.');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('❌ 위치 권한이 영구적으로 거부되었습니다.');
         return;
       }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      if (_isDisposed) return;
+
+      _currentLocation = LatLng(position.latitude, position.longitude);
+      debugPrint('✅ 현재 위치: $_currentLocation');
+
+      if (controller != null) {
+        moveToCurrentLocation();
+      } else {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!_isDisposed && controller != null && _currentLocation != null) {
+            moveToCurrentLocation();
+          }
+        });
+      }
+
+      notifyListeners();
+    } on TimeoutException {
+      debugPrint('⚠️ 현재 위치 조회 시간이 초과되었습니다. 지도 화면에서 다시 시도합니다.');
+    } catch (error) {
+      debugPrint('⚠️ 현재 위치를 불러오지 못했습니다: $error');
     }
-
-    if (permission == LocationPermission.deniedForever) {
-      print('❌ 위치 권한이 영구적으로 거부되었습니다.');
-      return;
-    }
-
-    // ✅ 위치 권한이 허용된 경우
-    Position position = await Geolocator.getCurrentPosition();
-    _currentLocation = LatLng(position.latitude, position.longitude);
-    print('✅ 현재 위치: $_currentLocation');
-
-    // ✅ 지도 이동: controller가 초기화된 뒤라면 바로 이동
-    if (_controller != null) {
-      moveToCurrentLocation();
-    } else {
-      // ❗ controller가 아직 null이면 이후에 한 번 더 이동 시도
-      Future.delayed(Duration(milliseconds: 500), () {
-        if (_controller != null && _currentLocation != null) {
-          moveToCurrentLocation();
-        }
-      });
-    }
-
-    notifyListeners();
   }
 
   void moveToCurrentLocation() async {
-    if (_controller != null && _currentLocation != null) {
+    if (controller != null && _currentLocation != null) {
       LatLng currentLatLng = LatLng(
-        _currentLocation!.latitude!,
-        _currentLocation!.longitude!,
+        _currentLocation!.latitude,
+        _currentLocation!.longitude,
       );
 
-      await _controller!.animateCamera(
+      await controller!.animateCamera(
         CameraUpdate.newLatLngZoom(currentLatLng, 18.0),
       );
     }
@@ -1291,7 +1233,7 @@ class MapSampleViewModel extends ChangeNotifier {
         'keyword': data?['keyword'] ?? '키워드 없음',
       };
     } catch (e) {
-      print('마커 정보 로딩 오류: $e');
+      debugPrint('마커 정보 로딩 오류: $e');
       return {
         'title': '오류 발생',
         'address': '',
@@ -1311,7 +1253,7 @@ class MapSampleViewModel extends ChangeNotifier {
     if (query.isEmpty) {
       _searchResults.clear();
       temporaryMarker = null; // 🔹 임시 마커 제거
-      print("ℹ️ 검색어 비움 → 임시 마커 제거 및 검색 결과 초기화");
+      debugPrint("ℹ️ 검색어 비움 → 임시 마커 제거 및 검색 결과 초기화");
     } else {
       final filteredMarkers = _markers.where((marker) {
         final title = marker.infoWindow.title?.toLowerCase() ?? '';
@@ -1389,7 +1331,7 @@ class MapSampleViewModel extends ChangeNotifier {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-FieldMask':
-              'places.id,places.displayName,places.formattedAddress,places.location',
+              'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.primaryTypeDisplayName',
         },
         body: requestBody,
       );
@@ -1408,6 +1350,8 @@ class MapSampleViewModel extends ChangeNotifier {
             }
           }
 
+          final searchPin = await _markerIconService.createSearchMarker();
+          if (_isDisposed) return;
           final newSearchMarkers = <Marker>[];
           int addedCount = 0;
 
@@ -1420,6 +1364,8 @@ class MapSampleViewModel extends ChangeNotifier {
 
             final latLng = LatLng(lat, lng);
             final placeId = place['id'] ?? 'result_$addedCount';
+            searchPlaceMetadata['search_$placeId'] =
+                Map<String, dynamic>.from(place);
 
             final marker = Marker(
               markerId: MarkerId('search_$placeId'),
@@ -1428,8 +1374,8 @@ class MapSampleViewModel extends ChangeNotifier {
                 title: place['displayName']?['text'] ?? originalQuery,
                 snippet: place['formattedAddress'] ?? '',
               ),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueViolet),
+              icon: searchPin,
+              anchor: const Offset(.5, 44 / 48),
               onTap: () => onMarkerTapped(MarkerId('search_$placeId')),
             );
 
@@ -1470,7 +1416,7 @@ class MapSampleViewModel extends ChangeNotifier {
     }
 
     // 카메라 이동 (클릭한 마커 중심)
-    await _controller?.animateCamera(
+    await controller?.animateCamera(
       CameraUpdate.newLatLngZoom(marker.position, 18.0),
     );
 
