@@ -1,8 +1,12 @@
+import '../services/shared_link_platform.dart';
+import '../services/portal_place_extractor_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/link_place_preview_model.dart';
+import '../models/link_preview_data.dart';
 import '../models/shared_link_model.dart';
 import '../services/link_place_extractor_service.dart';
+import '../services/link_preview_service.dart';
 import '../services/shared_link_service.dart';
 import '../services/apify_service.dart';
 import '../services/gemini_service.dart';
@@ -18,12 +22,24 @@ class PendingSharedLink {
 }
 
 class SharedLinkViewModel extends ChangeNotifier {
-  final SharedLinkService _service = SharedLinkService();
+  List<String> extractUrls(String text) => RegExp(r'https?://[^\s]+')
+      .allMatches(text)
+      .map((match) => match.group(0)!)
+      .toList();
+
+  Future<LinkPreviewData> loadPreview(String url) =>
+      const LinkPreviewService().load(url);
+  SharedLinkViewModel({SharedLinkService? service})
+      : _service = service ?? SharedLinkService();
+
+  final SharedLinkService _service;
+  int _loadRevision = 0;
   final LinkPlaceExtractorService _placeExtractor =
       const LinkPlaceExtractorService();
   final ApifyService _apifyService = ApifyService();
   List<SharedLinkModel> sharedLinks = [];
   String? errorMessage;
+  bool isLoadingLinks = false;
   String? _lastSavedUrl;
   RealtimeChannel? _realtimeChannel;
   String? _realtimeUserId;
@@ -101,39 +117,11 @@ class SharedLinkViewModel extends ChangeNotifier {
         .subscribe();
   }
 
-  String detectPlatformFromUrl(String url) {
-    final uri = Uri.parse(url);
-    final host = uri.host.toLowerCase();
+  String detectPlatformFromUrl(String url) => SharedLinkPlatform.detect(url);
 
-    if (host.contains('instagram.com')) {
-      return 'Instagram';
-    }
-    if (host.contains('youtube.com') || host.contains('youtu.be')) {
-      return 'YouTube';
-    }
-    if (host.contains('naver.com')) {
-      return 'Naver';
-    }
-    if (host.contains('tiktok.com')) {
-      return 'TikTok';
-    }
-    if (host.contains('facebook.com')) {
-      return 'Facebook';
-    }
-    if (host.contains('twitter.com') || host.contains('x.com')) {
-      return 'Twitter';
-    }
-    if (host.contains('daum.net')) {
-      return 'Daum';
-    }
-    if (host.contains('kakao.com')) {
-      return 'Kakao';
-    }
-    if (host.contains('google.com') && uri.path.startsWith('/maps')) {
-      return 'Google Maps';
-    }
-    return '기타';
-  }
+  Future<List<LinkPlacePreview>> extractPortalPlaces(String url,
+          {String? sharedText}) =>
+      PortalPlaceExtractorService().extract(url, sharedText: sharedText);
 
   // ✅ 공유 링크 저장
   Future<void> saveLink(String url, {LinkPlacePreview? placePreview}) async {
@@ -352,21 +340,27 @@ class SharedLinkViewModel extends ChangeNotifier {
 
   // ✅ 공유 링크 불러오기
   Future<void> loadSharedLinks() async {
+    final revision = ++_loadRevision;
     debugPrint('🔹 [loadSharedLinks] 호출됨');
     errorMessage = null;
+    isLoadingLinks = true;
+    notifyListeners();
 
     try {
-      sharedLinks = await _service.loadSharedLinks();
+      final loaded = await _service.loadSharedLinks();
+      if (revision != _loadRevision) return;
+      sharedLinks = loaded;
       debugPrint('✅ [loadSharedLinks] 불러온 링크 개수: ${sharedLinks.length}');
       for (final link in sharedLinks) {
         debugPrint('   ↳ ${link.platform} | ${link.url}');
       }
     } catch (e) {
+      if (revision != _loadRevision) return;
       errorMessage = '공유 링크 불러오기 실패: $e';
-      sharedLinks = [];
       debugPrint('❌ [loadSharedLinks] 오류 발생: $e');
     }
 
+    isLoadingLinks = false;
     notifyListeners();
   }
 
