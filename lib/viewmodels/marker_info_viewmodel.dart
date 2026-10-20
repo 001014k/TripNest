@@ -1,3 +1,4 @@
+import '../services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/marker_model.dart';
@@ -15,7 +16,6 @@ class MarkerInfoViewModel extends ChangeNotifier {
   }
 
   Future<void> loadMarkers() async {
-    if (listId == null) return; // 리스트 아이디가 없으면 종료
     isLoading = true;
     notifyListeners();
 
@@ -81,7 +81,6 @@ class MarkerInfoViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-
   Future<void> deleteMarker(String markerId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
@@ -91,17 +90,21 @@ class MarkerInfoViewModel extends ChangeNotifier {
           .from('list_bookmarks')
           .delete()
           .eq('marker_id', markerId)
-          .select();  // 삭제된 레코드 반환 요청
+          .eq('list_id', listId)
+          .select(); // 삭제된 레코드 반환 요청
 
-      print('삭제 결과: $response');
+      debugPrint('삭제 결과: $response');
 
       // 삭제가 제대로 됐는지 체크
-      if (response == null || (response is List && response.isEmpty)) {
-        print('삭제 실패: 해당 ID의 레코드가 없습니다.');
+      if ((response.isEmpty)) {
+        debugPrint('삭제 실패: 해당 ID의 레코드가 없습니다.');
         error = '삭제 실패: 해당 마커를 찾을 수 없습니다.';
         notifyListeners();
         return;
       }
+
+      await NotificationService(supabase: supabase)
+          .notifyListUpdated(listId, 'removed');
 
       // markers 리스트에서 제거
       markers.removeWhere((marker) => marker.id == markerId);
@@ -111,20 +114,21 @@ class MarkerInfoViewModel extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('삭제 중 예외 발생: $e');
+      debugPrint('삭제 중 예외 발생: $e');
       error = 'Failed to delete marker: $e';
       notifyListeners();
     }
   }
 
-
   Future<Map<String, String>> fetchMarkerDetail(String markerId) async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return {
-      'title': '제목 없음',
-      'address': '주소 없음',
-      'keyword': '키워드 없음',
-    };
+    if (user == null) {
+      return {
+        'title': '제목 없음',
+        'address': '주소 없음',
+        'keyword': '키워드 없음',
+      };
+    }
 
     try {
       final data = await Supabase.instance.client
@@ -139,7 +143,7 @@ class MarkerInfoViewModel extends ChangeNotifier {
         'keyword': data?['keyword'] ?? '키워드 없음',
       };
     } catch (e) {
-      print('마커 정보 로딩 오류: $e');
+      debugPrint('마커 정보 로딩 오류: $e');
       return {
         'title': '오류 발생',
         'address': '',
