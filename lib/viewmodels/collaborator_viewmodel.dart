@@ -1,7 +1,8 @@
+import '../services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/list_model.dart';
-import '../models/Collaborator_model.dart';
+import '../models/collaborator_model.dart';
 
 class CollaboratorViewModel extends ChangeNotifier {
   final SupabaseClient supabase = Supabase.instance.client;
@@ -42,7 +43,7 @@ class CollaboratorViewModel extends ChangeNotifier {
   bool get isCurrentUserOwner => _isCurrentUserOwner;
 
   Future<void> loadListOwner(String listId) async {
-    try{
+    try {
       final res = await supabase
           .from('lists')
           .select('user_id, profiles!lists_user_id_fkey(nickname)')
@@ -78,7 +79,6 @@ class CollaboratorViewModel extends ChangeNotifier {
     }
     notifyListeners();
   }
-
 
   /// 협업자 닉네임으로 추가 (친구 목록에서 초대 시 사용)
   Future<bool> addCollaborator(String listId, String nickname) async {
@@ -127,6 +127,8 @@ class CollaboratorViewModel extends ChangeNotifier {
         'role': 'editor',
       });
 
+      await NotificationService(supabase: supabase)
+          .notifyListUpdated(listId, 'members');
       await getCollaborators(listId);
       await getFriends(listId);
 
@@ -153,7 +155,7 @@ class CollaboratorViewModel extends ChangeNotifier {
           profiles!list_members_user_id_fkey (nickname)
         ''')
           .eq('list_id', listId)
-          .order('created_at', ascending: true);  // 초대 순서대로 정렬 (선택)
+          .order('created_at', ascending: true); // 초대 순서대로 정렬 (선택)
 
       final List data = response;
 
@@ -258,6 +260,8 @@ class CollaboratorViewModel extends ChangeNotifier {
           .eq('list_id', listId)
           .eq('user_id', userId);
 
+      await NotificationService(supabase: supabase)
+          .notifyListUpdated(listId, 'members');
       await getCollaborators(listId);
       await getFriends(listId);
 
