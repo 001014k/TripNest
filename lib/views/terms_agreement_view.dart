@@ -1,3 +1,4 @@
+import '../widgets/app_overlays.dart';
 import 'package:flutter/material.dart';
 import '../design/app_design.dart';
 
@@ -30,7 +31,8 @@ class _TermsAgreementPageState extends State<TermsAgreementPage> {
               _buildProgressHeader(),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: AppDesign.spacing24),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppDesign.spacing24),
                   child: Column(
                     children: [
                       const SizedBox(height: AppDesign.spacing40),
@@ -54,13 +56,11 @@ class _TermsAgreementPageState extends State<TermsAgreementPage> {
   Widget _buildHeader() {
     return Column(
       children: [
-        Text(
-            '약관 동의',
+        Text('약관 동의',
             style: AppDesign.headingLarge.copyWith(
               color: AppDesign.primaryText,
               fontWeight: FontWeight.w800,
-            )
-        ),
+            )),
         const SizedBox(height: AppDesign.spacing16),
         Text(
           '서비스 이용을 위해\n필수 약관에 동의해주세요.',
@@ -91,33 +91,30 @@ class _TermsAgreementPageState extends State<TermsAgreementPage> {
               _optionalChecked = val;
             });
           }, isBold: true),
-
           const Divider(height: 32),
-
           _buildCheckboxTile('개인정보 수집 및 이용', _essentialChecked, (val) {
             setState(() {
               _essentialChecked = val!;
               _updateAllChecked();
             });
-          }, onViewPressed: () => _showTermsDialog(context, '개인정보 수집 및 이용', '여기에 개인정보 처리방침 내용을 입력하세요.')),
-
+          },
+              onViewPressed: () => _showTermsDialog(
+                  context, '개인정보 수집 및 이용', '여기에 개인정보 처리방침 내용을 입력하세요.')),
           _buildCheckboxTile('위치기반서비스 이용약관', _optionalChecked, (val) {
             setState(() {
               _optionalChecked = val!;
               _updateAllChecked();
             });
-          }, onViewPressed: () => _showTermsDialog(context, '위치기반서비스 이용약관', '여기에 위치기반서비스 약관 내용을 입력하세요.')),
+          },
+              onViewPressed: () => _showTermsDialog(
+                  context, '위치기반서비스 이용약관', '여기에 위치기반서비스 약관 내용을 입력하세요.')),
         ],
       ),
     );
   }
 
-  Widget _buildCheckboxTile(
-      String title,
-      bool value,
-      Function(bool?) onChanged,
-      {bool isBold = false, VoidCallback? onViewPressed}
-      ) {
+  Widget _buildCheckboxTile(String title, bool value, Function(bool?) onChanged,
+      {bool isBold = false, VoidCallback? onViewPressed}) {
     return Theme(
       data: ThemeData(
         checkboxTheme: CheckboxThemeData(
@@ -138,15 +135,16 @@ class _TermsAgreementPageState extends State<TermsAgreementPage> {
         ),
         secondary: onViewPressed != null
             ? InkWell(
-          onTap: onViewPressed,
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text('보기', style: AppDesign.bodySmall.copyWith(
-              color: AppDesign.travelPurple,
-              decoration: TextDecoration.underline,
-            )),
-          ),
-        )
+                onTap: onViewPressed,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('보기',
+                      style: AppDesign.bodySmall.copyWith(
+                        color: AppDesign.travelPurple,
+                        decoration: TextDecoration.underline,
+                      )),
+                ),
+              )
             : null,
         controlAffinity: ListTileControlAffinity.leading,
         activeColor: AppDesign.travelPurple,
@@ -160,13 +158,18 @@ class _TermsAgreementPageState extends State<TermsAgreementPage> {
       height: 56,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: _essentialChecked ? AppDesign.travelPurple : AppDesign.borderColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDesign.radiusMedium)),
+          backgroundColor: _essentialChecked
+              ? AppDesign.travelPurple
+              : AppDesign.borderColor,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppDesign.radiusMedium)),
         ),
         onPressed: _essentialChecked
-            ? () => Navigator.pushReplacementNamed(context, '/nickname_setup', arguments: widget.userId)
+            ? () => Navigator.pushReplacementNamed(context, '/nickname_setup',
+                arguments: widget.userId)
             : null,
-        child: const Text('다음', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        child: const Text('다음',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -179,15 +182,21 @@ class _TermsAgreementPageState extends State<TermsAgreementPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('약관 동의', style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText)),
-              Text('1/2', style: AppDesign.bodyMedium.copyWith(color: AppDesign.travelBlue, fontWeight: FontWeight.bold)),
+              Text('약관 동의',
+                  style: AppDesign.bodyMedium
+                      .copyWith(color: AppDesign.secondaryText)),
+              Text('1/2',
+                  style: AppDesign.bodyMedium.copyWith(
+                      color: AppDesign.travelBlue,
+                      fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
             value: 0.5, // 50% 진행 표시
             backgroundColor: AppDesign.borderColor,
-            valueColor: const AlwaysStoppedAnimation<Color>(AppDesign.travelBlue),
+            valueColor:
+                const AlwaysStoppedAnimation<Color>(AppDesign.travelBlue),
           ),
         ],
       ),
@@ -195,64 +204,19 @@ class _TermsAgreementPageState extends State<TermsAgreementPage> {
   }
 
   void _showTermsDialog(BuildContext context, String title, String content) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDesign.radiusXL)),
-        backgroundColor: AppDesign.cardBg,
-        child: Container(
-          padding: const EdgeInsets.all(AppDesign.spacing24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // 내용물 크기에 맞춰 조절
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 타이틀 영역
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(title, style: AppDesign.headingMedium.copyWith(color: AppDesign.primaryText)),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: AppDesign.secondaryText),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppDesign.spacing16),
-
-              // 내용 영역
-              Container(
-                height: 250,
-                padding: const EdgeInsets.all(AppDesign.spacing16),
-                decoration: BoxDecoration(
-                  color: AppDesign.primaryBg.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                ),
-                child: SingleChildScrollView(
-                  child: Text(
-                    content,
-                    style: AppDesign.bodyMedium.copyWith(color: AppDesign.primaryText, height: 1.6),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppDesign.spacing24),
-
-              // 확인 버튼
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppDesign.travelPurple,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDesign.radiusMedium)),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('확인', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    showAppSheet<void>(
+        context: context,
+        builder: (sheet) => AppSheet(
+              title: title,
+              footer: FilledButton(
+                  onPressed: () => Navigator.pop(sheet),
+                  child: const Text('확인')),
+              children: [
+                Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Text(content,
+                        style: AppDesign.bodyMedium.copyWith(height: 1.7)))
+              ],
+            ));
   }
 }
