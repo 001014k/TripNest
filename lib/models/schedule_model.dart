@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 class ScheduleModel {
   final String id;
   final String userId;
@@ -26,31 +24,29 @@ class ScheduleModel {
   });
 
   factory ScheduleModel.fromJson(Map<String, dynamic> j) => ScheduleModel(
-    id: j['id'],
-    userId: j['user_id'],
-    title: j['title'],
-    startTime: DateTime.parse(j['start_time']),
-    endTime: DateTime.parse(j['end_time']),
-    placeId: j['place_id'],
-    latitude: j['latitude'],
-    longitude: j['longitude'],
-    colorValue: j['color_value'],
-    collaboratorIds: (j['collaborator_ids'] as List?)?.map((e) => e as String).toList(),
-  );
+        id: j['id'],
+        userId: j['user_id'],
+        title: j['title'],
+        startTime: DateTime.parse(j['start_time']),
+        endTime: DateTime.parse(j['end_time']),
+        placeId: j['place_id'],
+        latitude: j['latitude'],
+        longitude: j['longitude'],
+        colorValue: j['color_value'],
+        collaboratorIds:
+            (j['collaborator_ids'] as List?)?.map((e) => e as String).toList(),
+      );
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'user_id': userId,
-    'title': title,
-    'start_time': startTime.toIso8601String(),
-    'end_time': endTime.toIso8601String(),
-    'place_id': placeId,
-    'latitude': latitude,
-    'longitude': longitude,
-    'color_value': colorValue,
-    'collaborator_ids': collaboratorIds,
-  };
-
-  // 여기서 Color 타입 getter 추가
-  Color get color => Color(colorValue);
+        'id': id,
+        'user_id': userId,
+        'title': title,
+        'start_time': startTime.toUtc().toIso8601String(),
+        'end_time': endTime.toUtc().toIso8601String(),
+        'place_id': placeId,
+        'latitude': latitude,
+        'longitude': longitude,
+        'color_value': colorValue,
+        'collaborator_ids': collaboratorIds,
+      };
 }
