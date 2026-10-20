@@ -1,323 +1,185 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../design/app_design.dart'; // 디자인 시스템 import
+import '../widgets/reference_design.dart';
+import 'package:flutter/services.dart';
 import '../main.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/splash_viewmodel.dart';
+import '../viewmodels/mapsample_viewmodel.dart';
+import '../viewmodels/list_viewmodel.dart';
+import '../viewmodels/profile_viewmodel.dart';
+import 'shared_address_handler.dart';
 
 class SplashScreenView extends StatefulWidget {
+  const SplashScreenView({super.key});
+
   @override
   State<SplashScreenView> createState() => _SplashScreenViewState();
 }
 
 class _SplashScreenViewState extends State<SplashScreenView>
     with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late AnimationController _scaleController;
-  late AnimationController _floatingController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _floatingAnimation;
+  late final AnimationController _dotsController;
   bool _alreadyNavigated = false;
-
+  SplashViewModel? _splashViewModel;
 
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startAnimations();
+      if (!mounted) return;
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _dotsController.repeat();
+      }
       // 3️⃣ SplashViewModel startSplash 호출
       final splashVM = context.read<SplashViewModel>();
-      splashVM.startSplash();
+      _splashViewModel = splashVM;
+      splashVM.startSplash(prepareAuthenticatedUser: _prepareAuthenticatedUser);
     });
+  }
+
+  Future<void> _prepareAuthenticatedUser(String userId) async {
+    if (!mounted) return;
+    try {
+      await handleIncomingSharedAddress(
+        context,
+        navigateToSharedLink: false,
+      ).timeout(const Duration(seconds: 3));
+    } on TimeoutException {
+      debugPrint('⚠️ Splash 공유 주소 확인 시간 초과');
+    }
+    if (!mounted) return;
+
+    // 현재 위치는 홈 진입에 필수 데이터가 아니므로 Splash를 막지 않는다.
+    unawaited(
+      context.read<MapSampleViewModel>().checkLocationPermissionAndFetch(),
+    );
+
+    await Future.wait([
+      context
+          .read<ListViewModel>()
+          .loadLists()
+          .timeout(const Duration(seconds: 8)),
+      context
+          .read<ProfileViewModel>()
+          .fetchUserStats(userId)
+          .timeout(const Duration(seconds: 8)),
+    ]);
   }
 
   void _initializeAnimations() {
-    // 페이드 인 애니메이션
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
-
-    // 스케일 애니메이션
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
-    );
-
-    // 플로팅 애니메이션
-    _floatingController = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-    );
-    _floatingAnimation = Tween<double>(begin: 0.0, end: 10.0).animate(
-      CurvedAnimation(parent: _floatingController, curve: Curves.easeInOut),
-    );
-  }
-
-  void _startAnimations() {
-    _fadeController.forward();
-    Future.delayed(const Duration(milliseconds: 200), () {
-      _scaleController.forward();
-    });
-    Future.delayed(const Duration(milliseconds: 800), () {
-      _floatingController.repeat(reverse: true);
-    });
+    _dotsController = AnimationController(
+        duration: const Duration(milliseconds: 1500), vsync: this);
   }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _scaleController.dispose();
-    _floatingController.dispose();
+    _splashViewModel?.stopWatchingAuth();
+    _dotsController.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppDesign.backgroundGradient,
-        ),
-        child: Stack(
-          children: [
-            // 백그라운드 장식 요소들
-            _buildBackgroundDecorations(),
-
-            // 메인 콘텐츠
-            Center(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: Consumer<SplashViewModel>(
-                  builder: (context, vm, child) {
-                    // 화면 이동 처리
-                    if (!_alreadyNavigated && vm.nextRoute != null) {
-                      _alreadyNavigated = true;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        navigatorKey.currentState?.pushNamedAndRemoveUntil(
-                          vm.nextRoute!,
-                              (route) => false,
-                          arguments: vm.arguments,
-                        );
-                      });
-                    }
-
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildLogoSection(),
-                        const SizedBox(height: AppDesign.spacing40),
-                        _buildBrandName(),
-                        const SizedBox(height: AppDesign.spacing16),
-                        _buildSubtitle(),
-                        const SizedBox(height: AppDesign.spacing80),
-                        _buildLoadingIndicator(),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-Widget _buildBackgroundDecorations() {
-    return Stack(
-      children: [
-        // 상단 우측 장식
-        Positioned(
-          top: 100,
-          right: 30,
-          child: Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                colors: [
-                  AppDesign.travelBlue.withOpacity(0.1),
-                  Colors.transparent,
-                ],
-              ),
-              shape: BoxShape.circle,
-            ),
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: SafeArea(
+            child: Consumer<SplashViewModel>(builder: (context, vm, _) {
+              if (!_alreadyNavigated && vm.nextRoute != null) {
+                _alreadyNavigated = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  navigatorKey.currentState?.pushNamedAndRemoveUntil(
+                      vm.nextRoute!, (route) => false,
+                      arguments: vm.arguments);
+                });
+              }
+              return LayoutBuilder(
+                  builder: (context, constraints) => Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Align(
+                            alignment: const Alignment(0, -.03),
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const SizedBox(
+                                        width: 80,
+                                        height: 66,
+                                        child: FittedBox(
+                                            fit: BoxFit.contain,
+                                            child: ReferenceLogo())),
+                                    const SizedBox(height: 16),
+                                    const Text('TripNest',
+                                        style: TextStyle(
+                                            fontSize: 42,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: -1.5,
+                                            color: Colors.black,
+                                            height: 1.15)),
+                                    const SizedBox(height: 20),
+                                    const Text('나만의 여행 지도를 만드는 중',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            color: Color(0xFF696D76),
+                                            height: 1.5)),
+                                  ]),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: constraints.maxHeight * .17,
+                            left: 0,
+                            right: 0,
+                            child: Semantics(
+                              label: '앱을 준비하고 있어요',
+                              child: AnimatedBuilder(
+                                  animation: _dotsController,
+                                  builder: (context, _) {
+                                    final active = (_dotsController.value * 3)
+                                        .floor()
+                                        .clamp(0, 2);
+                                    return Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: List.generate(
+                                          3,
+                                          (index) => Container(
+                                                width: 8,
+                                                height: 8,
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6),
+                                                decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: index == active
+                                                        ? const Color(
+                                                            0xFF171717)
+                                                        : const Color(
+                                                            0xFFD3D4D7)),
+                                              )),
+                                    );
+                                  }),
+                            ),
+                          ),
+                          const Positioned(
+                              left: 24,
+                              right: 24,
+                              bottom: 28,
+                              child: Text('여행을 더 쉽게',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontSize: 13, color: Color(0xFF696D76)))),
+                        ],
+                      ));
+            }),
           ),
         ),
-
-        // 하단 좌측 장식
-        Positioned(
-          bottom: 150,
-          left: 20,
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                colors: [
-                  AppDesign.travelPurple.withOpacity(0.08),
-                  Colors.transparent,
-                ],
-              ),
-              shape: BoxShape.circle,
-            ),
-          ),
-        ),
-
-        // 중앙 우측 장식
-        Positioned(
-          top: 300,
-          right: 80,
-          child: Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: AppDesign.travelOrange.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLogoSection() {
-    return AnimatedBuilder(
-      animation: _floatingAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _floatingAnimation.value),
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                gradient: AppDesign.primaryGradient,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppDesign.travelBlue.withOpacity(0.3),
-                    blurRadius: 40,
-                    offset: const Offset(0, 20),
-                    spreadRadius: -10,
-                  ),
-                  BoxShadow(
-                    color: AppDesign.travelPurple.withOpacity(0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Container(
-                margin: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
-                    width: 2,
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 64,
-                  backgroundColor: Colors.transparent,
-                  backgroundImage: AssetImage('assets/kmj.png'),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildBrandName() {
-    return ShaderMask(
-      shaderCallback: (bounds) => AppDesign.primaryGradient.createShader(bounds),
-      child: Text(
-        'TripNest',
-        style: AppDesign.headingXL.copyWith(
-          fontSize: 36,
-          fontWeight: FontWeight.w900,
-          color: Colors.white,
-          letterSpacing: -1.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSubtitle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDesign.spacing20,
-        vertical: AppDesign.spacing8,
-      ),
-      decoration: BoxDecoration(
-        color: AppDesign.travelBlue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        border: Border.all(
-          color: AppDesign.travelBlue.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.flight_takeoff,
-            color: AppDesign.travelBlue,
-            size: 16,
-          ),
-          const SizedBox(width: AppDesign.spacing8),
-          Text(
-            '새로운 여행이 시작됩니다',
-            style: AppDesign.bodyMedium.copyWith(
-              color: AppDesign.travelBlue,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingIndicator() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppDesign.spacing16),
-          decoration: BoxDecoration(
-            color: AppDesign.cardBg,
-            shape: BoxShape.circle,
-            boxShadow: AppDesign.softShadow,
-          ),
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(AppDesign.travelBlue),
-              backgroundColor: AppDesign.borderColor,
-            ),
-          ),
-        ),
-        const SizedBox(height: AppDesign.spacing16),
-        Text(
-          '앱을 준비하고 있어요...',
-          style: AppDesign.bodyMedium.copyWith(
-            color: AppDesign.secondaryText,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
+      );
 }
