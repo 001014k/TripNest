@@ -10,72 +10,72 @@ class AppDesign {
   // =============================================================
 
   // 배경색
-  static const Color primaryBg = Color(0xFFF7F8F5);
-  static const Color secondaryBg = Color(0xFFEDF1EC);
+  static const Color primaryBg = Color(0xFFFAFAFA);
+  static const Color secondaryBg = Color(0xFFF5F5F6);
   static const Color cardBg = Color(0xFFFFFFFF);
-  static const Color bg = Color(0xFFF1F3EF);
+  static const Color bg = Color(0xFFF6F6F7);
 
   // 브랜드 컬러인
-  static const Color primary = Color(0xFF3D7357);
-  static const Color primaryDark = Color(0xFF28513D);
-  static const Color travelBlue = Color(0xFF4E7D8A);
-  static const Color travelGreen = Color(0xFF5C896D);
-  static const Color travelOrange = Color(0xFFA9784D);
-  static const Color travelPurple = Color(0xFF7B728B);
+  static const Color primary = Color(0xFF222222);
+  static const Color primaryDark = Color(0xFF151515);
+  static const Color travelBlue = Color(0xFF4C4C50);
+  static const Color travelGreen = Color(0xFF424246);
+  static const Color travelOrange = Color(0xFF67676C);
+  static const Color travelPurple = Color(0xFF737378);
 
   // 커뮤니티/저널 포인트 컬러 — 우표(postmark) 모티프에서 가져온 테라코타 톤.
   // 이 색은 "여행 이야기" 게시판에서만 제한적으로 사용해 포인트로 유지합니다.
   static const Color travelStamp = Color(0xFFB66B57);
 
   // 그라데이션용
-  static const Color sunsetGradientStart = Color(0xFF9C7656);
-  static const Color sunsetGradientEnd = Color(0xFFD5C3A4);
+  static const Color sunsetGradientStart = Color(0xFF303034);
+  static const Color sunsetGradientEnd = Color(0xFF49494E);
 
   // 텍스트 컬러
-  static const Color primaryText = Color(0xFF17251E);
-  static const Color secondaryText = Color(0xFF5F7167);
-  static const Color subtleText = Color(0xFF87968E);
+  static const Color primaryText = Color(0xFF202023);
+  static const Color secondaryText = Color(0xFF77777D);
+  static const Color subtleText = Color(0xFF929298);
   static const Color whiteText = Colors.white;
 
   // 기타 컬러
-  static const Color borderColor = Color(0xFFDCE4DD);
-  static const Color lightGray = Color(0xFFF4F6F3);
+  static const Color borderColor = Color(0xFFE8E8EB);
+  static const Color lightGray = Color(0xFFF5F5F6);
   static const Color success = Color(0xFF4F8B68);
-  static const Color label1 = Color(0xFF17251E);
-  static const Color label2 = Color(0xFF3D5046);
-  static const Color label3 = Color(0xFF819087);
-  static const Color separator = Color(0xFFE2E8E2);
+  static const Color label1 = Color(0xFF202023);
+  static const Color label2 = Color(0xFF626269);
+  static const Color label3 = Color(0xFF929298);
+  static const Color separator = Color(0xFFEEEEF0);
 
   // 홈 목업 전용 팔레트 — 화면에서 임의의 색상을 만들지 않고 이 토큰만 사용합니다.
-  static const Color homeBackgroundTop = Color(0xFF102019);
-  static const Color homeBackgroundBottom = Color(0xFF19382A);
-  static const Color homeSurface = Color(0xFF1E3A2D);
-  static const Color homeSurfaceBorder = Color(0xFF416755);
-  static const Color homeForeground = Color(0xFFF1F6F2);
-  static const Color homeEyebrow = Color(0xFFB5CABD);
-  static const Color homeMutedText = Color(0xFFA9BFB1);
-  static const Color homeNavigationText = Color(0xFF90AA9A);
-  static const Color homeMutedSurface = Color(0xFF315844);
-  static const Color homeTagSurface = Color(0xFF315844);
-  static const Color homeTagForeground = Color(0xFFC1EDD0);
-  static const Color homeHeroStart = Color(0xFF356B51);
-  static const Color homeHeroEnd = Color(0xFF688D76);
-  static const Color homeMapIconStart = Color(0xFF5F929A);
-  static const Color homeMapIconEnd = Color(0xFF6E9EA3);
-  static const Color homeListIconStart = Color(0xFF4D8969);
-  static const Color homeListIconEnd = Color(0xFF397257);
-  static const Color homeLinkIconStart = Color(0xFF866B50);
-  static const Color homeLinkIconEnd = Color(0xFFA88461);
-  static const Color homeRestaurantTagSurface = Color(0xFF503B30);
-  static const Color homeRestaurantTagForeground = Color(0xFFF0C3A2);
-  static const Color homePhotoTagSurface = Color(0xFF304C5A);
-  static const Color homePhotoTagForeground = Color(0xFFA8D9E9);
-  static const Color homeCafeTagSurface = Color(0xFF4B4330);
-  static const Color homeCafeTagForeground = Color(0xFFE8D092);
-  static const Color homeHotelTagSurface = Color(0xFF3E3D58);
-  static const Color homeHotelTagForeground = Color(0xFFCBC8ED);
-  static const Color homeExhibitionTagSurface = Color(0xFF344B41);
-  static const Color homeExhibitionTagForeground = Color(0xFFB9DCC8);
+  static const Color homeBackgroundTop = Color(0xFFF5F5F6);
+  static const Color homeBackgroundBottom = Color(0xFFF5F5F6);
+  static const Color homeSurface = Color(0xFFFFFFFF);
+  static const Color homeSurfaceBorder = Color(0xFFE8E8EB);
+  static const Color homeForeground = Color(0xFF202023);
+  static const Color homeEyebrow = Color(0xFF85858B);
+  static const Color homeMutedText = Color(0xFF85858B);
+  static const Color homeNavigationText = Color(0xFF85858B);
+  static const Color homeMutedSurface = Color(0xFFF5F5F6);
+  static const Color homeTagSurface = Color(0xFFF5F5F6);
+  static const Color homeTagForeground = Color(0xFF202023);
+  static const Color homeHeroStart = Color(0xFFF5F5F6);
+  static const Color homeHeroEnd = Color(0xFFF5F5F6);
+  static const Color homeMapIconStart = Color(0xFF353539);
+  static const Color homeMapIconEnd = Color(0xFF353539);
+  static const Color homeListIconStart = Color(0xFF353539);
+  static const Color homeListIconEnd = Color(0xFF353539);
+  static const Color homeLinkIconStart = Color(0xFF353539);
+  static const Color homeLinkIconEnd = Color(0xFF353539);
+  static const Color homeRestaurantTagSurface = Color(0xFFF5F5F6);
+  static const Color homeRestaurantTagForeground = Color(0xFF202023);
+  static const Color homePhotoTagSurface = Color(0xFFF5F5F6);
+  static const Color homePhotoTagForeground = Color(0xFF202023);
+  static const Color homeCafeTagSurface = Color(0xFFF5F5F6);
+  static const Color homeCafeTagForeground = Color(0xFF202023);
+  static const Color homeHotelTagSurface = Color(0xFFF5F5F6);
+  static const Color homeHotelTagForeground = Color(0xFF202023);
+  static const Color homeExhibitionTagSurface = Color(0xFFF5F5F6);
+  static const Color homeExhibitionTagForeground = Color(0xFF202023);
 
   // =============================================================
   // 2. Radius (모서리 둥글기)
@@ -218,7 +218,7 @@ class AppDesign {
   // =============================================================
   static final List<BoxShadow> softShadow = [
     BoxShadow(
-      color: const Color(0xFF1B382A).withValues(alpha: 0.08),
+      color: const Color(0xFF202020).withValues(alpha: 0.08),
       blurRadius: 18,
       offset: const Offset(0, 6),
       spreadRadius: -8,
@@ -227,13 +227,13 @@ class AppDesign {
 
   static final List<BoxShadow> elevatedShadow = [
     BoxShadow(
-      color: const Color(0xFF1B382A).withValues(alpha: 0.12),
+      color: const Color(0xFF202020).withValues(alpha: 0.12),
       blurRadius: 26,
       offset: const Offset(0, 10),
       spreadRadius: -8,
     ),
     BoxShadow(
-      color: const Color(0xFF1B382A).withValues(alpha: 0.05),
+      color: const Color(0xFF202020).withValues(alpha: 0.05),
       blurRadius: 10,
       offset: const Offset(0, 4),
     ),
@@ -254,7 +254,7 @@ class AppDesign {
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primary, travelGreen],
+    colors: [primary, primary],
   );
 
   static const LinearGradient sunsetGradient = LinearGradient(
@@ -266,7 +266,7 @@ class AppDesign {
   static const LinearGradient greenGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [travelGreen, primaryDark],
+    colors: [primary, primary],
   );
 
   static const LinearGradient backgroundGradient = LinearGradient(
@@ -350,11 +350,11 @@ class AppDesign {
       useMaterial3: true,
       colors: const FlexSchemeColor(
         primary: primary,
-        primaryContainer: Color(0xFFDCE9DE),
+        primaryContainer: Color(0xFFEEEEF0),
         secondary: travelGreen,
-        secondaryContainer: Color(0xFFE5EEE5),
+        secondaryContainer: Color(0xFFF2F2F4),
         tertiary: travelBlue,
-        tertiaryContainer: Color(0xFFDDE8E9),
+        tertiaryContainer: Color(0xFFF2F2F4),
         error: travelStamp,
       ),
       scaffoldBackground: primaryBg,
@@ -374,10 +374,94 @@ class AppDesign {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: cardBg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        barrierColor: Colors.black.withValues(alpha: .38),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        titleTextStyle: headingMedium,
+        contentTextStyle: bodyMedium.copyWith(color: secondaryText),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: cardBg,
+        surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: cardBg,
+        modalBarrierColor: Color(0x61000000),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        dragHandleColor: Color(0xFFD6D6DA),
+        dragHandleSize: Size(32, 4),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: cardBg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: borderColor)),
+        textStyle: bodyMedium,
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: cardBg,
+        surfaceTintColor: Colors.transparent,
+        headerBackgroundColor: cardBg,
+        headerForegroundColor: primaryText,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        dividerColor: separator,
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        hourMinuteShape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        dayPeriodShape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        dialBackgroundColor: secondaryBg,
+        dialHandColor: primary,
+        entryModeIconColor: secondaryText,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+        backgroundColor: primary,
+        foregroundColor: whiteText,
+        minimumSize: const Size(64, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      )),
+      textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+        foregroundColor: primaryText,
+        minimumSize: const Size(48, 44),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      )),
+      inputDecorationTheme: InputDecorationThemeData(
+        filled: true,
+        fillColor: secondaryBg,
+        hintStyle: bodyMedium.copyWith(color: subtleText),
+        labelStyle: bodySmall,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: borderColor)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: borderColor)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: primary, width: 1.5)),
+      ),
       snackBarTheme: const SnackBarThemeData(
         backgroundColor: primaryText,
         contentTextStyle: TextStyle(color: whiteText),
         behavior: SnackBarBehavior.floating,
+        elevation: 0,
+        insetPadding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14))),
       ),
     );
   }
@@ -398,7 +482,7 @@ class AppDesign {
           secondaryForeground: primaryText,
           muted: lightGray,
           mutedForeground: secondaryText,
-          accent: Color(0xFFDCE9DE),
+          accent: Color(0xFFEEEEF0),
           accentForeground: primaryText,
           destructive: travelStamp,
           destructiveForeground: whiteText,
