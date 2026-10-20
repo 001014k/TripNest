@@ -1,3 +1,11 @@
+import '../widgets/selected_location_sheet.dart';
+import '../widgets/address_photo_preview.dart';
+import '../widgets/place_keyword_icon.dart';
+import '../navigation/app_page_route.dart';
+import '../widgets/app_overlays.dart';
+import '../widgets/map_keyword_sheet.dart';
+import '../widgets/map_trip_list_sheet.dart';
+import '../widgets/tripnest_navigation.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -6,7 +14,6 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/add_markers_to_list_viewmodel.dart';
-import '../viewmodels/markercreationscreen_viewmodel.dart';
 import '../views/markerdetail_view.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
 import '../design/app_design.dart';
@@ -15,22 +22,38 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'chat_recommendation_view.dart';
 
+/// A focused map opened from a detail page owns its controller so that closing
+/// it does not detach the retained map tab's controller or callbacks.
+class MapPreviewView extends StatelessWidget {
+  const MapPreviewView({super.key, this.initialMarkerId, this.initialListId});
+  final MarkerId? initialMarkerId;
+  final String? initialListId;
+  @override
+  Widget build(BuildContext context) => ChangeNotifierProvider(
+        create: (_) => MapSampleViewModel(),
+        child: MapSampleView(
+            initialMarkerId: initialMarkerId, initialListId: initialListId),
+      );
+}
+
 class MapSampleView extends StatefulWidget {
   final MarkerId? initialMarkerId;
+  final String? initialListId;
 
-  const MapSampleView({Key? key, this.initialMarkerId}) : super(key: key);
+  const MapSampleView({super.key, this.initialMarkerId, this.initialListId});
 
   @override
-  _MapSampleViewState createState() => _MapSampleViewState();
+  State<MapSampleView> createState() => _MapSampleViewState();
 }
 
 class _MapSampleViewState extends State<MapSampleView> {
   late MapSampleViewModel _viewModel;
   final ZoomDrawerController zoomDrawerController = ZoomDrawerController();
   GoogleMapController? _controller; // late를 추가하면 오류가 뜨고 삭제하면 해당 위치에 대한 결과가 뜸
-  Map<MarkerId, String> _markerKeywords = {};
-  TextEditingController _searchController = TextEditingController();
+  final Map<MarkerId, String> _markerKeywords = {};
+  final TextEditingController _searchController = TextEditingController();
   bool _isMapInitialized = false;
+  bool _hasLoadedMarkers = false;
   final Map<String, String> keywordMarkerImages = {
     '카페': 'assets/cafe_marker.png',
     '호텔': 'assets/hotel_marker.png',
@@ -39,7 +62,6 @@ class _MapSampleViewState extends State<MapSampleView> {
     '전시회': 'assets/exhibition_marker.png',
   };
   LatLng? _pendingLatLng;
-  List<Marker> bookmarkedMarkers = [];
 
   @override
   void didChangeDependencies() {
@@ -49,11 +71,27 @@ class _MapSampleViewState extends State<MapSampleView> {
 
     // 검색 마커 클릭 처리
     _viewModel.onSearchMarkerTapped = (Marker marker) async {
-      print("✅ [Search Marker Tap] 클릭됨 → ${marker.markerId.value}");
+      debugPrint("✅ [Search Marker Tap] 클릭됨 → ${marker.markerId.value}");
 
+      final confirmed = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: false,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+        builder: (sheet) => SelectedLocationSheet(
+          marker: marker,
+          metadata: _viewModel.searchPlaceMetadata[marker.markerId.value],
+          currentLocation: _viewModel.currentLocation,
+          onAdd: () => Navigator.pop(sheet, true),
+        ),
+      );
+      if (!mounted || confirmed != true) return;
       final result = await Navigator.push(
         context,
-        MaterialPageRoute(
+        AppPageRoute(
+          motion: AppMotion.editor,
           builder: (context) => MarkerCreationScreen(
             initialLatLng: marker.position,
             initialTitle: marker.infoWindow.title,
@@ -63,7 +101,8 @@ class _MapSampleViewState extends State<MapSampleView> {
       );
 
       if (result != null && result is Map<String, dynamic>) {
-        _viewModel.addMarker(
+        if (!mounted) return;
+        final saved = await _viewModel.addMarker(
           title: result['title'],
           snippet: result['snippet'],
           position: marker.position,
@@ -73,9 +112,15 @@ class _MapSampleViewState extends State<MapSampleView> {
           onTapCallback: (id) => _viewModel.onMarkerTapped(id),
         );
 
+        if (!mounted) return;
+        if (!saved) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('마커를 저장하지 못했어요. 다시 시도해주세요.')));
+          return;
+        }
         _viewModel.clearSearchResults();
-        _viewModel.notifyListeners();
 
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('마커가 저장되었습니다'),
@@ -93,7 +138,7 @@ class _MapSampleViewState extends State<MapSampleView> {
     _viewModel.onSearchCompleted = (List<Marker> searchMarkers) async {
       if (searchMarkers.isEmpty) return;
 
-      print("✅ 검색 완료 - ${searchMarkers.length}개 마커 → 카메라 이동 시도");
+      debugPrint("✅ 검색 완료 - ${searchMarkers.length}개 마커 → 카메라 이동 시도");
 
       final positions = searchMarkers.map((m) => m.position).toList();
       if (positions.isEmpty) return;
@@ -117,15 +162,15 @@ class _MapSampleViewState extends State<MapSampleView> {
             await _controller!.animateCamera(
               CameraUpdate.newLatLngBounds(bounds, 120.0),
             );
-            print("✅ 카메라 이동 성공!");
+            debugPrint("✅ 카메라 이동 성공!");
             return;
           } catch (e) {
-            print("❌ animateCamera 실패: $e");
+            debugPrint("❌ animateCamera 실패: $e");
           }
         }
 
         // controller가 아직 null이면 GoogleMap이 완전히 빌드될 때까지 대기
-        print("⏳ controller null → GoogleMap 빌드 대기");
+        debugPrint("⏳ controller null → GoogleMap 빌드 대기");
 
         // GoogleMap이 onMapCreated 될 때까지 최대 1.5초 대기
         int attempts = 0;
@@ -139,12 +184,12 @@ class _MapSampleViewState extends State<MapSampleView> {
             await _controller!.animateCamera(
               CameraUpdate.newLatLngBounds(bounds, 120.0),
             );
-            print("✅ 대기 후 카메라 이동 성공!");
+            debugPrint("✅ 대기 후 카메라 이동 성공!");
           } catch (e) {
-            print("❌ 대기 후에도 이동 실패: $e");
+            debugPrint("❌ 대기 후에도 이동 실패: $e");
           }
         } else {
-          print("❌ 최종 실패: controller가 초기화되지 않음");
+          debugPrint("❌ 최종 실패: controller가 초기화되지 않음");
 
           // 최후의 수단: 첫 번째 마커 위치로 이동
           if (searchMarkers.isNotEmpty) {
@@ -163,6 +208,7 @@ class _MapSampleViewState extends State<MapSampleView> {
   @override
   void dispose() {
     // dispose 단계에서는 비활성화된 context로 Provider를 조회하지 않습니다.
+    _searchController.dispose();
     _viewModel.detachMap();
     _viewModel.onSearchMarkerTapped = null;
     _viewModel.onSearchCompleted = null;
@@ -178,8 +224,7 @@ class _MapSampleViewState extends State<MapSampleView> {
       await viewModel.loadMarkers();
 
       viewModel.onMarkerTappedCallback = (marker) {
-        String keyword =
-            viewModel.getKeywordByMarkerId(marker.markerId.value) ?? '';
+        String keyword = viewModel.getKeywordByMarkerId(marker.markerId.value);
         final selectedListId =
             context.read<MapSampleViewModel>().selectedListId;
 
@@ -207,13 +252,13 @@ class _MapSampleViewState extends State<MapSampleView> {
               onBookmark: (m) {
                 // 북마크 처리
               },
-              navigateToMarkerDetailPage: (context, m) {
+              navigateToMarkerDetailPage: (_, m) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  AppPageRoute(
                     builder: (_) => MarkerDetailView(
                       marker: m,
-                      keyword: '',
+                      keyword: keyword,
                     ),
                   ),
                 );
@@ -223,123 +268,23 @@ class _MapSampleViewState extends State<MapSampleView> {
         );
       };
 
-      final initialMarkerId = (widget as MapSampleView).initialMarkerId;
+      final initialMarkerId = (widget).initialMarkerId;
       if (initialMarkerId != null) {
         await viewModel.onMarkerTapped(initialMarkerId);
       }
     });
   }
 
-  void _navigateToMarkerDetailPage(BuildContext context, Marker marker) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MarkerDetailView(
-          marker: marker,
-          keyword: _markerKeywords[marker.markerId] ?? 'default',
-        ),
-      ),
-    );
-
-    if (result == true) {
-      context.read<MapSampleViewModel>().loadMarkers();
-    }
-  }
-
   void _onMapTapped(BuildContext context, LatLng latLng) async {
     final bool? shouldAddMarker = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: AppDesign.cardBg,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          ),
-          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-          actionsPadding: const EdgeInsets.all(AppDesign.spacing16),
-          title: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(AppDesign.spacing8),
-                decoration: BoxDecoration(
-                  gradient: AppDesign.primaryGradient,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                child: Icon(
-                  Icons.add_location_alt_outlined,
-                  color: AppDesign.whiteText,
-                  size: 24,
-                ),
-              ),
-              SizedBox(width: AppDesign.spacing12),
-              Text(
-                '마커 추가',
-                style: AppDesign.headingSmall,
-              ),
-            ],
-          ),
-          content: Text(
-            '이 위치에 마커를 추가할까요?',
-            style: AppDesign.bodyLarge,
-          ),
-          actions: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                SizedBox(width: AppDesign.spacing8),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: AppDesign.primaryGradient,
-                    borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                    boxShadow: AppDesign.glowShadow,
-                  ),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppDesign.radiusSmall),
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppDesign.spacing24,
-                        vertical: AppDesign.spacing12,
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: Text(
-                      '마커 추가',
-                      style: AppDesign.bodyMedium.copyWith(
-                        color: AppDesign.whiteText,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                TextButton(
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppDesign.spacing20,
-                      vertical: AppDesign.spacing12,
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: Text(
-                    '취소',
-                    style: AppDesign.bodyMedium.copyWith(
-                      color: AppDesign.secondaryText,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-
+        context: context,
+        builder: (_) => const AppConfirmDialog(
+            title: '마커를 추가할까요?',
+            message: '선택한 위치에 새 장소를 저장할 수 있어요.',
+            confirmLabel: '마커 추가',
+            icon: Icons.add_location_alt_outlined));
     if (shouldAddMarker == true) {
+      if (!context.mounted) return;
       setState(() {
         _pendingLatLng = latLng;
       });
@@ -351,13 +296,15 @@ class _MapSampleViewState extends State<MapSampleView> {
       BuildContext context, LatLng latLng) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
+      AppPageRoute(
+        motion: AppMotion.editor,
         builder: (BuildContext context) =>
             MarkerCreationScreen(initialLatLng: latLng),
       ),
     );
 
     if (result != null && _pendingLatLng != null) {
+      if (!context.mounted) return;
       final keyword = result['keyword'] ?? 'default';
       final listId = result['listId'];
       final address = result['address'] ?? '';
@@ -376,68 +323,23 @@ class _MapSampleViewState extends State<MapSampleView> {
     }
   }
 
-  void _bookmarkLocation(BuildContext context, Marker marker) {
-    setState(() {
-      bookmarkedMarkers.add(marker);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('북마크에 추가되었습니다.'),
-        backgroundColor: AppDesign.travelGreen,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-        ),
-      ),
-    );
-  }
-
-  void _showMarkerInfoBottomSheet(
-    BuildContext context,
-    Marker marker,
-    Function(Marker) onDelete,
-    String keyword,
-    String listId,
-  ) {
-    print('showMarkerInfoBottomSheet called for marker: ${marker.markerId}');
-
-    showModalBottomSheet(
+  Future<void> _showKeywordFilter() async {
+    final vm = context.read<MapSampleViewModel>();
+    final selected = await showModalBottomSheet<Set<String>>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) => Container(
-        width: MediaQuery.of(context).size.width,
-        decoration: BoxDecoration(
-          color: AppDesign.cardBg,
-          borderRadius: BorderRadius.vertical(
-              top: Radius.circular(AppDesign.radiusLarge)),
-          boxShadow: AppDesign.elevatedShadow,
-        ),
-        padding: EdgeInsets.all(AppDesign.spacing20),
-        child: MarkerInfoBottomSheet(
-          marker: marker,
-          keyword: keyword,
-          listId: listId,
-          onSave: (updatedMarker, keyword, address) async {
-            final markerImagePath =
-                keywordMarkerImages[keyword] ?? 'assets/default_marker.png';
-            context.read<MarkerCreationScreenViewModel>().saveMarker(
-                  marker: updatedMarker,
-                  keyword: keyword,
-                  markerImagePath: markerImagePath,
-                  listId: listId,
-                  address: address,
-                );
-          },
-          onDelete: onDelete,
-          onBookmark: (marker) {
-            _bookmarkLocation(context, marker);
-          },
-          navigateToMarkerDetailPage: _navigateToMarkerDetailPage,
-        ),
-      ),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+      builder: (_) => MapKeywordSheet(
+          keywords: vm.keywordIcons, selected: vm.activeKeywords),
     );
+    if (selected == null || !mounted) return;
+    _searchController.clear();
+    vm.clearSearchResults();
+    vm.clearPolylines();
+    vm.setSelectedListId(null);
+    await vm.applyKeywords(selected);
   }
 
   void showUserLists(BuildContext context) async {
@@ -446,6 +348,7 @@ class _MapSampleViewState extends State<MapSampleView> {
     if (!mounted) return;
 
     if (userLists.isEmpty) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('저장된 리스트가 없습니다'),
@@ -458,150 +361,29 @@ class _MapSampleViewState extends State<MapSampleView> {
       );
       return;
     }
-    showModalBottomSheet(
+    if (!context.mounted) return;
+    final viewModel = context.read<MapSampleViewModel>();
+    showModalBottomSheet<void>(
       context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppDesign.radiusLarge)),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      builder: (sheetContext) => MapTripListSheet(
+        lists: userLists,
+        selectedListId: viewModel.selectedListId,
+        onSelect: (listId) {
+          viewModel.setSelectedListId(listId);
+          Navigator.pop(sheetContext);
+          showMarkersForSelectedList(listId);
+        },
+        onReset: () {
+          viewModel.clearPolylines();
+          viewModel.setSelectedListId(null);
+          viewModel.showAllMarkers();
+          Navigator.pop(sheetContext);
+        },
       ),
-      backgroundColor: AppDesign.cardBg,
-      builder: (BuildContext context) {
-        return Container(
-          decoration: BoxDecoration(
-            gradient: AppDesign.backgroundGradient,
-            borderRadius: BorderRadius.vertical(
-                top: Radius.circular(AppDesign.radiusLarge)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(AppDesign.spacing20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 50,
-                  height: 5,
-                  margin: EdgeInsets.only(bottom: AppDesign.spacing20),
-                  decoration: BoxDecoration(
-                    color: AppDesign.borderColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                Text(
-                  '여행 리스트 선택',
-                  style: AppDesign.headingMedium,
-                ),
-                SizedBox(height: AppDesign.spacing20),
-                ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: userLists.length,
-                  separatorBuilder: (_, __) =>
-                      SizedBox(height: AppDesign.spacing12),
-                  itemBuilder: (context, index) {
-                    final list = userLists[index];
-                    final listName = list['name'] ?? '이름 없음';
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: AppDesign.cardBg,
-                        borderRadius:
-                            BorderRadius.circular(AppDesign.radiusMedium),
-                        boxShadow: AppDesign.softShadow,
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius:
-                              BorderRadius.circular(AppDesign.radiusMedium),
-                          onTap: () {
-                            Navigator.pop(context);
-                            showMarkersForSelectedList(userLists[index]['id']);
-                          },
-                          child: Padding(
-                            padding: EdgeInsets.all(AppDesign.spacing16),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(AppDesign.spacing12),
-                                  decoration: BoxDecoration(
-                                    gradient: AppDesign.primaryGradient,
-                                    borderRadius: BorderRadius.circular(
-                                        AppDesign.radiusSmall),
-                                  ),
-                                  child: Icon(
-                                    Icons.map_outlined,
-                                    color: AppDesign.whiteText,
-                                    size: 20,
-                                  ),
-                                ),
-                                SizedBox(width: AppDesign.spacing16),
-                                Expanded(
-                                  child: Text(
-                                    listName,
-                                    style: AppDesign.bodyMedium.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: AppDesign.secondaryText,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                SizedBox(height: AppDesign.spacing20),
-                Divider(thickness: 1, color: AppDesign.borderColor),
-                SizedBox(height: AppDesign.spacing12),
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppDesign.borderColor),
-                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius:
-                          BorderRadius.circular(AppDesign.radiusMedium),
-                      onTap: () {
-                        // 초기화는 선택한 여행 경로만 해제합니다.
-                        // 이어서 리스트 필터를 해제해 전체 마커와 클러스터를 복원합니다.
-                        final viewModel = context.read<MapSampleViewModel>();
-                        viewModel.clearPolylines();
-                        viewModel.showAllMarkers();
-                        Navigator.pop(context);
-                      },
-                      child: Padding(
-                        padding: EdgeInsets.all(AppDesign.spacing16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.refresh_rounded,
-                                color: AppDesign.travelOrange),
-                            SizedBox(width: AppDesign.spacing12),
-                            Text(
-                              '초기화',
-                              style: AppDesign.bodyMedium.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: AppDesign.primaryText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -645,6 +427,7 @@ class _MapSampleViewState extends State<MapSampleView> {
       }),
     );
 
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -665,7 +448,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 20,
                         offset: Offset(0, -5),
                       ),
@@ -760,14 +543,16 @@ class _MapSampleViewState extends State<MapSampleView> {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    AppDesign.travelBlue.withOpacity(0.1),
-                                    AppDesign.travelPurple.withOpacity(0.1),
+                                    AppDesign.travelBlue.withValues(alpha: 0.1),
+                                    AppDesign.travelPurple
+                                        .withValues(alpha: 0.1),
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(
                                     AppDesign.radiusMedium),
                                 border: Border.all(
-                                  color: AppDesign.travelBlue.withOpacity(0.2),
+                                  color: AppDesign.travelBlue
+                                      .withValues(alpha: 0.2),
                                 ),
                               ),
                               child: Row(
@@ -801,7 +586,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                                           '카드를 탭하면 지도에서 위치를 확인할 수 있어요',
                                           style: AppDesign.caption.copyWith(
                                             color: AppDesign.travelBlue
-                                                .withOpacity(0.8),
+                                                .withValues(alpha: 0.8),
                                           ),
                                         ),
                                       ],
@@ -830,7 +615,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                                   AppDesign.spacing80,
                                 ),
                                 itemCount: viewModel.orderedMarkers.length,
-                                onReorder: (int oldIndex, int newIndex) async {
+                                onReorderItem:
+                                    (int oldIndex, int newIndex) async {
                                   HapticFeedback.lightImpact(); // 햅틱 피드백 추가
                                   await viewModel.reorderMarkers(
                                     oldIndex,
@@ -888,19 +674,19 @@ class _MapSampleViewState extends State<MapSampleView> {
                                                 AppDesign.radiusLarge),
                                             border: Border.all(
                                               color: AppDesign.borderColor
-                                                  .withOpacity(0.5),
+                                                  .withValues(alpha: 0.5),
                                               width: 1,
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: keywordColor
-                                                    .withOpacity(0.08),
+                                                color: keywordColor.withValues(
+                                                    alpha: 0.08),
                                                 blurRadius: 12,
                                                 offset: Offset(0, 4),
                                               ),
                                               BoxShadow(
                                                 color: Colors.black
-                                                    .withOpacity(0.04),
+                                                    .withValues(alpha: 0.04),
                                                 blurRadius: 4,
                                                 offset: Offset(0, 2),
                                               ),
@@ -934,16 +720,16 @@ class _MapSampleViewState extends State<MapSampleView> {
                                                           colors: [
                                                             keywordColor,
                                                             keywordColor
-                                                                .withOpacity(
-                                                                    0.7),
+                                                                .withValues(
+                                                                    alpha: 0.7),
                                                           ],
                                                         ),
                                                         shape: BoxShape.circle,
                                                         boxShadow: [
                                                           BoxShadow(
                                                             color: keywordColor
-                                                                .withOpacity(
-                                                                    0.3),
+                                                                .withValues(
+                                                                    alpha: 0.3),
                                                             blurRadius: 8,
                                                             offset:
                                                                 Offset(0, 2),
@@ -1009,8 +795,9 @@ class _MapSampleViewState extends State<MapSampleView> {
                                                             decoration:
                                                                 BoxDecoration(
                                                               color: keywordColor
-                                                                  .withOpacity(
-                                                                      0.1),
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.1),
                                                               borderRadius:
                                                                   BorderRadius
                                                                       .circular(
@@ -1019,8 +806,9 @@ class _MapSampleViewState extends State<MapSampleView> {
                                                               border:
                                                                   Border.all(
                                                                 color: keywordColor
-                                                                    .withOpacity(
-                                                                        0.2),
+                                                                    .withValues(
+                                                                        alpha:
+                                                                            0.2),
                                                                 width: 1,
                                                               ),
                                                             ),
@@ -1131,7 +919,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                           color: AppDesign.cardBg,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 10,
                               offset: Offset(0, -5),
                             ),
@@ -1293,30 +1081,22 @@ class _MapSampleViewState extends State<MapSampleView> {
     }
   }
 
-  // 뒤로가기 / 홈 이동 시 안전 처리
-  void _onBackPressed() {
-    context.read<MapSampleViewModel>().detachMap(); // 안전 detach
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/home',
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final List<String> keywords =
         context.read<MapSampleViewModel>().keywordIcons.keys.toList();
     final searchResults = context.watch<MapSampleViewModel>().searchResults;
-    final selectedListId = context.read<MapSampleViewModel>().selectedListId;
-
     return Scaffold(
-      backgroundColor: AppDesign.primaryBg,
+      backgroundColor: Colors.white,
+      bottomNavigationBar: const TripNestNavigation(currentRoute: '/map'),
       body: Stack(
         children: [
           Consumer<MapSampleViewModel>(
             builder: (context, viewModel, child) {
               return GoogleMap(
+                style: viewModel.mapStyle,
+                padding: EdgeInsets.only(
+                    top: MediaQuery.paddingOf(context).top + 126, bottom: 24),
                 gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
                   Factory<OneSequenceGestureRecognizer>(
                       () => EagerGestureRecognizer()),
@@ -1330,15 +1110,10 @@ class _MapSampleViewState extends State<MapSampleView> {
                     _controller = controller;
                   });
                   viewModel.controller = controller; //viewmodel에도 전달
-                  await viewModel.loadMarkers();
-                  try {
-                    await viewModel.fetchAllAccessibleMarkers();
-                  } catch (error) {
-                    // 공유 리스트 조회가 실패해도 이미 읽은 내 마커는 유지한다.
-                    debugPrint('공유 마커 조회 실패: $error');
+                  await viewModel.initializeMapMarkers(controller);
+                  if (mounted) {
+                    setState(() => _hasLoadedMarkers = true);
                   }
-                  await viewModel.applyMarkersToCluster(controller);
-                  controller.setMapStyle(viewModel.mapStyle);
 
                   // 핵심 수정: initialMarkerId가 있으면 내 위치 이동 안 함!
                   if (widget.initialMarkerId == null &&
@@ -1347,8 +1122,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                     controller.animateCamera(
                       CameraUpdate.newCameraPosition(
                         CameraPosition(
-                          target: LatLng(viewModel.currentLocation!.latitude!,
-                              viewModel.currentLocation!.longitude!),
+                          target: LatLng(viewModel.currentLocation!.latitude,
+                              viewModel.currentLocation!.longitude),
                           zoom: 15,
                         ),
                       ),
@@ -1362,6 +1137,10 @@ class _MapSampleViewState extends State<MapSampleView> {
                   // GoogleMap 위젯 attach 후 ClusterManager 실행
                   WidgetsBinding.instance.addPostFrameCallback((_) async {
                     await viewModel.applyMarkersToCluster(controller);
+                    if (widget.initialListId != null && mounted) {
+                      viewModel.setSelectedListId(widget.initialListId);
+                      showMarkersForSelectedList(widget.initialListId!);
+                    }
                   });
                 },
                 initialCameraPosition: CameraPosition(
@@ -1415,119 +1194,66 @@ class _MapSampleViewState extends State<MapSampleView> {
               );
             },
           ),
-          // 검색창 (지도 위) - 리디자인
           Positioned(
-            top: 60,
-            left: 16,
-            right: 16,
-            child: Builder(
-              builder: (context) => Container(
-                decoration: BoxDecoration(
-                  color: AppDesign.cardBg,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusXL),
-                  boxShadow: AppDesign.elevatedShadow,
-                ),
-                child: Container(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                  16, MediaQuery.paddingOf(context).top + 8, 16, 0),
+              child: Column(children: [
+                Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppDesign.cardBg,
-                        AppDesign.cardBg.withOpacity(0.95),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(AppDesign.radiusXL),
-                    border: Border.all(
-                      color: AppDesign.borderColor.withOpacity(0.5),
-                      width: 1,
-                    ),
-                  ),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppDesign.spacing8,
-                    vertical: AppDesign.spacing4,
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: Container(
-                          padding: EdgeInsets.all(AppDesign.spacing8),
-                          decoration: BoxDecoration(
-                            gradient: AppDesign.primaryGradient,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.arrow_back_rounded,
-                            color: AppDesign.whiteText,
-                            size: 20,
-                          ),
-                        ),
-                        onPressed: _onBackPressed,
-                      ),
-                      SizedBox(width: AppDesign.spacing8),
-                      Expanded(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(color: const Color(0xFFE5E5E7)),
+                      boxShadow: const [
+                        BoxShadow(
+                            color: Color(0x06000000),
+                            blurRadius: 18,
+                            offset: Offset(0, 4))
+                      ]),
+                  child: Row(children: [
+                    IconButton(
+                        tooltip: '장소 검색',
+                        icon: const Icon(Icons.search, size: 27),
+                        onPressed: () => _viewModel
+                            .onSearchSubmitted(_searchController.text)),
+                    Expanded(
                         child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: '어디로 여행을 떠나시나요?',
-                            hintStyle: AppDesign.bodyMedium.copyWith(
-                              color: AppDesign.subtleText,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: AppDesign.spacing12,
-                              vertical: AppDesign.spacing12,
-                            ),
-                          ),
-                          style: AppDesign.bodyMedium.copyWith(
-                            color: AppDesign.primaryText,
-                          ),
-                          onSubmitted: (value) {
-                            context
-                                .read<MapSampleViewModel>()
-                                .onSearchSubmitted(value);
-                          },
-                          onChanged: (value) {
-                            final viewModel =
-                                context.read<MapSampleViewModel>();
-
-                            if (value.trim().isEmpty) {
-                              // 검색 텍스트가 비었을 때 → 검색 결과 초기화
-                              viewModel
-                                  .clearSearchResults(); // _searchResults = []
-                              viewModel.temporaryMarker = null; // 임시 마커 제거
-                            } else {
-                              // 기존 실시간 업데이트 로직 (있으면 유지)
-                              viewModel.updateSearchResults(value);
-                            }
-                          },
-                        ),
-                      ),
-                      IconButton(
-                        icon: Container(
-                          padding: EdgeInsets.all(AppDesign.spacing8),
-                          decoration: BoxDecoration(
-                            color: AppDesign.travelBlue.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.search_rounded,
-                            color: AppDesign.travelBlue,
-                          ),
-                        ),
-                        onPressed: () => context
-                            .read<MapSampleViewModel>()
-                            .onSearchSubmitted(_searchController.text),
-                      ),
-                    ],
-                  ),
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                          hintText: '어디로 떠날까요?',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          hintStyle: TextStyle(color: Color(0xFF88898E)),
+                          contentPadding: EdgeInsets.symmetric(vertical: 16)),
+                      onSubmitted: _viewModel.onSearchSubmitted,
+                      onChanged: (value) {
+                        if (value.trim().isEmpty) {
+                          _viewModel.clearSearchResults();
+                        } else {
+                          _viewModel.updateSearchResults(value);
+                        }
+                      },
+                    )),
+                    IconButton(
+                        tooltip: '키워드 필터',
+                        onPressed: _showKeywordFilter,
+                        icon: const Icon(Icons.tune_rounded)),
+                  ]),
                 ),
-              ),
+              ]),
             ),
           ),
           // 지도 초기화 로딩 인디케이터
-          if (!_isMapInitialized)
+          if (!_hasLoadedMarkers)
             Positioned.fill(
               child: Container(
-                color: AppDesign.primaryBg.withOpacity(0.9),
+                color: AppDesign.primaryBg.withValues(alpha: 0.9),
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1548,207 +1274,137 @@ class _MapSampleViewState extends State<MapSampleView> {
                 ),
               ),
             ),
-          // 키워드 필터 버튼들 - 리디자인
-          Consumer<MapSampleViewModel>(builder: (context, viewModel, child) {
-            return Positioned(
-              top: 140.0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 48.0,
-                padding: EdgeInsets.symmetric(horizontal: AppDesign.spacing12),
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: keywords.length,
-                  itemBuilder: (context, index) {
-                    final keyword = keywords[index];
-                    final icon = viewModel.keywordIcons[keyword];
-                    final isActive = viewModel.activeKeywords.contains(keyword);
-
-                    return Container(
-                      margin: EdgeInsets.only(
-                        left: index == 0
-                            ? AppDesign.spacing4
-                            : AppDesign.spacing8,
-                        right: index == keywords.length - 1
-                            ? AppDesign.spacing4
-                            : 0,
-                      ),
-                      child: AnimatedContainer(
-                        duration: Duration(milliseconds: 200),
-                        decoration: BoxDecoration(
-                          gradient: isActive ? AppDesign.primaryGradient : null,
-                          color: isActive ? null : AppDesign.cardBg,
-                          borderRadius:
-                              BorderRadius.circular(AppDesign.radiusXL),
-                          boxShadow: isActive
-                              ? AppDesign.glowShadow
-                              : AppDesign.softShadow,
-                          border: isActive
-                              ? null
-                              : Border.all(
-                                  color: AppDesign.borderColor,
-                                  width: 1,
-                                ),
+          if (_hasLoadedMarkers &&
+              context.watch<MapSampleViewModel>().filteredMarkers.isEmpty &&
+              searchResults.isEmpty)
+            Center(
+              child: IgnorePointer(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.all(AppDesign.spacing20),
+                  decoration: BoxDecoration(
+                    color: AppDesign.cardBg,
+                    borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
+                    boxShadow: AppDesign.softShadow,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.place_outlined,
+                          color: AppDesign.primary, size: 28),
+                      const SizedBox(height: AppDesign.spacing12),
+                      const Text('표시할 장소가 없어요', style: AppDesign.headingSmall),
+                      const SizedBox(height: AppDesign.spacing8),
+                      Text(
+                        '검색하거나 다른 필터를 선택해 보세요',
+                        style: AppDesign.bodyMedium.copyWith(
+                          color: AppDesign.secondaryText,
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius:
-                                BorderRadius.circular(AppDesign.radiusXL),
-                            onTap: () {
-                              context
-                                  .read<MapSampleViewModel>()
-                                  .toggleKeyword(keyword);
-                            },
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: AppDesign.spacing16,
-                                vertical: AppDesign.spacing12,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    icon,
-                                    color: isActive
-                                        ? AppDesign.whiteText
-                                        : AppDesign.secondaryText,
-                                    size: 18,
-                                  ),
-                                  SizedBox(width: AppDesign.spacing8),
-                                  Text(
-                                    keyword,
-                                    style: AppDesign.bodyMedium.copyWith(
-                                      color: isActive
-                                          ? AppDesign.whiteText
-                                          : AppDesign.primaryText,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
               ),
-            );
-          }),
-          // 플로팅 액션 버튼
+            ),
           Positioned(
-            bottom: 40,
-            right: 16,
+            top: MediaQuery.paddingOf(context).top + 76,
+            left: 0,
+            right: 0,
+            child: SizedBox(
+                height: 42,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: keywords.length + 1,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (context, index) {
+                    final vm = context.watch<MapSampleViewModel>();
+                    final keyword = index == 0 ? '전체' : keywords[index - 1];
+                    final active = index == 0
+                        ? vm.activeKeywords.isEmpty
+                        : vm.activeKeywords.contains(keyword);
+                    return ActionChip(
+                      backgroundColor:
+                          active ? const Color(0xFF202020) : Colors.white,
+                      side: BorderSide(
+                          color: active
+                              ? const Color(0xFF202020)
+                              : const Color(0xFFE5E5E7)),
+                      shape: const StadiumBorder(),
+                      avatar: index == 0
+                          ? null
+                          : Icon(vm.keywordIcons[keyword],
+                              size: 18,
+                              color: active
+                                  ? Colors.white
+                                  : const Color(0xFF202020)),
+                      label: Text({'호텔': '숙소', '음식점': '맛집'}[keyword] ?? keyword,
+                          style: TextStyle(
+                              color: active
+                                  ? Colors.white
+                                  : const Color(0xFF202020))),
+                      onPressed: () async {
+                        if (index == 0) {
+                          for (final key in vm.activeKeywords.toList()) {
+                            await vm.toggleKeyword(key);
+                          }
+                        } else {
+                          await vm.toggleKeyword(keyword);
+                        }
+                      },
+                    );
+                  },
+                )),
+          ),
+          Positioned(
+            bottom: 18,
+            right: 18,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 1. 현재 위치 버튼
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: AppDesign.greenGradient,
-                    shape: BoxShape.circle,
-                    boxShadow: AppDesign.elevatedShadow,
-                  ),
-                  child: FloatingActionButton(
-                    heroTag: 'btn_location',
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Row(
-                            children: [
-                              Icon(Icons.my_location,
-                                  color: AppDesign.whiteText, size: 20),
-                              SizedBox(width: AppDesign.spacing8),
-                              Text(
-                                "현재 위치로 이동합니다",
-                                style: AppDesign.bodyMedium
-                                    .copyWith(color: AppDesign.whiteText),
-                              ),
-                            ],
-                          ),
-                          duration: Duration(seconds: 2),
-                          backgroundColor: AppDesign.travelGreen,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppDesign.radiusSmall),
-                          ),
-                        ),
-                      );
-                      context
-                          .read<MapSampleViewModel>()
-                          .moveToCurrentLocation();
-                    },
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    child: Icon(Icons.my_location_rounded,
-                        color: AppDesign.whiteText),
-                  ),
+                FloatingActionButton(
+                  heroTag: 'btn_ai_chat',
+                  elevation: 3,
+                  tooltip: 'AI 여행 플래너',
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF202020),
+                  shape: const CircleBorder(),
+                  onPressed: () => Navigator.push(
+                      context,
+                      AppPageRoute(
+                          builder: (_) => const ChatRecommendationScreen())),
+                  child: const Icon(Icons.smart_toy_outlined, size: 27),
                 ),
-                SizedBox(height: AppDesign.spacing16),
-
-                // 2. 리스트 보기 버튼
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: AppDesign.primaryGradient,
-                    shape: BoxShape.circle,
-                    boxShadow: AppDesign.elevatedShadow,
-                  ),
-                  child: FloatingActionButton(
-                    heroTag: 'btn_list',
-                    onPressed: () => showUserLists(context),
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    child: Icon(Icons.list_rounded, color: AppDesign.whiteText),
-                  ),
+                const SizedBox(height: 12),
+                FloatingActionButton(
+                  heroTag: 'btn_list',
+                  elevation: 3,
+                  tooltip: '여행 리스트 선택 및 필터 초기화',
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF202020),
+                  shape: const CircleBorder(),
+                  onPressed: () => showUserLists(context),
+                  child:
+                      const Icon(Icons.format_list_bulleted_rounded, size: 27),
                 ),
-                SizedBox(height: AppDesign.spacing16),
-
-                // 3. AI 챗봇 버튼 (새로 추가)
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      // AI 느낌을 살리기 위해 새로운 그라데이션 추천
-                      colors: [
-                        Color(0xFF6A11CB),
-                        Color(0xFF2575FC)
-                      ], // 보라-파랑 계열 (AI 스타일)
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: AppDesign.elevatedShadow,
-                  ),
-                  child: FloatingActionButton(
-                    heroTag: 'btn_ai_chat', // heroTag 중복 방지 필수!
-                    onPressed: () {
-                      // AI 챗봇 화면으로 이동
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatRecommendationScreen(
-                              mapSampleViewModel:
-                                  context.read<MapSampleViewModel>()),
-                        ),
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("AI 여행 플래너를 열었습니다"),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    child: Icon(
-                      Icons.smart_toy_rounded, // 또는 Icons.chat_bubble_rounded
-                      color: AppDesign.whiteText,
-                      size: 28,
-                    ),
-                  ),
+                const SizedBox(height: 12),
+                FloatingActionButton(
+                  heroTag: 'btn_location',
+                  tooltip: '현재 위치',
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF202020),
+                  shape: const CircleBorder(),
+                  elevation: 3,
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('현재 위치로 이동합니다'),
+                          duration: Duration(seconds: 2)),
+                    );
+                    _viewModel.moveToCurrentLocation();
+                  },
+                  child: const Icon(Icons.my_location_rounded, size: 27),
                 ),
               ],
             ),
@@ -1841,17 +1497,18 @@ class _MapSampleViewState extends State<MapSampleView> {
                                 borderRadius: BorderRadius.circular(
                                     AppDesign.radiusMedium),
                                 onTap: () async {
-                                  print("검색 결과 클릭 → ${marker.markerId.value}");
+                                  debugPrint(
+                                      "검색 결과 클릭 → ${marker.markerId.value}");
                                   final viewModel =
                                       context.read<MapSampleViewModel>();
 
                                   // 컨트롤러 대기
                                   if (viewModel.controller == null) {
-                                    print("controller null → 기다리는 중...");
+                                    debugPrint("controller null → 기다리는 중...");
                                     await Future.delayed(
                                         const Duration(seconds: 5));
                                     if (viewModel.controller == null) {
-                                      print("5초 후에도 controller 없음 → 포기");
+                                      debugPrint("5초 후에도 controller 없음 → 포기");
                                       return;
                                     }
                                   }
@@ -1865,21 +1522,15 @@ class _MapSampleViewState extends State<MapSampleView> {
                                         ),
                                       ),
                                     );
-                                    print("카메라 이동 성공!");
+                                    debugPrint("카메라 이동 성공!");
                                   } catch (e) {
-                                    print("카메라 이동 실패: $e");
+                                    debugPrint("카메라 이동 실패: $e");
                                   }
 
-                                  // 마커 상세 바텀시트 호출
-                                  /*
-                                  _showMarkerInfoBottomSheet(
-                                    context,
-                                    marker,
-                                        (m) => print("삭제 요청: ${m.markerId}"),
-                                    keyword ?? '',
-                                    selectedListId ?? '',
-                                  );
-                                   */
+                                  if (mounted) {
+                                    viewModel.onSearchMarkerTapped
+                                        ?.call(marker);
+                                  }
                                 },
                                 child: Padding(
                                   padding: EdgeInsets.all(AppDesign.spacing16),
@@ -1934,7 +1585,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: AppDesign.travelBlue
-                                                .withOpacity(0.1),
+                                                .withValues(alpha: 0.1),
                                             borderRadius: BorderRadius.circular(
                                                 AppDesign.radiusXL),
                                           ),
@@ -1989,6 +1640,7 @@ class MarkerInfoBottomSheet extends StatefulWidget {
   final String listId;
 
   const MarkerInfoBottomSheet({
+    super.key,
     required this.marker,
     required this.onSave,
     required this.onDelete,
@@ -2003,13 +1655,15 @@ class MarkerInfoBottomSheet extends StatefulWidget {
 }
 
 class _MarkerInfoBottomSheetState extends State<MarkerInfoBottomSheet> {
-  String _title = '제목 로딩 중...';
+  late String _title;
   String _address = '';
-  String _keyword = '';
+  late String _keyword;
 
   @override
   void initState() {
     super.initState();
+    _title = widget.marker.infoWindow.title ?? '저장한 장소';
+    _keyword = widget.keyword;
     _fetchMarkerDetail();
   }
 
@@ -2017,201 +1671,162 @@ class _MarkerInfoBottomSheetState extends State<MarkerInfoBottomSheet> {
     final viewModel = context.read<MapSampleViewModel>();
     final result =
         await viewModel.fetchMarkerDetail(widget.marker.markerId.value);
-
+    if (!mounted) return;
     setState(() {
-      _title = result['title'] ?? '제목 없음';
-      _address = result['address'] ?? '주소 없음';
-      _keyword = result['keyword'] ?? '키워드 없음';
+      _title = result['title'] ?? _title;
+      _address = (result['address'] ?? '').trim();
+      if (_address.isEmpty) _address = '주소 정보가 없어요.';
+      _keyword = result['keyword'] ?? _keyword;
     });
+  }
+
+  void _openDetail() {
+    Navigator.pop(context);
+    widget.navigateToMarkerDetailPage(context, widget.marker);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(AppDesign.spacing24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 50,
-            height: 5,
-            margin: EdgeInsets.only(bottom: AppDesign.spacing20),
-            decoration: BoxDecoration(
-              color: AppDesign.borderColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          GestureDetector(
-            onTap: () {
-              Navigator.pop(context);
-              widget.navigateToMarkerDetailPage(context, widget.marker);
-            },
-            child: Container(
-              padding: EdgeInsets.all(AppDesign.spacing16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppDesign.travelBlue.withOpacity(0.05),
-                    AppDesign.travelPurple.withOpacity(0.05),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-                border: Border.all(
-                  color: AppDesign.travelBlue.withOpacity(0.2),
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1D2D6),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            ),
+            const SizedBox(height: 18),
+            const Row(
+              children: [
+                Icon(Icons.bookmark_rounded,
+                    size: 16, color: Color(0xFF777980)),
+                SizedBox(width: 5),
+                Text('저장한 장소',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF777980),
+                    )),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    width: 88,
+                    height: 88,
+                    child: AddressPhotoPreview(
+                      address: _address,
+                      title: _title,
+                      size: 88,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        _title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF191919),
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       Container(
-                        padding: EdgeInsets.all(AppDesign.spacing8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          gradient: AppDesign.primaryGradient,
-                          borderRadius:
-                              BorderRadius.circular(AppDesign.radiusSmall),
+                          color: const Color(0xFFF4F4F5),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Icon(
-                          Icons.place_rounded,
-                          color: AppDesign.whiteText,
-                          size: 20,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(placeKeywordIcon(_keyword),
+                                size: 17, color: const Color(0xFF333333)),
+                            const SizedBox(width: 5),
+                            Flexible(
+                                child: Text(
+                              _keyword.isEmpty ? '장소' : _keyword,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Color(0xFF444444)),
+                            )),
+                          ],
                         ),
-                      ),
-                      SizedBox(width: AppDesign.spacing12),
-                      Expanded(
-                        child: Text(
-                          _title,
-                          style: AppDesign.headingSmall,
-                        ),
-                      ),
-                      Icon(
-                        Icons.open_in_new_rounded,
-                        color: AppDesign.travelBlue,
-                        size: 20,
                       ),
                     ],
                   ),
-                  SizedBox(height: AppDesign.spacing8),
-                  Text(
-                    '탭하여 상세 정보 보기',
-                    style: AppDesign.caption.copyWith(
-                      color: AppDesign.travelBlue,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: AppDesign.spacing16),
-
-          // 주소 정보
-          if (_address.isNotEmpty)
-            Container(
-              padding: EdgeInsets.all(AppDesign.spacing16),
-              decoration: BoxDecoration(
-                color: AppDesign.lightGray,
-                borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(AppDesign.spacing8),
-                    decoration: BoxDecoration(
-                      color: AppDesign.travelGreen.withOpacity(0.1),
-                      borderRadius:
-                          BorderRadius.circular(AppDesign.radiusSmall),
-                    ),
-                    child: Icon(
-                      Icons.location_on_outlined,
-                      color: AppDesign.travelGreen,
-                      size: 20,
-                    ),
-                  ),
-                  SizedBox(width: AppDesign.spacing12),
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '주소',
-                          style: AppDesign.caption.copyWith(
-                            color: AppDesign.secondaryText,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: AppDesign.spacing4),
-                        Text(
-                          _address,
-                          style: AppDesign.bodyMedium.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          SizedBox(height: AppDesign.spacing12),
-
-          // 키워드 정보
-          Container(
-            padding: EdgeInsets.all(AppDesign.spacing16),
-            decoration: BoxDecoration(
-              color: AppDesign.lightGray,
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(AppDesign.spacing8),
-                  decoration: BoxDecoration(
-                    color: AppDesign.travelPurple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                  ),
-                  child: Icon(
-                    Icons.label_outline_rounded,
-                    color: AppDesign.travelPurple,
-                    size: 20,
-                  ),
-                ),
-                SizedBox(width: AppDesign.spacing12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '카테고리',
-                      style: AppDesign.caption.copyWith(
-                        color: AppDesign.secondaryText,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: AppDesign.spacing4),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppDesign.spacing12,
-                        vertical: AppDesign.spacing8,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: AppDesign.primaryGradient,
-                        borderRadius: BorderRadius.circular(AppDesign.radiusXL),
-                      ),
-                      child: Text(
-                        _keyword.isNotEmpty ? _keyword : '기본 카테고리',
-                        style: AppDesign.bodyMedium.copyWith(
-                          color: AppDesign.whiteText,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 18),
+            const Divider(height: 1, color: Color(0xFFEEEEF0)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.location_on_outlined,
+                      size: 18, color: Color(0xFF80828A)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(
+                    _address.isEmpty ? '주소 확인 중…' : _address,
+                    style: const TextStyle(
+                        fontSize: 13, height: 1.45, color: Color(0xFF60626A)),
+                  )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _openDetail,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF202020),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(54),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18)),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('장소 상세 보기',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward_rounded, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
