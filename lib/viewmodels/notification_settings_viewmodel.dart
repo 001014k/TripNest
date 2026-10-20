@@ -11,8 +11,15 @@ class NotificationSettingsViewModel extends ChangeNotifier {
   bool pushFriendRequest = true;
 
   // 이메일 설정
-  bool emailWeekly = false;
   bool emailSecurity = true;
+  String? get securityEmail => Supabase.instance.client.auth.currentUser?.email;
+  String get securityEmailDescription {
+    final email = securityEmail?.trim();
+    if (email == null || email.isEmpty) {
+      return '로그인 계정에 이메일이 없어 보안 알림을 받을 수 없어요.';
+    }
+    return '로그인·비밀번호·이메일 변경 알림\n받는 주소: $email';
+  }
 
   Future<void> loadSettings() async {
     _isLoading = true;
@@ -33,7 +40,6 @@ class NotificationSettingsViewModel extends ChangeNotifier {
       pushNewMarker = data['push_new_marker'] ?? true;
       pushListUpdate = data['push_list_update'] ?? true;
       pushFriendRequest = data['push_friend_request'] ?? true;
-      emailWeekly = data['email_weekly'] ?? false;
       emailSecurity = data['email_security'] ?? true;
     } catch (e) {
       debugPrint('알림 설정 로드 실패: $e');
@@ -83,7 +89,6 @@ class NotificationSettingsViewModel extends ChangeNotifier {
         _getColumnName(key): value,
       }, onConflict: 'user_id');
 
-      if (key == 'weekly') emailWeekly = value;
       if (key == 'security') emailSecurity = value;
 
       notifyListeners();
@@ -100,8 +105,6 @@ class NotificationSettingsViewModel extends ChangeNotifier {
         return 'push_list_update';
       case 'friend_request':
         return 'push_friend_request';
-      case 'weekly':
-        return 'email_weekly';
       case 'security':
         return 'email_security';
       default:
