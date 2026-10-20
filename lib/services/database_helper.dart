@@ -39,7 +39,8 @@ class DatabaseHelper {
 
   Future<void> insertMarker(Map<String, dynamic> marker) async {
     final db = await database;
-    await db.insert('markers', marker, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('markers', marker,
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, dynamic>>> getUnsyncedMarkers() async {
