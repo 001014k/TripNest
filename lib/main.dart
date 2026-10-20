@@ -1,3 +1,9 @@
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'navigation/app_tab_shell.dart';
+import 'navigation/app_page_route.dart';
+import 'views/community_board_view.dart';
+import 'views/schedule_view.dart';
+import 'viewmodels/home_weather_viewmodel.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,7 +11,7 @@ import 'package:fluttertrip/design/app_design.dart';
 import 'package:fluttertrip/views/profile_view.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:fluttertrip/services/app_group_handler_service.dart';
+import 'package:fluttertrip/views/shared_address_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
@@ -20,14 +26,10 @@ import 'models/shared_link_model.dart';
 // ViewModel imports...
 import 'firebase_options.dart';
 import 'viewmodels/mapsample_viewmodel.dart';
-import 'viewmodels/dashboard_viewmodel.dart';
-import 'viewmodels/forgot_password_viewmodel.dart';
 import 'viewmodels/friend_management_viewmodel.dart';
-import 'viewmodels/Imageview_viewmodel.dart';
+import 'viewmodels/imageview_viewmodel.dart';
 import 'viewmodels/list_viewmodel.dart';
-import 'viewmodels/login_option_viewmodel.dart';
 import 'viewmodels/profile_viewmodel.dart';
-import 'viewmodels/signup_viewmodel.dart';
 import 'viewmodels/splash_viewmodel.dart';
 import 'viewmodels/add_markers_to_list_viewmodel.dart';
 import 'viewmodels/markercreationscreen_viewmodel.dart';
@@ -35,7 +37,6 @@ import 'viewmodels/shared_link_viewmodel.dart';
 import 'package:fluttertrip/viewmodels/collaborator_viewmodel.dart';
 import 'viewmodels/home_viewmodel.dart';
 import 'viewmodels/marker_list_screen_viewmodel.dart';
-import 'package:fluttertrip/viewmodels/chat_recommendation_viewmodel.dart';
 
 // Service imports...
 import 'services/marker_service.dart';
@@ -47,8 +48,6 @@ import 'views/friend_management_view.dart';
 import 'views/mapsample_view.dart';
 import 'views/signup_view.dart';
 import 'views/splash_screen_view.dart';
-import 'views/user_list_view.dart';
-import 'views/dashboard_view.dart';
 import 'views/login_option_view.dart';
 import 'views/home_view.dart';
 import 'views/list_view.dart';
@@ -84,7 +83,7 @@ Future<void> saveFcmToken() async {
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print('백그라운드 메시지 수신: ${message.messageId}');
+  debugPrint('백그라운드 메시지 수신: ${message.messageId}');
 }
 
 Future<void> main() async {
@@ -103,8 +102,8 @@ Future<void> main() async {
     // 여기서 return 하지 말고 Supabase는 계속 초기화
   }
   final options = Firebase.app().options;
-  print("현재 앱의 프로젝트 ID: ${options.projectId}");
-  print("현재 앱의 Sender ID: ${options.messagingSenderId}");
+  debugPrint("현재 앱의 프로젝트 ID: ${options.projectId}");
+  debugPrint("현재 앱의 Sender ID: ${options.messagingSenderId}");
 
   // intl + Hive
   await initializeDateFormatting('ko_KR');
@@ -116,7 +115,7 @@ Future<void> main() async {
   try {
     await Supabase.initialize(
       url: Env.supabaseUrl,
-      anonKey: Env.supabaseAnonKey,
+      publishableKey: Env.supabaseAnonKey,
     );
     debugPrint('✅ Supabase 초기화 성공');
   } catch (e) {
@@ -139,27 +138,23 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AppTabController()),
+        ChangeNotifierProvider(create: (_) => HomeWeatherViewModel()),
         ChangeNotifierProvider(create: (_) => AddMarkersToListViewModel()),
         ChangeNotifierProvider(create: (_) => MapSampleViewModel()),
         ChangeNotifierProvider(create: (_) => SharedLinkViewModel()),
-        ChangeNotifierProvider(create: (_) => DashboardViewModel()),
-        ChangeNotifierProvider(create: (_) => ForgotPasswordViewModel()),
-        ChangeNotifierProvider(create: (_) => FriendManagementViewModel()),
+        ChangeNotifierProvider(
+          create: (_) => FriendManagementViewModel()..subscribeToPresence(),
+        ),
         ChangeNotifierProvider(create: (_) => ImageviewViewmodel()),
         ChangeNotifierProvider(create: (_) => ListViewModel()..loadLists()),
-        ChangeNotifierProvider(create: (_) => LoginViewModel()),
         ChangeNotifierProvider(create: (_) => ProfileViewModel()),
-        ChangeNotifierProvider(create: (_) => SignupViewModel()),
         ChangeNotifierProvider(create: (_) => SplashViewModel()),
         ChangeNotifierProvider(create: (_) => CollaboratorViewModel()),
         ChangeNotifierProvider(create: (_) => MarkerCreationScreenViewModel()),
         ChangeNotifierProvider(create: (_) => HomeDashboardViewModel()),
         ChangeNotifierProvider(
           create: (_) => MarkerListViewModel(Supabase.instance.client),
-        ),
-        ChangeNotifierProvider(create: (_) => ChatRecommendationViewModel()),
-        ChangeNotifierProvider(
-          create: (_) => FriendManagementViewModel()..subscribeToPresence(),
         ),
       ],
       child: MyApp(),
@@ -202,7 +197,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       final context = navigatorKey.currentContext;
       if (context != null) {
-        SharedAppGroupHandler.checkAndHandleSharedAddress(context);
+        handleIncomingSharedAddress(context);
       }
     }
   }
@@ -224,19 +219,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       builder: (context, child) => ShadTheme(
         data: AppDesign.shadTheme,
         child: MaterialApp(
+          locale: const Locale('ko', 'KR'),
+          supportedLocales: const [Locale('ko', 'KR')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
           theme: AppDesign.lightTheme,
           initialRoute: '/splash',
-          routes: {
+          onGenerateRoute: (settings) {
+            final builders = <String, WidgetBuilder>{
             '/splash': (context) => SplashScreenView(),
             '/login_option': (context) => CombinedLoginView(),
             '/signup': (context) => SignupPage(),
             '/forgot_password': (context) => ForgotPasswordView(),
             '/map': (context) => MapSampleView(),
-            '/dashboard': (context) => DashboardView(),
+            '/community': (context) => const CommunityBoardView(),
+            '/schedule': (context) => const ScheduleView(),
             '/friend_management': (context) => FriendManagementView(),
-            '/user_list': (context) => UserListView(),
             '/home': (context) => HomeDashboardView(),
             '/list': (context) => ListPage(),
             '/shared_link': (context) => SharedLinkView(),
@@ -249,7 +248,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/notification_settings': (context) =>
                 const NotificationSettingsView(),
             '/profile': (context) {
-              final args = ModalRoute.of(context)!.settings.arguments as String;
+              final args =
+                  ModalRoute.of(context)!.settings.arguments as String? ??
+                      Supabase.instance.client.auth.currentUser?.id ??
+                      '';
               return ProfilePage(userId: args);
             },
             '/nickname_setup': (context) {
@@ -257,6 +259,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   ModalRoute.of(context)!.settings.arguments as String;
               return NicknameSetupPage(userId: userId);
             },
+          };
+            if (AppTabController.routes.contains(settings.name)) {
+              return AppPageRoute<dynamic>(settings: settings, motion: AppMotion.fade,
+                builder: (context) => AppTabShell(
+                  controller: context.read<AppTabController>(),
+                  initialRoute: settings.name!,
+                  builders: {for (final route in AppTabController.routes) route: builders[route]!},
+                ));
+            }
+            final builder = builders[settings.name];
+            if (builder == null) return null;
+            return AppPageRoute<dynamic>(settings: settings, builder: builder,
+                motion: settings.name == '/login_option' || settings.name == '/splash'
+                    ? AppMotion.fade
+                    : settings.name == '/signup' || settings.name == '/nickname_setup'
+                        ? AppMotion.editor : AppMotion.detail);
           },
         ),
       ),
