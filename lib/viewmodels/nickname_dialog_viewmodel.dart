@@ -46,9 +46,11 @@ class NicknameDialogViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final available = await _userService.isNicknameAvailable(_nickname.trim());
+      final available =
+          await _userService.isNicknameAvailable(_nickname.trim());
       _isNicknameAvailable = available;
-      _nicknameStatusMessage = available ? '사용 가능한 닉네임입니다.' : '이미 사용 중인 닉네임입니다.';
+      _nicknameStatusMessage =
+          available ? '사용 가능한 닉네임입니다.' : '이미 사용 중인 닉네임입니다.';
     } catch (e) {
       _error = '닉네임 확인 중 오류가 발생했습니다.';
       _nicknameStatusMessage = null;
