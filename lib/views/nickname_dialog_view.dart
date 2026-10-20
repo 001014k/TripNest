@@ -7,7 +7,7 @@ class NicknameSetupPage extends StatelessWidget {
   final String userId;
   final FocusNode _nicknameFocusNode = FocusNode();
 
-  NicknameSetupPage({Key? key, required this.userId}) : super(key: key);
+  NicknameSetupPage({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -15,8 +15,8 @@ class NicknameSetupPage extends StatelessWidget {
       create: (_) => NicknameDialogViewModel(userId: userId),
       child: Consumer<NicknameDialogViewModel>(
         builder: (context, vm, _) {
-          return WillPopScope(
-            onWillPop: () async => false,
+          return PopScope(
+            canPop: false,
             child: Scaffold(
               resizeToAvoidBottomInset: true,
               backgroundColor: AppDesign.primaryBg,
@@ -73,15 +73,21 @@ class NicknameSetupPage extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('닉네임 설정', style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText)),
-              Text('2/2', style: AppDesign.bodyMedium.copyWith(color: AppDesign.travelBlue, fontWeight: FontWeight.bold)),
+              Text('닉네임 설정',
+                  style: AppDesign.bodyMedium
+                      .copyWith(color: AppDesign.secondaryText)),
+              Text('2/2',
+                  style: AppDesign.bodyMedium.copyWith(
+                      color: AppDesign.travelBlue,
+                      fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
             value: 1.0, // 100% 완료 표시
             backgroundColor: AppDesign.borderColor,
-            valueColor: const AlwaysStoppedAnimation<Color>(AppDesign.travelBlue),
+            valueColor:
+                const AlwaysStoppedAnimation<Color>(AppDesign.travelBlue),
           ),
         ],
       ),
@@ -175,7 +181,7 @@ class NicknameSetupPage extends StatelessWidget {
                 prefixIcon: Container(
                   margin: const EdgeInsets.all(AppDesign.spacing12),
                   decoration: BoxDecoration(
-                    color: AppDesign.travelPurple.withOpacity(0.1),
+                    color: AppDesign.travelPurple.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppDesign.spacing8),
                   ),
                   child: const Icon(
@@ -257,8 +263,8 @@ class NicknameSetupPage extends StatelessWidget {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: vm.isNicknameAvailable
-                  ? AppDesign.travelGreen.withOpacity(0.1)
-                  : AppDesign.sunsetGradientStart.withOpacity(0.1),
+                  ? AppDesign.travelGreen.withValues(alpha: 0.1)
+                  : AppDesign.sunsetGradientStart.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppDesign.spacing4),
             ),
             child: Icon(
@@ -294,7 +300,7 @@ class NicknameSetupPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: AppDesign.sunsetGradientStart.withOpacity(0.1),
+              color: AppDesign.sunsetGradientStart.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppDesign.spacing4),
             ),
             child: const Icon(
@@ -351,6 +357,7 @@ class NicknameSetupPage extends StatelessWidget {
         onPressed: isEnabled
             ? () async {
                 final success = await vm.saveNickname();
+                if (!context.mounted) return;
                 if (success) {
                   Navigator.pushNamedAndRemoveUntil(
                     context,
@@ -393,10 +400,10 @@ class NicknameSetupPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppDesign.spacing24),
       decoration: BoxDecoration(
-        color: AppDesign.cardBg.withOpacity(0.7),
+        color: AppDesign.cardBg.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
         border: Border.all(
-          color: AppDesign.borderColor.withOpacity(0.5),
+          color: AppDesign.borderColor.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
@@ -408,7 +415,7 @@ class NicknameSetupPage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppDesign.spacing8),
                 decoration: BoxDecoration(
-                  color: AppDesign.travelBlue.withOpacity(0.1),
+                  color: AppDesign.travelBlue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppDesign.spacing8),
                 ),
                 child: const Icon(
