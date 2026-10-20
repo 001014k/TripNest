@@ -1,3 +1,6 @@
+import '../navigation/app_page_route.dart';
+import '../widgets/community_post_photo.dart';
+import '../widgets/app_photo_hero.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -5,7 +8,7 @@ import 'package:provider/provider.dart';
 import '../design/app_design.dart';
 import '../models/community_post_model.dart';
 import '../viewmodels/community_board_viewmodel.dart';
-import '../widgets/dashed_border.dart';
+import '../widgets/tripnest_navigation.dart';
 import 'community_post_detail_view.dart';
 
 class CommunityBoardView extends StatelessWidget {
@@ -28,93 +31,117 @@ class _CommunityBoardBody extends StatelessWidget {
     final viewModel = context.watch<CommunityBoardViewModel>();
 
     return Scaffold(
+      bottomNavigationBar: const TripNestNavigation(currentRoute: '/community'),
       backgroundColor: AppDesign.primaryBg,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: AppDesign.primaryBg,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        titleSpacing: AppDesign.spacing16,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        titleSpacing: 20,
+        title: const TripNestHeader(),
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('TRAVEL JOURNAL', style: AppDesign.overline),
-            const SizedBox(height: 2),
-            Text('여행 이야기', style: AppDesign.journalTitle),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: AppDesign.spacing16),
-            child: Tooltip(
-              message: '새 여행 이야기',
-              child: InkWell(
-                borderRadius: const BorderRadius.all(AppDesign.r12),
-                onTap: () => _showPostComposer(context),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: AppDesign.primary,
-                    borderRadius: BorderRadius.all(AppDesign.r12),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: LayoutBuilder(builder: (context, constraints) {
+                final button = FilledButton.icon(
+                  onPressed: () => _showPostComposer(context),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('장소 공유'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppDesign.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: const Icon(Icons.edit_outlined,
-                      color: Colors.white, size: 20),
+                );
+                final compact = constraints.maxWidth < 350 ||
+                    MediaQuery.textScalerOf(context).scale(1) > 1.2;
+                return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (compact)
+                        const Text('여행 이야기', style: AppDesign.headingXL)
+                      else
+                        Row(children: [
+                          const Expanded(
+                              child:
+                                  Text('여행 이야기', style: AppDesign.headingXL)),
+                          const SizedBox(width: 8),
+                          button,
+                        ]),
+                      const SizedBox(height: 6),
+                      const Text('여행자들이 발견한 장소를 만나보세요',
+                          style: AppDesign.bodySmall),
+                      if (compact) ...[
+                        const SizedBox(height: 12),
+                        Align(alignment: Alignment.centerRight, child: button),
+                      ],
+                    ]);
+              }),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: viewModel.loadPosts,
+                child: Builder(
+                  builder: (context) {
+                    if (viewModel.isLoading && viewModel.posts.isEmpty) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (viewModel.errorMessage != null &&
+                        viewModel.posts.isEmpty) {
+                      // ===== 디버깅 로그 추가 =====
+                      debugPrint('🚨 Error Screen Shown');
+                      debugPrint(
+                          '   - errorMessage: ${viewModel.errorMessage}');
+                      debugPrint(
+                          '   - posts.length: ${viewModel.posts.length}');
+                      debugPrint(
+                          '   - posts.isEmpty: ${viewModel.posts.isEmpty}');
+                      // ============================
+
+                      return _BoardMessage(
+                        icon: Icons.cloud_off_outlined,
+                        message: viewModel.errorMessage!,
+                        actionLabel: '다시 시도',
+                        onAction: viewModel.loadPosts,
+                      );
+                    }
+
+                    if (viewModel.posts.isEmpty) {
+                      return _BoardMessage(
+                        icon: Icons.edit_note_outlined,
+                        message: '첫 여행 이야기를 남겨보세요',
+                        actionLabel: '글쓰기',
+                        onAction: () => _showPostComposer(context),
+                      );
+                    }
+
+                    return ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      itemCount: viewModel.posts.length + 1,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (_, index) {
+                        if (index == 0) {
+                          return _BoardIntroBanner(
+                              postCount: viewModel.posts.length);
+                        }
+                        return _PostCard(post: viewModel.posts[index - 1]);
+                      },
+                    );
+                  },
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppDesign.backgroundGradient),
-        child: RefreshIndicator(
-          onRefresh: viewModel.loadPosts,
-          child: Builder(
-            builder: (context) {
-              if (viewModel.isLoading && viewModel.posts.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (viewModel.errorMessage != null && viewModel.posts.isEmpty) {
-                // ===== 디버깅 로그 추가 =====
-                print('🚨 Error Screen Shown');
-                print('   - errorMessage: ${viewModel.errorMessage}');
-                print('   - posts.length: ${viewModel.posts.length}');
-                print('   - posts.isEmpty: ${viewModel.posts.isEmpty}');
-                // ============================
-
-                return _BoardMessage(
-                  icon: Icons.cloud_off_outlined,
-                  message: viewModel.errorMessage!,
-                  actionLabel: '다시 시도',
-                  onAction: viewModel.loadPosts,
-                );
-              }
-
-              if (viewModel.posts.isEmpty) {
-                return _BoardMessage(
-                  icon: Icons.edit_note_outlined,
-                  message: '첫 여행 이야기를 남겨보세요',
-                  actionLabel: '글쓰기',
-                  onAction: () => _showPostComposer(context),
-                );
-              }
-
-              return ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                itemCount: viewModel.posts.length + 1,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, index) {
-                  if (index == 0) {
-                    return _BoardIntroBanner(postCount: viewModel.posts.length);
-                  }
-                  return _PostCard(post: viewModel.posts[index - 1]);
-                },
-              );
-            },
-          ),
+          ],
         ),
       ),
     );
@@ -137,264 +164,149 @@ class _CommunityBoardBody extends StatelessWidget {
   }
 }
 
-/// 게시판 상단 소개 배너. 순수 정보성 요소이므로 탭 가능한 카드처럼 보이지
-/// 않도록 그라데이션 배너 형태로 표현하고, 별도의 인터랙션을 두지 않습니다.
-/// 글쓰기는 AppBar의 편집 아이콘 하나로만 진입하도록 통일했습니다.
+/// A quiet section label keeps the shared places as the focus.
 class _BoardIntroBanner extends StatelessWidget {
   const _BoardIntroBanner({required this.postCount});
-
   final int postCount;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      decoration: BoxDecoration(
-        gradient: AppDesign.greenGradient,
-        borderRadius: const BorderRadius.all(AppDesign.r16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '여행자들의 추천 마커',
-            style: AppDesign.bodySmall.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$postCount개의 장소가 공유되어 있어요',
-            style: AppDesign.journalTitleSmall.copyWith(
-              color: Colors.white,
-              fontSize: 17,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Row(children: [
+          const Expanded(child: Text('최근 이야기', style: AppDesign.headingSmall)),
+          Text('$postCount개', style: AppDesign.bodySmall),
+        ]),
+      );
 }
 
 class _PostCard extends StatelessWidget {
   const _PostCard({required this.post});
-
   final CommunityPost post;
+
+  Future<void> _open(BuildContext context) async {
+    final board = context.read<CommunityBoardViewModel>();
+    await Navigator.of(context).push(
+        AppPageRoute(builder: (_) => CommunityPostDetailView(post: post)));
+    if (context.mounted) await board.loadPosts();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = DateFormat('M월 d일').format(post.createdAt.toLocal());
-    final accent =
-        post.isMarkerShare ? AppDesign.travelStamp : AppDesign.primary;
-
-    return InkWell(
-      borderRadius: const BorderRadius.all(AppDesign.r16),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => CommunityPostDetailView(post: post)),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppDesign.cardBg,
-          borderRadius: const BorderRadius.all(AppDesign.r16),
-          border: Border.all(color: AppDesign.separator),
-          boxShadow: AppDesign.softShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _PostAvatar(
-                  nickname: post.authorNickname,
-                  accent: accent,
-                  stamped: post.isMarkerShare,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(post.authorNickname, style: AppDesign.bodyMedium),
-                ),
-                Text(
-                  post.isMarkerShare ? '$formattedDate · 마커 공유' : formattedDate,
-                  style: AppDesign.caption11,
-                ),
-              ],
-            ),
+    final board = context.watch<CommunityBoardViewModel>();
+    final date = DateFormat('M월 d일').format(post.createdAt.toLocal());
+    final location = post.placeAddress ?? post.destination;
+    return Material(
+      color: AppDesign.cardBg,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: AppDesign.borderColor)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _open(context),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 4),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              _PostAvatar(nickname: post.authorNickname),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(post.authorNickname,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppDesign.bodyMedium
+                            .copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text('$date · ${post.isMarkerShare ? '장소 공유' : '여행 이야기'}',
+                        style: AppDesign.bodySmall),
+                  ])),
+            ]),
             const SizedBox(height: 14),
-            if (post.isMarkerShare) _SharedMarkerPreview(post: post),
-            if (!post.isMarkerShare) ...[
-              Text(post.title, style: AppDesign.journalTitleSmall),
-              const SizedBox(height: 8),
-              Text(
-                post.content,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: AppDesign.bodyMedium.copyWith(
-                  color: AppDesign.secondaryText,
-                  height: 1.5,
-                ),
+            if (post.isMarkerShare) ...[
+              AppPhotoHero(tag: 'community-photo-${post.id}',
+                child: ClipRRect(borderRadius: BorderRadius.circular(12),
+                  child: AspectRatio(aspectRatio: 1.85, child: CommunityPostPhoto(post: post))),
               ),
+              const SizedBox(height: 12),
             ],
-            if (!post.isMarkerShare &&
-                post.destination != null &&
-                post.destination!.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _DestinationTag(label: post.destination!),
+            Text(post.placeTitle ?? post.title,
+                style: AppDesign.headingSmall
+                    .copyWith(fontWeight: FontWeight.w700)),
+            if (location != null && location.trim().isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.location_on_outlined,
+                    size: 16, color: AppDesign.secondaryText),
+                const SizedBox(width: 4),
+                Expanded(
+                    child: Text(location,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppDesign.bodySmall)),
+              ]),
             ],
-            if (post.isMarkerShare &&
-                post.destination != null &&
-                post.destination!.isNotEmpty) ...[
+            if (post.content.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
-              _DestinationTag(label: post.destination!),
+              Text(post.content,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppDesign.bodyMedium
+                      .copyWith(fontWeight: FontWeight.w400)),
             ],
-          ],
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: AppDesign.separator),
+            Row(children: [
+              TextButton.icon(
+                onPressed: board.pendingLikes.contains(post.id)
+                    ? null
+                    : () async {
+                        final error = await board.toggleLike(post.id);
+                        if (context.mounted && error != null) {
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text(error)));
+                        }
+                      },
+                style: TextButton.styleFrom(
+                    foregroundColor: AppDesign.secondaryText),
+                icon: Icon(
+                    board.likedPosts.contains(post.id)
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                    size: 22),
+                label: Text('${board.likeCounts[post.id] ?? 0}',
+                    semanticsLabel: '좋아요 ${board.likeCounts[post.id] ?? 0}개'),
+              ),
+              const SizedBox(width: 6),
+              TextButton.icon(
+                onPressed: () => _open(context),
+                style: TextButton.styleFrom(
+                    foregroundColor: AppDesign.secondaryText),
+                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 21),
+                label: Text('${board.commentCounts[post.id] ?? 0}',
+                    semanticsLabel: '댓글 ${board.commentCounts[post.id] ?? 0}개'),
+              ),
+            ]),
+          ]),
         ),
       ),
     );
   }
 }
 
-/// 마커 공유 게시글은 점선 원형(우표 모티프) 아바타로, 일반 이야기는
-/// 기존 색상 채움 아바타로 구분해 게시글 유형을 한눈에 알 수 있게 합니다.
 class _PostAvatar extends StatelessWidget {
-  const _PostAvatar({
-    required this.nickname,
-    required this.accent,
-    required this.stamped,
-  });
-
+  const _PostAvatar({required this.nickname});
   final String nickname;
-  final Color accent;
-  final bool stamped;
 
   @override
-  Widget build(BuildContext context) {
-    final initial = Text(
-      nickname.characters.first,
-      style: TextStyle(
-        color: accent,
-        fontWeight: FontWeight.w700,
-        fontSize: stamped ? 11 : 14,
-      ),
-    );
-
-    if (stamped) {
-      return DashedCircleBorder(color: accent, size: 38, child: initial);
-    }
-
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: initial,
-    );
-  }
-}
-
-/// "탑승권" 스타일 목적지 태그. 점선 필 테두리로 여행 소재를 살리면서도
-/// 눌리지 않는 정보성 라벨임을 명확히 합니다.
-class _DestinationTag extends StatelessWidget {
-  const _DestinationTag({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DashedPillBorder(
-      color: AppDesign.travelBlue.withValues(alpha: 0.5),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: AppDesign.travelBlue.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.flight_takeoff_rounded,
-                  size: 11, color: AppDesign.travelBlue),
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppDesign.bodySmall.copyWith(
-                  color: AppDesign.travelBlue,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SharedMarkerPreview extends StatelessWidget {
-  const _SharedMarkerPreview({required this.post});
-
-  final CommunityPost post;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppDesign.lightGray,
-        borderRadius: const BorderRadius.all(AppDesign.r14),
-        border: Border.all(color: AppDesign.borderColor),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppDesign.travelBlue.withValues(alpha: 0.12),
-              borderRadius: const BorderRadius.all(AppDesign.r12),
-            ),
-            child: const Icon(Icons.place_outlined,
-                color: AppDesign.travelBlue, size: 24),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (post.placeCategory != null &&
-                    post.placeCategory!.isNotEmpty)
-                  Text(
-                    post.placeCategory!,
-                    style: AppDesign.caption11.copyWith(
-                      color: AppDesign.travelBlue,
-                    ),
-                  ),
-                const SizedBox(height: 2),
-                Text(post.placeTitle!, style: AppDesign.bodyMedium),
-                if (post.placeAddress != null && post.placeAddress!.isNotEmpty)
-                  Text(
-                    post.placeAddress!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppDesign.bodySmall,
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => CircleAvatar(
+        radius: 18,
+        backgroundColor: AppDesign.secondaryBg,
+        child: Text(nickname.trim().isEmpty ? '?' : nickname.characters.first,
+            style: AppDesign.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+      );
 }
 
 class _BoardMessage extends StatelessWidget {
@@ -416,14 +328,18 @@ class _BoardMessage extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
         SizedBox(
-          height: MediaQuery.of(context).size.height * 0.55,
+          height: 260,
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, size: 44, color: AppDesign.label3),
                 const SizedBox(height: 14),
-                Text(message, style: AppDesign.bodyMedium),
+                Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(message,
+                        textAlign: TextAlign.center,
+                        style: AppDesign.bodyMedium)),
                 const SizedBox(height: 16),
                 _PrimaryButton(label: actionLabel, onPressed: onAction),
               ],
@@ -531,7 +447,7 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text('마커 공유하기', style: AppDesign.headingMedium),
+                const Text('장소 공유하기', style: AppDesign.headingMedium),
                 const SizedBox(height: AppDesign.spacing6),
                 Text('내가 저장한 장소를 다른 여행자에게 추천해보세요', style: AppDesign.bodySmall),
                 const SizedBox(height: AppDesign.spacing20),
@@ -551,7 +467,7 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
                 ),
                 const SizedBox(height: 20),
                 _PrimaryButton(
-                  label: _isSubmitting ? '등록 중...' : '마커 등록하기',
+                  label: _isSubmitting ? '등록 중...' : '장소 공유하기',
                   onPressed: _isSubmitting || viewModel.isLoadingMarkers
                       ? null
                       : _submit,
