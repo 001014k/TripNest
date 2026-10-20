@@ -1,34 +1,27 @@
+import '../navigation/app_page_route.dart';
+import '../widgets/app_overlays.dart';
+import '../widgets/tripnest_navigation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../widgets/address_photo_preview.dart';
 import '../viewmodels/chat_recommendation_viewmodel.dart';
 import '../design/app_design.dart';
 import '../viewmodels/mapsample_viewmodel.dart';
+import 'markercreationscreen_view.dart';
 
 class ChatRecommendationScreen extends StatefulWidget {
-  final MapSampleViewModel? mapSampleViewModel;
-  const ChatRecommendationScreen({Key? key, this.mapSampleViewModel}) : super(key: key);
+  const ChatRecommendationScreen({super.key});
 
   @override
-  State<ChatRecommendationScreen> createState() => _ChatRecommendationScreenState();
+  State<ChatRecommendationScreen> createState() =>
+      _ChatRecommendationScreenState();
 }
 
 class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
     with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    // 화면 진입 시 최근 추천 내역 로드
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatRecommendationViewModel>().loadRecentRecommendations();
-    });
-    _initializeAnimations();
-  }
 
   // 새 질문과 AI 응답이 보이도록 대화의 마지막으로 이동합니다.
   void _scrollToBottom() {
@@ -49,21 +42,9 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
     });
   }
 
-  void _initializeAnimations() {
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
-    _fadeController.forward();
-  }
-
   @override
   void dispose() {
     _scrollController.dispose();
-    _fadeController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -72,9 +53,7 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) {
-        final vm = ChatRecommendationViewModel(
-          mapSampleViewModel: widget.mapSampleViewModel,
-        );
+        final vm = ChatRecommendationViewModel();
         // 생성 직후 바로 로드
         vm.loadRecentRecommendations();
         return vm;
@@ -84,7 +63,11 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
           return Scaffold(
             body: Container(
               decoration: const BoxDecoration(
-                gradient: AppDesign.backgroundGradient,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.white, Color(0xFFFAFAFB)],
+                ),
               ),
               child: SafeArea(
                 child: Column(
@@ -93,12 +76,14 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
                     Expanded(
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 400),
-                        transitionBuilder: (Widget child, Animation<double> animation) {
-                          return FadeTransition(opacity: animation, child: child);
+                        transitionBuilder:
+                            (Widget child, Animation<double> animation) {
+                          return FadeTransition(
+                              opacity: animation, child: child);
                         },
                         child: vm.messages.isEmpty
                             ? _buildModeSelectionScreen(context, vm) // Stage 1
-                            : _buildChatScreen(context, vm),         // Stage 2
+                            : _buildChatScreen(context, vm), // Stage 2
                       ),
                     ),
                   ],
@@ -113,152 +98,70 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
 
   Widget _buildAppBar(BuildContext context, ChatRecommendationViewModel vm) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, // 양 끝으로 배치
-        children: [
-          // 왼쪽 영역: 뒤로가기 + 타이틀
-          Row(
-            children: [
-              _FeatureCard(
-                padding: const EdgeInsets.all(10),
-                color: AppDesign.cardBg,
-                onTap: () {
-                  if (vm.messages.isNotEmpty) {
-                    // 채팅 중이라면 초기화하고 '목록/모드 선택' 상태로 돌아감
-                    vm.resetChat();
-                    // 여기서 Navigator.pop을 안 하면 지도 화면으로 안 나가고 채팅창 내에서 초기화만 됨
-                  } else {
-                    // 이미 초기 상태라면 지도 화면으로 나감
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: AppDesign.travelBlue,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: AppDesign.primaryGradient,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: AppDesign.glowShadow,
-                ),
-                child: const Icon(
-                  Icons.smart_toy_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('AI 여행 플래너', style: AppDesign.headingSmall),
-                  Text(
-                    '맞춤형 여행 추천',
-                    style: AppDesign.caption.copyWith(
-                      color: AppDesign.secondaryText,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          // 오른쪽 영역: 액션 버튼 (초기화)
-          if (vm.messages.isNotEmpty) // 메시지가 있을 때만 노출
-            _FeatureCard(
-              padding: const EdgeInsets.all(10),
-              color: AppDesign.cardBg,
-              onTap: () => _showResetDialog(context, vm), // 초기화 다이얼로그 호출
-              child: const Icon(
-                Icons.refresh_rounded, // 또는 delete_outline_rounded
-                color: AppDesign.secondaryText,
-                size: 20,
-              ),
-            ),
-        ],
+      padding: const EdgeInsets.fromLTRB(8, 10, 16, 14),
+      child: TripNestHeader(
+        onBack: () {
+          if (vm.messages.isNotEmpty) {
+            vm.resetChat();
+          } else {
+            Navigator.pop(context);
+          }
+        },
+        trailing: vm.messages.isNotEmpty
+            ? IconButton(
+                tooltip: '대화 초기화',
+                onPressed: () => _showResetDialog(context, vm),
+                icon: const Icon(Icons.refresh_rounded),
+              )
+            : const SizedBox.shrink(),
       ),
     );
   }
 
-  void _showResetDialog(BuildContext context, ChatRecommendationViewModel vm) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        ),
-        backgroundColor: AppDesign.cardBg,
-        title: const Text('대화 초기화', style: AppDesign.headingSmall),
-        content: Text(
-          '현재 대화를 종료하고 모드 선택 화면으로 돌아가시겠습니까?',
-          style: AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(
-              '취소',
-              style: AppDesign.bodyMedium.copyWith(color: AppDesign.subtleText),
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: AppDesign.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  Navigator.pop(dialogContext);
-                  vm.reset();
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  child: Text(
-                    '확인',
-                    style: AppDesign.bodyMedium.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  void _showResetDialog(
+      BuildContext context, ChatRecommendationViewModel vm) async {
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => const AppConfirmDialog(
+            title: '대화를 초기화할까요?',
+            message: '현재 대화를 종료하고 모드 선택 화면으로 돌아갑니다.',
+            confirmLabel: '초기화',
+            icon: Icons.refresh_rounded));
+    if (confirmed == true && context.mounted) vm.reset();
   }
 
   // _buildModeSelectionScreen 메서드 수정
-  Widget _buildModeSelectionScreen(BuildContext context, ChatRecommendationViewModel vm) {
+  Widget _buildModeSelectionScreen(
+      BuildContext context, ChatRecommendationViewModel vm) {
     return Column(
       children: [
         Expanded(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            padding: const EdgeInsets.fromLTRB(16, 22, 16, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text('AI 여행 플래너',
+                    style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black,
+                        letterSpacing: -1.2)),
+                const SizedBox(height: 8),
+                const Text('취향에 맞는 여행을 함께 계획해요.',
+                    style: TextStyle(
+                        fontSize: 17, color: Color(0xFF60636E), height: 1.5)),
+                const SizedBox(height: 24),
                 _HeroCard(),
-                const SizedBox(height: AppDesign.spacing24),
-                _QuickStartGrid(onSelect: (preset, {bool isNearby = false}) {
-                  vm.startNewSession('place');
-                  vm.sendMessage(preset, isNearbySearch: isNearby);
-                },),
-                const SizedBox(height: AppDesign.spacing20),
+                const SizedBox(height: 12),
+                _QuickStartGrid(
+                  onSelect: (preset, {bool isNearby = false}) {
+                    vm.startNewSession('place');
+                    vm.sendMessage(preset, isNearbySearch: isNearby);
+                  },
+                ),
+                const SizedBox(height: 28),
                 _RecentChipsRow(),
                 // 기존에 여기 있던 _PremiumInputArea를 삭제
               ],
@@ -274,9 +177,9 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
     );
   }
 
-  Widget _buildChatScreen(BuildContext context, ChatRecommendationViewModel vm) {
-    final isPreparingResponse =
-        vm.isLoading &&
+  Widget _buildChatScreen(
+      BuildContext context, ChatRecommendationViewModel vm) {
+    final isPreparingResponse = vm.isLoading &&
         vm.messages.isNotEmpty &&
         vm.messages.last['role'] == 'bot' &&
         (vm.messages.last['text']?.trim().isEmpty ?? true);
@@ -344,305 +247,214 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
 // ================================
 class _HeroCard extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppDesign.primaryText, // 다크 배경
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.elevatedShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // AI 활성 badge — dot + 텍스트
-          Row(
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
+        decoration: _plannerCardDecoration,
+        child: Row(children: [
+          const SizedBox(
+              width: 82,
+              height: 64,
+              child: CustomPaint(painter: _PlannerMapPainter())),
+          const SizedBox(width: 18),
+          const Expanded(
+              child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: AppDesign.travelBlue,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'AI 추천 활성',
-                style: AppDesign.caption.copyWith(
-                  color: AppDesign.travelBlue,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                ),
-              ),
+              Text('어디로 떠나고 싶으세요?',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -.6)),
+              SizedBox(height: 10),
+              Text('원하는 지역이나 여행 테마를 알려주세요.',
+                  style: TextStyle(
+                      fontSize: 13, color: Color(0xFF666975), height: 1.5)),
             ],
-          ),
-          const SizedBox(height: AppDesign.spacing12),
-          Text(
-            '어디로 떠나고\n싶으세요?',
-            style: AppDesign.headingMedium.copyWith(
-              color: Colors.white,
-              height: 1.25,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing8),
-          Text(
-            '아래 빠른 시작 부분에서 프리셋을 선택하거나\n대화를 시작해보세요',
-            style: AppDesign.caption.copyWith(
-              color: Colors.white.withOpacity(0.6),
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
+          )),
+        ]),
+      );
+}
+
+final _plannerCardDecoration = BoxDecoration(
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(15),
+  border: Border.all(color: const Color(0xFFECEDEF)),
+  boxShadow: const [
+    BoxShadow(color: Color(0x05000000), blurRadius: 18, offset: Offset(0, 5))
+  ],
+);
+
+class _PlannerMapPainter extends CustomPainter {
+  const _PlannerMapPainter();
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 82, size.height / 64);
+    final map = Path()
+      ..moveTo(4, 20)
+      ..quadraticBezierTo(4, 16, 9, 15)
+      ..lineTo(28, 9)
+      ..lineTo(53, 17)
+      ..lineTo(74, 10)
+      ..quadraticBezierTo(78, 9, 78, 14)
+      ..lineTo(78, 55)
+      ..lineTo(54, 63)
+      ..lineTo(29, 56)
+      ..lineTo(4, 63)
+      ..close();
+    canvas.drawPath(map, Paint()..color = const Color(0xFFF4F4F5));
+    final route = Path()
+      ..moveTo(13, 51)
+      ..cubicTo(18, 25, 34, 28, 40, 40)
+      ..cubicTo(52, 60, 76, 35, 62, 27);
+    final ink = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+    for (final metric in route.computeMetrics()) {
+      for (double d = 0; d < metric.length; d += 7) {
+        canvas.drawPath(metric.extractPath(d, d + 3), ink);
+      }
+    }
+    final pin = Path()
+      ..moveTo(48, 32)
+      ..cubicTo(42, 24, 38, 19, 38, 13)
+      ..cubicTo(38, -1, 58, -1, 58, 13)
+      ..cubicTo(58, 19, 53, 26, 48, 32)
+      ..close();
+    canvas.drawPath(pin, Paint()..color = Colors.white);
+    canvas.drawPath(pin, ink);
+    canvas.drawCircle(const Offset(48, 12), 4, ink);
+    canvas.restore();
   }
+
+  @override
+  bool shouldRepaint(covariant _PlannerMapPainter oldDelegate) => false;
 }
 
 class _QuickStartGrid extends StatelessWidget {
   final Function(String preset, {bool isNearby}) onSelect;
-  const _QuickStartGrid({Key? key, required this.onSelect}) : super(key: key);
+  const _QuickStartGrid({required this.onSelect});
 
   static const _items = [
-    {
-      'title': '근처 명소',
-      'sub': '지금 위치 주변\n인기 장소 추천',
-      'preset': '내 주변 인기 명소를 추천해줘',
-      'icon': Icons.place_rounded,
-      'isNearby': true,
-      'gradient': [AppDesign.travelBlue, AppDesign.travelPurple],
-    },
-    {
-      'title': '테마 여행',
-      'sub': '힐링·맛집·카페\n테마별 코스',
-      'preset': '테마별 여행 코스를 추천해줘',
-      'icon': Icons.explore_rounded,
-      'isNearby': false,
-      'gradient': [AppDesign.travelGreen, AppDesign.primaryDark],
-    },
-    {
-      'title': '스테이 & 무드',
-      'sub': '감성 숙소와\n취향 저격 공간',
-      'preset': '인스타 감성의 독채 숙소와 사진 찍기 좋은 장소를 추천해줘',
-      'icon': Icons.wb_sunny_rounded,
-      'isNearby': false,
-      'gradient': [AppDesign.sunsetGradientStart, AppDesign.sunsetGradientEnd],
-    },
-    {
-      'title': '함께하는 여행',
-      'sub': '친구·가족과\n함께할 코스',
-      'preset': '친구들과 함께할 수 있는 여행 코스를 추천해줘',
-      'icon': Icons.people_rounded,
-      'isNearby': false,
-      'gradient': [AppDesign.travelPurple, AppDesign.travelStamp],
-    },
+    (
+      '근처 명소',
+      '내 주변 인기 장소',
+      '내 주변 인기 명소를 추천해줘',
+      Icons.location_on_outlined,
+      true
+    ),
+    (
+      '테마 여행',
+      '힐링 · 맛집 · 카페',
+      '테마별 여행 코스를 추천해줘',
+      Icons.restaurant_outlined,
+      false
+    ),
+    (
+      '스테이 & 무드',
+      '감성 숙소와 공간',
+      '인스타 감성의 독채 숙소와 사진 찍기 좋은 장소를 추천해줘',
+      Icons.home_outlined,
+      false
+    ),
+    (
+      '함께하는 여행',
+      '친구 · 가족과 함께',
+      '친구들과 함께할 수 있는 여행 코스를 추천해줘',
+      Icons.people_outline_rounded,
+      false
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '빠른 시작',
-          style: AppDesign.caption.copyWith(
-            color: AppDesign.secondaryText,
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: AppDesign.spacing12),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.35,
-          children: _items.map((item) {
-            return _QuickStartCard(
-              item: item,
-              onTap: () {
-                final bool isNearby = item['isNearby'] as bool? ?? false;
-                onSelect(item['preset'] as String, isNearby: isNearby);
-              },
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-}
-
-class _QuickStartCard extends StatefulWidget {
-  final Map<String, dynamic> item;
-  final VoidCallback onTap;
-
-  const _QuickStartCard({required this.item, required this.onTap});
-
-  @override
-  State<_QuickStartCard> createState() => _QuickStartCardState();
-}
-
-class _QuickStartCardState extends State<_QuickStartCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final gradientColors = widget.item['gradient'] as List<Color>;
-
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) { _controller.reverse(); widget.onTap(); },
-      onTapCancel: () => _controller.reverse(),
-      child: AnimatedBuilder(
-        animation: _scale,
-        builder: (context, _) => Transform.scale(
-          scale: _scale.value,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppDesign.cardBg,
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-              border: Border.all(color: AppDesign.borderColor, width: 0.5),
-              boxShadow: AppDesign.softShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: gradientColors,
-                    ),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Icon(
-                    widget.item['icon'] as IconData,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  widget.item['title'] as String,
-                  style: AppDesign.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  widget.item['sub'] as String,
-                  style: AppDesign.caption.copyWith(
-                    color: AppDesign.subtleText,
-                    height: 1.4,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    return LayoutBuilder(builder: (context, constraints) {
+      final columns = constraints.maxWidth < 300 || scale > 1.4 ? 1 : 2;
+      return GridView.count(
+        padding: EdgeInsets.zero,
+        crossAxisCount: columns,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: (constraints.maxWidth - (columns - 1) * 10) /
+            columns /
+            (144 + (scale - 1) * 90),
+        children: _items
+            .map((item) => Container(
+                  decoration: _plannerCardDecoration,
+                  child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(15),
+                        onTap: () => onSelect(item.$3, isNearby: item.$5),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(item.$4, size: 34, color: Colors.black),
+                                const Spacer(),
+                                Row(children: [
+                                  Expanded(
+                                      child: Text(item.$1,
+                                          style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: -.6))),
+                                  const Icon(Icons.chevron_right_rounded,
+                                      size: 21, color: Color(0xFF5E626C)),
+                                ]),
+                                const SizedBox(height: 5),
+                                Text(item.$2,
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF666975))),
+                              ]),
+                        ),
+                      )),
+                ))
+            .toList(),
+      );
+    });
   }
 }
 
 class _RecentChipsRow extends StatelessWidget {
-  const _RecentChipsRow({Key? key}) : super(key: key);
-
+  const _RecentChipsRow();
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ChatRecommendationViewModel>();
-    final recentItems = vm.recentRecommendations;
-
-    if (recentItems.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '최근 추천',
-          style: AppDesign.caption.copyWith(
-            color: AppDesign.secondaryText,
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: AppDesign.spacing8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: recentItems.map((item) {
-            final String label = item['title'] ?? '추천 기록';
-
-            return GestureDetector(
-              onTap: () {
-                // 💡 수정 완료: API 호출 없이 DB 데이터를 즉시 로드합니다.
-                vm.loadRecentRecommendation(item);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppDesign.cardBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppDesign.borderColor, width: 0.5),
-                  boxShadow: AppDesign.softShadow.take(1).toList(),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: AppDesign.travelBlue,
-                        shape: BoxShape.circle,
+    final items = vm.recentRecommendations;
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('최근 추천',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 10),
+      SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: items
+                .map((item) => Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ActionChip(
+                        label: Text(item['title'] ?? '추천 기록'),
+                        onPressed: () => vm.loadRecentRecommendation(item),
+                        backgroundColor: const Color(0xFFF5F5F6),
+                        side: const BorderSide(color: Color(0xFFE6E7EA)),
+                        shape: const StadiumBorder(),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 10),
+                        labelStyle: const TextStyle(
+                            fontSize: 14, color: Color(0xFF202020)),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: AppDesign.caption.copyWith(
-                        color: AppDesign.secondaryText,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
+                    ))
+                .toList(),
+          )),
+    ]);
   }
 }
 
@@ -713,7 +525,7 @@ class _PremiumModeCardState extends State<_PremiumModeCard>
               borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
               boxShadow: AppDesign.elevatedShadow,
               border: Border.all(
-                color: widget.accentColor.withOpacity(0.1),
+                color: widget.accentColor.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -726,7 +538,7 @@ class _PremiumModeCardState extends State<_PremiumModeCard>
                     borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
                     boxShadow: [
                       BoxShadow(
-                        color: widget.accentColor.withOpacity(0.3),
+                        color: widget.accentColor.withValues(alpha: 0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -790,15 +602,58 @@ class _ChatMessageBubble extends StatelessWidget {
     required this.isUser,
     required this.messageIndex,
     required this.vm,
-    Key? key,
-  }) : super(key: key);
+  });
+
+  Future<void> _savePlaceToMap(
+      BuildContext context, Map<String, dynamic> place) async {
+    try {
+      final lat = (place['lat'] as num).toDouble();
+      final lng = (place['lng'] as num).toDouble();
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        AppPageRoute(
+          motion: AppMotion.editor,
+          builder: (_) => MarkerCreationScreen(
+            initialTitle: place['name'] ?? place['title'] ?? '',
+            initialAddress: place['address'] ?? '',
+            initialLatLng: LatLng(lat, lng),
+          ),
+        ),
+      );
+      if (!context.mounted || result == null) return;
+      final mapViewModel = context.read<MapSampleViewModel>();
+      final saved = await mapViewModel.addMarker(
+        title: result['title'] as String?,
+        snippet: result['snippet'] as String?,
+        position: LatLng(lat, lng),
+        keyword: result['keyword'] as String,
+        address: result['address'] as String? ?? place['address'] ?? '',
+        listId: result['listId'] as String?,
+        onTapCallback: (markerId) => mapViewModel.onMarkerTapped(markerId),
+      );
+      if (!context.mounted) return;
+      if (saved) vm.markPlaceSaved(place);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(saved
+                ? "${result['title']}이(가) 지도에 추가되었습니다."
+                : '마커를 저장하지 못했습니다. 다시 시도해주세요.')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('마커를 저장하지 못했습니다. 다시 시도해주세요.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
-        crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment:
+            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           // 아바타와 이름
           Padding(
@@ -819,7 +674,7 @@ class _ChatMessageBubble extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppDesign.travelBlue.withOpacity(0.3),
+                          color: AppDesign.travelBlue.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -853,10 +708,10 @@ class _ChatMessageBubble extends StatelessWidget {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: AppDesign.travelBlue.withOpacity(0.1),
+                      color: AppDesign.travelBlue.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppDesign.travelBlue.withOpacity(0.3),
+                        color: AppDesign.travelBlue.withValues(alpha: 0.3),
                         width: 2,
                       ),
                     ),
@@ -895,8 +750,8 @@ class _ChatMessageBubble extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color: isUser
-                      ? AppDesign.travelBlue.withOpacity(0.2)
-                      : Colors.black.withOpacity(0.05),
+                      ? AppDesign.travelBlue.withValues(alpha: 0.2)
+                      : Colors.black.withValues(alpha: 0.05),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                   spreadRadius: -2,
@@ -914,7 +769,9 @@ class _ChatMessageBubble extends StatelessWidget {
             ),
           ),
           // === AI 응답 완료 시 추천 카드 + 자동 스크롤 ===
-          if (!isUser && messageIndex == vm.messages.length - 1 && vm.pendingPlaces.isNotEmpty)
+          if (!isUser &&
+              messageIndex == vm.messages.length - 1 &&
+              vm.pendingPlaces.isNotEmpty)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -925,7 +782,8 @@ class _ChatMessageBubble extends StatelessWidget {
                   builder: (context) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (context.mounted) {
-                        final state = context.findAncestorStateOfType<_ChatRecommendationScreenState>();
+                        final state = context.findAncestorStateOfType<
+                            _ChatRecommendationScreenState>();
                         state?._scrollToBottom();
                       }
                     });
@@ -965,16 +823,7 @@ class _ChatMessageBubble extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 12),
                   child: _PlaceCard(
                     place: place,
-                    onAdd: () {
-                      vm.savePlaceToMap(
-                        place,
-                        context: context,   // ← 이거만 전달
-                      ).then((_) {
-                        // then 안에서 처리할 거 없으면 생략 가능
-                      }).catchError((e) {
-                        // catchError도 이미 함수 안에서 처리했으므로 생략 가능
-                      });
-                    },
+                    onAdd: () => _savePlaceToMap(context, place),
                   ),
                 );
               }).toList(),
@@ -986,7 +835,6 @@ class _ChatMessageBubble extends StatelessWidget {
   }
 }
 
-
 // 파일 하단이나 적당한 위치에 추가
 class _PlaceCard extends StatelessWidget {
   final Map<String, dynamic> place;
@@ -995,15 +843,13 @@ class _PlaceCard extends StatelessWidget {
   const _PlaceCard({
     required this.place,
     required this.onAdd,
-    Key? key,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     final title = place['title']?.toString() ?? '장소 이름';
-    final address = place['address']?.toString() ??
-        place['snippet']?.toString() ??
-        '';
+    final address =
+        place['address']?.toString() ?? place['snippet']?.toString() ?? '';
     final rating = (place['rating'] as num?)?.toDouble();
 
     return Container(
@@ -1128,12 +974,13 @@ class _LoadingIndicator extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: AppDesign.cardBg.withOpacity(0.95),
+          color: AppDesign.cardBg.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppDesign.borderColor.withOpacity(0.7)),
+          border:
+              Border.all(color: AppDesign.borderColor.withValues(alpha: 0.7)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -1178,165 +1025,51 @@ class _LoadingIndicator extends StatelessWidget {
 class _PremiumInputArea extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
-
-  const _PremiumInputArea({
-    required this.controller,
-    required this.onSend,
-  });
-
+  const _PremiumInputArea({required this.controller, required this.onSend});
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        border: Border(
-          top: BorderSide(
-            color: AppDesign.borderColor.withOpacity(0.5),
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppDesign.primaryBg,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AppDesign.borderColor,
-                    width: 1.5,
-                  ),
-                ),
-                child: TextField(
-                  controller: controller,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => onSend(),
-                  maxLines: null,
-                  style: AppDesign.bodyMedium,
-                  decoration: InputDecoration(
-                    hintText: '메시지를 입력하세요...',
-                    hintStyle: AppDesign.bodyMedium.copyWith(
-                      color: AppDesign.subtleText,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                  ),
-                ),
-              ),
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFF0F0F2)))),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+              child: TextField(
+            controller: controller,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => onSend(),
+            minLines: 1,
+            maxLines: 4,
+            style: const TextStyle(fontSize: 15),
+            decoration: InputDecoration(
+              hintText: '여행하고 싶은 곳을 알려주세요.',
+              hintStyle:
+                  const TextStyle(fontSize: 14, color: Color(0xFF9B9EA8)),
+              filled: true,
+              fillColor: const Color(0xFFF5F5F6),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  borderSide: const BorderSide(color: Color(0xFFDADCE0))),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             ),
-            const SizedBox(width: 10),
-            _FeatureCard(
-              padding: const EdgeInsets.all(14),
-              gradient: AppDesign.primaryGradient,
-              onTap: onSend,
-              child: const Icon(
-                Icons.send_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ================================
-// 기능 카드 (애니메이션 포함)
-// ================================
-class _FeatureCard extends StatefulWidget {
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final Color? color;
-  final Gradient? gradient;
-  final VoidCallback? onTap;
-
-  const _FeatureCard({
-    required this.child,
-    this.padding = const EdgeInsets.all(20),
-    this.color,
-    this.gradient,
-    this.onTap,
-  });
-
-  @override
-  State<_FeatureCard> createState() => _FeatureCardState();
-}
-
-class _FeatureCardState extends State<_FeatureCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _shadowAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _shadowAnimation = Tween<double>(begin: 1.0, end: 0.5).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: widget.onTap != null ? (_) => _controller.forward() : null,
-      onTapUp: widget.onTap != null ? (_) {
-        _controller.reverse();
-        widget.onTap!();
-      } : null,
-      onTapCancel: widget.onTap != null ? () => _controller.reverse() : null,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) => Transform.scale(
-          scale: _scaleAnimation.value,
-          child: Container(
-            padding: widget.padding,
-            decoration: BoxDecoration(
-              color: widget.gradient == null
-                  ? (widget.color ?? AppDesign.cardBg)
-                  : null,
-              gradient: widget.gradient,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: AppDesign.softShadow.map((shadow) {
-                return shadow.copyWith(
-                  blurRadius: shadow.blurRadius * _shadowAnimation.value,
-                  color: shadow.color.withOpacity(
-                    shadow.color.opacity * _shadowAnimation.value,
-                  ),
-                );
-              }).toList(),
-            ),
-            child: widget.child,
+          )),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            tooltip: '메시지 보내기',
+            onPressed: onSend,
+            style: IconButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                fixedSize: const Size(44, 44)),
+            icon: const Icon(Icons.arrow_upward_rounded, size: 29),
           ),
-        ),
-      ),
-    );
-  }
+        ]),
+      );
 }
