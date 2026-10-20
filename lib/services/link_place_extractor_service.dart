@@ -3,7 +3,6 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 import '../env.dart';
 import '../models/link_place_preview_model.dart';
-import '../models/instagram_place_source_model.dart';
 import 'package:flutter/foundation.dart';
 import '../services/apify_service.dart';
 import '../services/gemini_service.dart';
@@ -111,9 +110,9 @@ class LinkPlaceExtractorService {
   }
 
   Future<List<LinkPlacePreview>> extractInstagramPlaces(
-      String url, {
-        String? sharedText,
-      }) async {
+    String url, {
+    String? sharedText,
+  }) async {
     debugPrint('📸 [Instagram] 장소 분석 시작');
     debugPrint('🔗 URL: $url');
     debugPrint('📄 sharedText: $sharedText');
@@ -171,18 +170,17 @@ class LinkPlaceExtractorService {
 
       final geminiService = GeminiService();
 
-      final placeSources =
-      await geminiService.extractInstagramPlaces(caption);
+      final placeSources = await geminiService.extractInstagramPlaces(caption);
 
       debugPrint(
         '📍 [Instagram] Gemini에서 장소 '
-            '${placeSources.length}개 추출',
+        '${placeSources.length}개 추출',
       );
 
       for (final source in placeSources) {
         debugPrint(
           '📍 [Instagram] 추출된 장소: '
-              '${source.name} | ${source.address}',
+          '${source.name} | ${source.address}',
         );
       }
 
@@ -197,13 +195,12 @@ class LinkPlaceExtractorService {
           try {
             debugPrint(
               '🔎 [Instagram] Google Places 검색: '
-                  '${source.name} | ${source.address}',
+              '${source.name} | ${source.address}',
             );
 
             final query = [
               source.name,
-              if (source.address != null &&
-                  source.address!.trim().isNotEmpty)
+              if (source.address != null && source.address!.trim().isNotEmpty)
                 source.address!,
             ].join(' ');
 
@@ -212,13 +209,13 @@ class LinkPlaceExtractorService {
             if (matches.isEmpty) {
               debugPrint(
                 '⚠️ [Instagram] Google 검색 결과 없음: '
-                    '${source.name}',
+                '${source.name}',
               );
               return null;
             }
 
             matches.sort(
-                  (a, b) => b.score.compareTo(a.score),
+              (a, b) => b.score.compareTo(a.score),
             );
 
             final best = matches.first;
@@ -226,11 +223,11 @@ class LinkPlaceExtractorService {
 
             debugPrint(
               '✅ [Instagram] 장소 확인: '
-                  '${source.name} → '
-                  '${preview.title} | '
-                  '${preview.address} | '
-                  '${preview.latitude}, '
-                  '${preview.longitude}',
+              '${source.name} → '
+              '${preview.title} | '
+              '${preview.address} | '
+              '${preview.latitude}, '
+              '${preview.longitude}',
             );
 
             return LinkPlacePreview(
@@ -243,7 +240,7 @@ class LinkPlaceExtractorService {
           } catch (e) {
             debugPrint(
               '❌ [Instagram] 장소 검색 실패: '
-                  '${source.name} | $e',
+              '${source.name} | $e',
             );
             return null;
           }
@@ -251,9 +248,7 @@ class LinkPlaceExtractorService {
       );
 
       // 4. 검색 실패 제거
-      final previews = resultsByPlace
-          .whereType<LinkPlacePreview>()
-          .toList();
+      final previews = resultsByPlace.whereType<LinkPlacePreview>().toList();
 
       // 5. 동일 장소 중복 제거
       final unique = <String, LinkPlacePreview>{};
@@ -261,7 +256,7 @@ class LinkPlaceExtractorService {
       for (final preview in previews) {
         final key = [
           preview.title.trim().toLowerCase(),
-          preview.address?.trim().toLowerCase() ?? '',
+          preview.address.trim().toLowerCase(),
         ].join('|');
 
         unique[key] = preview;
@@ -278,10 +273,10 @@ class LinkPlaceExtractorService {
 
         debugPrint(
           '   📍 ${i + 1}. '
-              '${preview.title} | '
-              '${preview.address} | '
-              '${preview.latitude}, '
-              '${preview.longitude}',
+          '${preview.title} | '
+          '${preview.address} | '
+          '${preview.latitude}, '
+          '${preview.longitude}',
         );
       }
 
@@ -599,7 +594,7 @@ class LinkPlaceExtractorService {
         }),
       );
       if (response.statusCode != 200) {
-        return _resolveNearbyPlaceName(
+        return await _resolveNearbyPlaceName(
           _normalizePlaceTitle(preview),
           fallbackToEmptyName: true,
         );
@@ -624,7 +619,7 @@ class LinkPlaceExtractorService {
               (location?['lng'] as num?)?.toDouble() ?? preview.longitude,
         ),
       );
-      return _resolveNearbyPlaceName(
+      return await _resolveNearbyPlaceName(
         localizedPreview,
         fallbackToEmptyName: true,
       );
