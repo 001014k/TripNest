@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'address_photo_preview.dart';
+import '../places/address_photo_preview.dart';
 
 class SelectedLocationSheet extends StatelessWidget {
   const SelectedLocationSheet(
@@ -9,8 +9,10 @@ class SelectedLocationSheet extends StatelessWidget {
       required this.marker,
       required this.onAdd,
       this.metadata,
+      this.actionLabel,
       this.currentLocation});
   final Marker marker;
+  final String? actionLabel;
   final VoidCallback onAdd;
   final Map<String, dynamic>? metadata;
   final LatLng? currentLocation;
@@ -142,7 +144,7 @@ class SelectedLocationSheet extends StatelessWidget {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(18))),
-                        child: const Text('이 장소로 추가하기',
+                        child: Text(actionLabel ?? '이 장소로 추가하기',
                             style: TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.w600)))),
               ]),
