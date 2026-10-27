@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../design/app_design.dart';
+import '../../design/app_design.dart';
 
 /// Standard compact sheet with a fixed header and independently scrolling body.
 Future<T?> showAppSheet<T>({
