@@ -1,18 +1,19 @@
-import '../widgets/app_photo_hero.dart';
-import '../navigation/app_page_route.dart';
-import '../widgets/app_overlays.dart';
-import '../widgets/reference_design.dart';
+import '../../widgets/markers/marker_delete_dialog.dart';
+import '../../widgets/common/app_photo_hero.dart';
+import '../../navigation/app_page_route.dart';
+import '../../widgets/common/app_overlays.dart';
+import '../../widgets/common/reference_design.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../design/app_design.dart';
-import '../env.dart';
-import '../viewmodels/markerdetail_viewmodel.dart';
+import '../../design/app_design.dart';
+import '../../env.dart';
+import '../../viewmodels/markers/markerdetail_viewmodel.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'mapsample_view.dart';
-import 'marker_info_view.dart';
+import '../map/mapsample_view.dart';
+import '../lists/marker_info_view.dart';
 
 // ─────────────────────────────────────────
 // 메인 뷰
@@ -99,19 +100,17 @@ class _MarkerDetailViewState extends State<MarkerDetailView> {
                                         fontSize: 23,
                                         fontWeight: FontWeight.w800))),
                             IconButton(
-                                tooltip: '장소 공유',
-                                onPressed: () => _sharePlace(ctx, vm),
-                                icon: const Icon(Icons.ios_share_outlined)),
-                            IconButton(
                                 tooltip: '더보기',
                                 onPressed: () => _showMoreMenu(ctx, vm),
                                 icon: const Icon(Icons.more_horiz)),
                           ]))),
                   SliverToBoxAdapter(
-                      child: AppPhotoHero(tag: widget.photoHeroTag,
-                        child: _ReferencePlaceHero(
-                          vm: vm, controller: _pageController,
-                          currentPage: _currentPage))),
+                      child: AppPhotoHero(
+                          tag: widget.photoHeroTag,
+                          child: _ReferencePlaceHero(
+                              vm: vm,
+                              controller: _pageController,
+                              currentPage: _currentPage))),
                   SliverPadding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                       sliver: SliverList.list(children: [
@@ -232,8 +231,9 @@ class _MarkerDetailViewState extends State<MarkerDetailView> {
                                         : vm.retryPlaceDetails,
                                     child: const Text('재시도')),
                               ])),
+                        _MapPreview(vm: vm),
+                        const SizedBox(height: 10),
                         _StatRow(vm: vm),
-                        ...[const SizedBox(height: 10), _MapPreview(vm: vm)],
                         if (vm.phone != null || vm.distance != null) ...[
                           const SizedBox(height: 12),
                           ReferenceCard(
@@ -315,7 +315,7 @@ class _MarkerDetailViewState extends State<MarkerDetailView> {
       builder: (_) => _MoreMenuSheet(
         onDelete: () async {
           Navigator.pop(ctx);
-          final ok = await _confirmDelete(ctx);
+          final ok = await _confirmDelete(ctx, vm);
           if (ok == true && ctx.mounted) {
             try {
               await vm.deleteMarker();
@@ -340,14 +340,19 @@ class _MarkerDetailViewState extends State<MarkerDetailView> {
     );
   }
 
-  Future<bool?> _confirmDelete(BuildContext ctx) => showDialog<bool>(
+  Future<bool?> _confirmDelete(BuildContext ctx, MarkerDetailViewModel vm) =>
+      showDialog<bool>(
         context: ctx,
-        builder: (_) => const AppConfirmDialog(
-            title: '마커를 삭제할까요?',
-            message: '마커와 연결된 데이터가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.',
-            confirmLabel: '삭제',
-            destructive: true,
-            icon: Icons.delete_outline),
+        builder: (_) => MarkerDeleteDialog(
+          title: vm.title,
+          address: vm.address ?? '',
+          imageUrl: vm.imageUrls.isEmpty ? null : vm.imageUrls.first,
+          tags: [
+            if ((vm.keyword ?? widget.keyword).trim().isNotEmpty)
+              vm.keyword ?? widget.keyword,
+            ...vm.tags
+          ],
+        ),
       );
 
   Future<void> _sharePlace(
