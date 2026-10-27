@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user_model.dart';
-import '../services/user_service.dart';
+import '../../models/profile/user_model.dart';
+import '../../services/profile/user_service.dart';
 
 class ProfileViewModel extends ChangeNotifier {
   final UserService _userService;
