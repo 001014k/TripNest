@@ -1,16 +1,20 @@
-import '../navigation/app_tab_shell.dart';
-import 'reference_design.dart';
+import 'package:provider/provider.dart';
+import '../../viewmodels/friends/friend_management_viewmodel.dart';
+import '../../navigation/app_tab_shell.dart';
+import '../common/reference_design.dart';
 import 'package:flutter/material.dart';
 
 /// Shared navigation keeps each destination's existing screen and actions.
 class TripNestNavigation extends StatelessWidget {
   final String currentRoute;
   final ValueChanged<String>? onSelect;
-  const TripNestNavigation({super.key, required this.currentRoute, this.onSelect});
+  const TripNestNavigation(
+      {super.key, required this.currentRoute, this.onSelect});
 
   @override
   Widget build(BuildContext context) {
-    if (AppTabVisibility.maybeOf(context) != null) return const SizedBox.shrink();
+    if (AppTabVisibility.maybeOf(context) != null)
+      return const SizedBox.shrink();
     const items = [
       ('/home', Icons.home_outlined, '홈'),
       ('/map', Icons.map_outlined, '지도'),
@@ -99,10 +103,47 @@ class TripNestHeader extends StatelessWidget {
                         letterSpacing: -0.8)))),
         trailing ??
             IconButton(
-                tooltip: '알림 설정',
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/notification_settings'),
+                tooltip: '알림',
+                onPressed: () => Navigator.pushNamed(context, '/notifications'),
                 icon: const Icon(Icons.notifications_none_rounded,
                     color: Color(0xFF202020))),
       ]);
+}
+
+/// Matching friend and notification actions for main screens except the map.
+class TripNestSocialActions extends StatelessWidget {
+  const TripNestSocialActions({super.key});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Consumer<FriendManagementViewModel>(
+            builder: (context, friends, _) => IconButton(
+              tooltip: friends.pendingRequestCount > 0
+                  ? '친구 요청 ${friends.pendingRequestCount}개'
+                  : '친구',
+              onPressed: () async {
+                await Navigator.pushNamed(context, '/friend_management');
+                await friends.refreshPendingRequestCount();
+              },
+              icon: Badge.count(
+                count: friends.pendingRequestCount,
+                isLabelVisible: friends.pendingRequestCount > 0,
+                backgroundColor: const Color(0xFFE5484D),
+                textColor: Colors.white,
+                child: const Icon(Icons.people_outline_rounded,
+                    color: Color(0xFF202020)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: '알림',
+            onPressed: () => Navigator.pushNamed(context, '/notifications'),
+            icon: const Icon(Icons.notifications_none_rounded,
+                color: Color(0xFF202020)),
+          ),
+        ],
+      );
 }
