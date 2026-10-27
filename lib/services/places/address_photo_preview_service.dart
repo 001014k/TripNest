@@ -3,11 +3,12 @@ import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
 
-import '../env.dart';
-import '../models/cached_photo_url.dart';
+import '../../env.dart';
+import '../../models/places/cached_photo_url.dart';
 
 class AddressPhotoPreviewService {
-  const AddressPhotoPreviewService();
+  const AddressPhotoPreviewService({http.Client? client}) : _client = client;
+  final http.Client? _client;
 
   String cacheKey(String address, String? title) {
     final addr = address.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
@@ -22,9 +23,17 @@ class AddressPhotoPreviewService {
     final cached = box.get(key);
     if (cached != null && cached.isValid) return cached.photoUrl;
 
+    final photos = await loadPhotos(address, title);
+    if (photos.isEmpty) return null;
+    await box.put(key, CachedPhotoUrl(cacheKey: key, photoUrl: photos.first));
+    return photos.first;
+  }
+
+  Future<List<String>> loadPhotos(String address, String? title) async {
+    if (address.trim().isEmpty && (title?.trim().isEmpty ?? true)) return [];
     final query =
         title != null && title.isNotEmpty ? '$title, $address' : address;
-    final response = await http.post(
+    final response = await (_client?.post ?? http.post)(
       Uri.https('places.googleapis.com', '/v1/places:searchText'),
       headers: {
         'Content-Type': 'application/json',
@@ -38,13 +47,13 @@ class AddressPhotoPreviewService {
         'languageCode': 'ko',
         'regionCode': 'KR',
       }),
-    );
+    ).timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw Exception('HTTP ${response.statusCode}');
     }
 
     final places = (jsonDecode(response.body)['places'] as List?) ?? [];
-    if (places.isEmpty) return null;
+    if (places.isEmpty) return [];
 
     Map<String, dynamic>? bestPlace;
     var bestScore = -1.0;
@@ -73,12 +82,10 @@ class AddressPhotoPreviewService {
     }
 
     final photos = (bestPlace?['photos'] as List<dynamic>?) ?? [];
-    if (photos.isEmpty) return null;
-    final photoName = photos.first['name'] as String;
-    final photoUrl = 'https://places.googleapis.com/v1/$photoName/media'
-        '?key=${Env.googleMapsApiKey}&maxWidthPx=600';
-    await box.put(key, CachedPhotoUrl(cacheKey: key, photoUrl: photoUrl));
-    return photoUrl;
+    return photos.whereType<Map>().map((photo) => photo['name'])
+        .whereType<String>().where((name) => name.isNotEmpty).toSet().take(5)
+        .map((name) => 'https://places.googleapis.com/v1/$name/media'
+            '?key=${Env.googleMapsApiKey}&maxWidthPx=600').toList();
   }
 
   Future<void> clear(String address, String? title) async {
