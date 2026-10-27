@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/notification_settings_viewmodel.dart';
-import '../widgets/tripnest_navigation.dart';
+import '../../viewmodels/notifications/notification_settings_viewmodel.dart';
+import '../../widgets/navigation/tripnest_navigation.dart';
 
 class NotificationSettingsView extends StatelessWidget {
   const NotificationSettingsView({super.key});
@@ -22,10 +22,7 @@ class NotificationSettingsView extends StatelessWidget {
                     trailing: const SizedBox.shrink()),
               ),
               Expanded(
-                  child: vm.isLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(color: Colors.black))
-                      : SingleChildScrollView(
+                  child: SingleChildScrollView(
                           padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,7 +53,13 @@ class NotificationSettingsView extends StatelessWidget {
                                     label: '푸시 알림',
                                     icon: Icons.notifications_none_rounded),
                                 const SizedBox(height: 14),
-                                _NotificationGroup(children: [
+                                if (vm.isLoading)
+                                  const _NotificationGroup(children: [
+                                    _NotificationSkeletonRow(),
+                                    _NotificationSkeletonRow(),
+                                    _NotificationSkeletonRow(),
+                                  ])
+                                else _NotificationGroup(children: [
                                   _NotificationTile(
                                       title: '새 마커 알림',
                                       subtitle: '친구가 마커를 공유했을 때',
@@ -83,11 +86,22 @@ class NotificationSettingsView extends StatelessWidget {
                                               'friend_request', value)),
                                 ]),
                                 const SizedBox(height: 28),
+                                if (vm.pushConnectionMessage != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 20),
+                                    child: Text(vm.pushConnectionMessage!,
+                                        style: const TextStyle(
+                                            fontSize: 13,
+                                            color: _secondary,
+                                            height: 1.5)),
+                                  ),
                                 const _SectionLabel(
                                     label: '계정 보안 알림',
                                     icon: Icons.shield_outlined),
                                 const SizedBox(height: 14),
-                                _NotificationGroup(children: [
+                                if (vm.isLoading)
+                                  const _NotificationGroup(children: [_NotificationSkeletonRow()])
+                                else _NotificationGroup(children: [
                                   _NotificationTile(
                                       title: '보안 알림',
                                       subtitle: vm.securityEmailDescription,
@@ -206,4 +220,58 @@ class _NotificationTile extends StatelessWidget {
               thumbColor: Colors.white),
         ]),
       ));
+}
+
+class _NotificationSkeletonRow extends StatefulWidget {
+  const _NotificationSkeletonRow();
+  @override
+  State<_NotificationSkeletonRow> createState() => _NotificationSkeletonRowState();
+}
+
+class _NotificationSkeletonRowState extends State<_NotificationSkeletonRow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 900));
+  late final Animation<double> _opacity = Tween<double>(begin: .4, end: 1).animate(_controller);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+      _controller.value = 1;
+    } else {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _block(double width, double height, {double radius = 6}) => Container(
+    width: width, height: height,
+    decoration: BoxDecoration(color: const Color(0xFFE8E9EC), borderRadius: BorderRadius.circular(radius)),
+  );
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: '알림 설정 불러오는 중',
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: FadeTransition(opacity: _opacity, child: Row(children: [
+        _block(28, 28),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          FractionallySizedBox(widthFactor: .6, child: _block(double.infinity, 18)),
+          const SizedBox(height: 8),
+          _block(double.infinity, 12),
+        ])),
+        const SizedBox(width: 10),
+        _block(51, 31, radius: 20),
+      ])),
+    ),
+  );
 }
