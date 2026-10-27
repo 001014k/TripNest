@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../services/address_photo_preview_service.dart';
+import '../../services/places/address_photo_preview_service.dart';
 
 class AddressPhotoPreviewViewModel extends ChangeNotifier {
   AddressPhotoPreviewViewModel(this.address, this.title) {
