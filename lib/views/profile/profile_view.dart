@@ -1,18 +1,18 @@
-import '../widgets/place_keyword_icon.dart';
-import '../navigation/app_page_route.dart';
-import '../widgets/app_overlays.dart';
-import 'list_view.dart';
-import '../widgets/reference_design.dart';
-import '../services/marker_service.dart';
-import '../models/marker_model.dart';
-import '../mappers/marker_map_adapter.dart';
-import 'markerdetail_view.dart';
+import '../../widgets/places/place_keyword_icon.dart';
+import '../../navigation/app_page_route.dart';
+import '../../widgets/common/app_overlays.dart';
+import '../lists/list_view.dart';
+import '../../widgets/common/reference_design.dart';
+import '../../services/markers/marker_service.dart';
+import '../../models/markers/marker_model.dart';
+import '../../mappers/marker_map_adapter.dart';
+import '../markers/markerdetail_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../widgets/tripnest_navigation.dart';
+import '../../widgets/navigation/tripnest_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/profile_viewmodel.dart';
-import '../design/app_design.dart';
+import '../../viewmodels/profile/profile_viewmodel.dart';
+import '../../design/app_design.dart';
 import 'security_settings_view.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -117,30 +117,9 @@ class _ProfilePageState extends State<ProfilePage> {
         child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
-              const TripNestHeader(),
+              const TripNestHeader(trailing: TripNestSocialActions()),
               const SizedBox(height: 18),
               _ProfileHero(viewModel: viewModel, onInfo: _showMyInfo),
-              const SizedBox(height: 14),
-              Material(
-                color: AppDesign.cardBg,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: Color(0xFFECECEF)),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: ListTile(
-                  leading: const Icon(Icons.people_outline,
-                      color: AppDesign.primaryText),
-                  title: const Text('친구',
-                      style:
-                          TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('친구 목록과 받은 요청을 확인해보세요.',
-                      style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () =>
-                      Navigator.pushNamed(context, '/friend_management'),
-                ),
-              ),
               const SizedBox(height: 22),
               Row(children: [
                 const Expanded(
