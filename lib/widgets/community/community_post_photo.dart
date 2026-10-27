@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../design/app_design.dart';
-import '../models/community_post_model.dart';
-import 'address_photo_preview.dart';
+import '../../design/app_design.dart';
+import '../../models/community/community_post_model.dart';
+import '../places/address_photo_preview.dart';
 
 class CommunityPostPhoto extends StatelessWidget {
   const CommunityPostPhoto({super.key, required this.post});
