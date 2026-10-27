@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../services/notifications/notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationSettingsViewModel extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+
+  String? pushConnectionMessage;
 
   // 푸시 설정
   bool pushNewMarker = true;
@@ -59,6 +62,14 @@ class NotificationSettingsViewModel extends ChangeNotifier {
         'updated_at': DateTime.now().toIso8601String(),
         _getColumnName(key): value,
       }, onConflict: 'user_id');
+
+      if (value) {
+        final connected =
+            await NotificationService().initializePushNotifications();
+        pushConnectionMessage = connected
+            ? '이 기기에서 푸시 알림을 받을 수 있어요.'
+            : '설정은 저장했지만 기기 알림 연결을 확인하지 못했어요. 휴대폰 설정에서 알림 권한과 네트워크를 확인해 주세요.';
+      }
 
       // 로컬 상태 업데이트
       switch (key) {
