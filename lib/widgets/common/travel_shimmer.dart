@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../design/app_design.dart';
+import '../../design/app_design.dart';
 
 /// 데이터 로딩 중에도 실제 카드와 같은 밀도와 톤을 유지하는 공용 스켈레톤입니다.
 class TravelShimmer extends StatelessWidget {
