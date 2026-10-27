@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/user_service.dart';
+import '../../services/profile/user_service.dart';
 
 class NicknameDialogViewModel extends ChangeNotifier {
   final UserService _userService;
