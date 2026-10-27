@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/forgot_password_viewmodel.dart';
-import '../design/app_design.dart'; // 디자인 시스템 import
+import '../../viewmodels/auth/forgot_password_viewmodel.dart';
+import '../../design/app_design.dart'; // 디자인 시스템 import
 
 class ForgotPasswordView extends StatelessWidget {
   final TextEditingController _emailController = TextEditingController();
