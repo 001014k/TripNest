@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../models/list_model.dart';
-import '../design/app_design.dart';
-import 'reference_design.dart';
-import 'place_keyword_icon.dart';
+import '../../models/lists/list_model.dart';
+import '../../design/app_design.dart';
+import '../common/reference_design.dart';
+import '../places/place_keyword_icon.dart';
 
 class TravelListCard extends StatelessWidget {
   final ListModel list;
