@@ -1,14 +1,14 @@
-import '../navigation/app_page_route.dart';
-import '../widgets/app_overlays.dart';
-import '../widgets/tripnest_navigation.dart';
+import '../../navigation/app_page_route.dart';
+import '../../widgets/common/app_overlays.dart';
+import '../../widgets/navigation/tripnest_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import '../widgets/address_photo_preview.dart';
-import '../viewmodels/chat_recommendation_viewmodel.dart';
-import '../design/app_design.dart';
-import '../viewmodels/mapsample_viewmodel.dart';
-import 'markercreationscreen_view.dart';
+import '../../widgets/places/address_photo_preview.dart';
+import '../../viewmodels/planner/chat_recommendation_viewmodel.dart';
+import '../../design/app_design.dart';
+import '../../viewmodels/map/mapsample_viewmodel.dart';
+import '../markers/markercreationscreen_view.dart';
 
 class ChatRecommendationScreen extends StatefulWidget {
   const ChatRecommendationScreen({super.key});
