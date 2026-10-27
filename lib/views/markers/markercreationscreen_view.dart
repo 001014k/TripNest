@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/markercreationscreen_viewmodel.dart';
-import '../widgets/address_photo_preview.dart';
-import '../widgets/place_keyword_icon.dart';
-import '../widgets/app_overlays.dart';
-import '../viewmodels/list_viewmodel.dart';
+import '../../viewmodels/markers/markercreationscreen_viewmodel.dart';
+import '../../widgets/places/address_photo_preview.dart';
+import '../../widgets/places/place_keyword_icon.dart';
+import '../../widgets/common/app_overlays.dart';
+import '../../viewmodels/lists/list_viewmodel.dart';
 
 class MarkerCreationScreen extends StatefulWidget {
   final LatLng initialLatLng;
