@@ -1,15 +1,16 @@
-import '../services/shared_link_platform.dart';
-import '../services/portal_place_extractor_service.dart';
+import '../../services/shared_links/threads_place_extractor_service.dart';
+import '../../services/shared_links/shared_link_platform.dart';
+import '../../services/shared_links/portal_place_extractor_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/link_place_preview_model.dart';
-import '../models/link_preview_data.dart';
-import '../models/shared_link_model.dart';
-import '../services/link_place_extractor_service.dart';
-import '../services/link_preview_service.dart';
-import '../services/shared_link_service.dart';
-import '../services/apify_service.dart';
-import '../services/gemini_service.dart';
+import '../../models/shared_links/link_place_preview_model.dart';
+import '../../models/shared_links/link_preview_data.dart';
+import '../../models/shared_links/shared_link_model.dart';
+import '../../services/shared_links/link_place_extractor_service.dart';
+import '../../services/shared_links/link_preview_service.dart';
+import '../../services/shared_links/shared_link_service.dart';
+import '../../services/shared_links/apify_service.dart';
+import '../../services/ai/gemini_service.dart';
 
 class PendingSharedLink {
   final String url;
@@ -119,6 +120,17 @@ class SharedLinkViewModel extends ChangeNotifier {
 
   String detectPlatformFromUrl(String url) => SharedLinkPlatform.detect(url);
 
+  Future<List<LinkPlacePreview>> extractThreadsPlaces(String url) async {
+    errorMessage = null;
+    try {
+      return await ThreadsPlaceExtractorService().extract(url);
+    } catch (e) {
+      errorMessage = e is FormatException ? e.message : 'Threads 분석에 실패했습니다. 잠시 후 다시 시도해주세요.';
+      notifyListeners();
+      return [];
+    }
+  }
+
   Future<List<LinkPlacePreview>> extractPortalPlaces(String url,
           {String? sharedText}) =>
       PortalPlaceExtractorService().extract(url, sharedText: sharedText);
@@ -210,6 +222,7 @@ class SharedLinkViewModel extends ChangeNotifier {
     String url, {
     String? sharedText,
   }) async {
+    errorMessage = null;
     try {
       debugPrint('📸 [Instagram] Apify 분석 시작');
       debugPrint('🔗 URL: $url');
@@ -331,7 +344,7 @@ class SharedLinkViewModel extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ [Instagram] 분석 실패: $e');
 
-      errorMessage = 'Instagram 분석 실패: $e';
+      errorMessage = e is InstagramAccessException ? e.message : 'Instagram 분석 실패: $e';
       notifyListeners();
 
       return const [];
