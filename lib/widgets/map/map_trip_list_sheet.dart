@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'reference_design.dart';
+import '../common/reference_design.dart';
 
 /// The travel card belongs to the map's list picker, not the resting map.
 class MapTripListSheet extends StatelessWidget {
@@ -46,6 +46,11 @@ class MapTripListSheet extends StatelessWidget {
                       final id = list['id'] as String;
                       final places = (list['list_bookmarks'] as List?) ?? [];
                       final members = (list['list_members'] as List?) ?? [];
+                      final participantCount = 1 + members
+                          .whereType<Map>()
+                          .map((member) => member['user_id'])
+                          .where((id) => id != null && id != list['user_id'])
+                          .toSet().length;
                       final title = places.isEmpty
                           ? ''
                           : places.first['title']?.toString() ?? '';
@@ -86,16 +91,7 @@ class MapTripListSheet extends StatelessWidget {
                                               fontSize: 12,
                                               color: Color(0xFF85868A))),
                                       const SizedBox(height: 6),
-                                      if (members.isNotEmpty)
-                                        ReferencePeople(count: members.length)
-                                      else
-                                        Text(
-                                            selectedListId == id
-                                                ? '현재 선택한 리스트'
-                                                : '나의 여행 리스트',
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Color(0xFF85868A))),
+                                      ReferencePeople(count: participantCount),
                                     ])),
                                 const SizedBox(width: 8),
                                 FilledButton(
