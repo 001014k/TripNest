@@ -1,4 +1,4 @@
-import 'package:fluttertrip/services/user_service.dart';
+import 'package:fluttertrip/services/profile/user_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 // BookmarkService: 리스트에 저장된 마커 조회
