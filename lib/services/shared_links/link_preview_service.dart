@@ -1,7 +1,7 @@
 import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 
-import '../models/link_preview_data.dart';
+import '../../models/shared_links/link_preview_data.dart';
 
 class LinkPreviewService {
   const LinkPreviewService({http.Client? client}) : _client = client;
