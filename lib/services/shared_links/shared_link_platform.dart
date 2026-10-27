@@ -5,6 +5,9 @@ class SharedLinkPlatform {
     final uri = Uri.tryParse(url);
     if (uri == null) return '기타';
     final host = uri.host.toLowerCase();
+    if (domain(host, 'threads.com') || domain(host, 'threads.net')) {
+      return 'Threads';
+    }
     if (domain(host, 'instagram.com')) return 'Instagram';
     if (domain(host, 'youtube.com') || host == 'youtu.be') return 'YouTube';
     if (domain(host, 'naver.com') || host == 'naver.me') return 'Naver';
