@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import '../models/link_preview_data.dart';
-import '../models/shared_link_model.dart';
-import '../services/link_preview_service.dart';
-import '../services/places_service.dart';
-import '../services/shared_link_service.dart';
-import '../services/shared_place_lookup_service.dart';
-import '../services/geocoding_service.dart';
+import '../../models/shared_links/link_preview_data.dart';
+import '../../models/shared_links/shared_link_model.dart';
+import '../../services/shared_links/link_preview_service.dart';
+import '../../services/places/places_service.dart';
+import '../../services/shared_links/shared_link_service.dart';
+import '../../services/shared_links/shared_place_lookup_service.dart';
+import '../../services/places/geocoding_service.dart';
 
 typedef PlaceRating = ({double score, int? count});
 
