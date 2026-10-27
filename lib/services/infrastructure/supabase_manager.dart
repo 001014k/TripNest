@@ -1,4 +1,3 @@
-// lib/services/supabase_manager.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../env.dart';
 
