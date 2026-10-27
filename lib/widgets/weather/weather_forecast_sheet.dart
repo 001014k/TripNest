@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/weather_forecast.dart';
+import '../../models/weather/weather_forecast.dart';
 
 class WeatherForecastSheet extends StatefulWidget {
   const WeatherForecastSheet(
