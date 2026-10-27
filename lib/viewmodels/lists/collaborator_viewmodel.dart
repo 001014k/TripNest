@@ -1,8 +1,9 @@
-import '../services/notification_service.dart';
+import '../../services/lists/list_access_service.dart';
+import '../../services/notifications/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/list_model.dart';
-import '../models/collaborator_model.dart';
+import '../../models/lists/list_model.dart';
+import '../../models/lists/collaborator_model.dart';
 
 class CollaboratorViewModel extends ChangeNotifier {
   final SupabaseClient supabase = Supabase.instance.client;
@@ -81,7 +82,8 @@ class CollaboratorViewModel extends ChangeNotifier {
   }
 
   /// 협업자 닉네임으로 추가 (친구 목록에서 초대 시 사용)
-  Future<bool> addCollaborator(String listId, String nickname) async {
+  Future<bool> addCollaborator(String listId, String nickname,
+      {String role = 'guest'}) async {
     _setLoading(true);
     _setError(null);
 
@@ -93,6 +95,10 @@ class CollaboratorViewModel extends ChangeNotifier {
     }
 
     try {
+      if (!['guest', 'editor'].contains(role) ||
+          await ListAccessService.role(listId) != 'owner') {
+        throw StateError('소유자만 초대할 수 있습니다.');
+      }
       final profileResponse = await supabase
           .from('profiles')
           .select('id')
@@ -124,7 +130,7 @@ class CollaboratorViewModel extends ChangeNotifier {
         'list_id': listId,
         'user_id': collaboratorId,
         'invited_by': currentUser.id,
-        'role': 'editor',
+        'role': role,
       });
 
       await NotificationService(supabase: supabase)
@@ -164,7 +170,7 @@ class CollaboratorViewModel extends ChangeNotifier {
         return Collaborator(
           userId: row['user_id'] as String,
           nickname: profile?['nickname'] as String? ?? '알 수 없음',
-          role: row['role'] as String? ?? 'editor',
+          role: row['role'] as String? ?? 'guest',
         );
       }).toList();
 
@@ -252,8 +258,28 @@ class CollaboratorViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> changeRole(String listId, String userId, String role) async {
+    if (!['guest', 'editor'].contains(role)) return false;
+    try {
+      if (await ListAccessService.role(listId) != 'owner') return false;
+      final changed = await supabase
+          .from('list_members')
+          .update({'role': role})
+          .eq('list_id', listId)
+          .eq('user_id', userId)
+          .select('user_id');
+      if (changed.isEmpty) return false;
+      await getCollaborators(listId);
+      return true;
+    } catch (_) {
+      _setError('역할을 변경하지 못했습니다. 다시 시도해주세요.');
+      return false;
+    }
+  }
+
   Future<bool> removeCollaborator(String listId, String userId) async {
     try {
+      if (await ListAccessService.role(listId) != 'owner') return false;
       await supabase
           .from('list_members')
           .delete()
