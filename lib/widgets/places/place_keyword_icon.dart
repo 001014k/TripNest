@@ -14,11 +14,16 @@ IconData placeKeywordIcon(String keyword) {
       return Icons.camera_alt_outlined;
     case '전시회':
       return Icons.image_outlined;
+    case '관광명소':
     case '관광지':
       return Icons.account_balance_outlined;
     case '자연':
     case '공원':
       return Icons.park_outlined;
+    case '쇼핑':
+      return Icons.shopping_bag_outlined;
+    case '체험':
+      return Icons.local_activity_outlined;
     default:
       return Icons.place_outlined;
   }
