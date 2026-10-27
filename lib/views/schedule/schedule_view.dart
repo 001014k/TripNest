@@ -1,22 +1,22 @@
-import '../design/map_style.dart';
-import '../services/marker_icon_service.dart';
-import '../widgets/address_photo_preview.dart';
-import '../models/list_schedule_draft.dart';
-import '../models/marker_model.dart';
-import '../navigation/app_tab_shell.dart';
-import '../navigation/app_page_route.dart';
-import '../widgets/app_overlays.dart';
+import '../../design/map_style.dart';
+import '../../services/map/marker_icon_service.dart';
+import '../../widgets/places/address_photo_preview.dart';
+import '../../models/lists/list_schedule_draft.dart';
+import '../../models/markers/marker_model.dart';
+import '../../navigation/app_tab_shell.dart';
+import '../../navigation/app_page_route.dart';
+import '../../widgets/common/app_overlays.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../services/marker_service.dart';
-import '../viewmodels/friend_management_viewmodel.dart';
-import '../widgets/reference_design.dart';
+import '../../services/markers/marker_service.dart';
+import '../../viewmodels/friends/friend_management_viewmodel.dart';
+import '../../widgets/common/reference_design.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import '../design/app_design.dart';
-import '../models/schedule_model.dart';
-import '../services/schedule_service.dart';
-import '../widgets/tripnest_navigation.dart';
+import '../../design/app_design.dart';
+import '../../models/schedule/schedule_model.dart';
+import '../../services/schedule/schedule_service.dart';
+import '../../widgets/navigation/tripnest_navigation.dart';
 
 class ScheduleView extends StatefulWidget {
   const ScheduleView({super.key});
@@ -97,7 +97,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                   return ListView(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 85),
                       children: [
-                        const TripNestHeader(),
+                        const TripNestHeader(trailing: TripNestSocialActions()),
                         const SizedBox(height: 20),
                         const Text('일정',
                             style: TextStyle(
@@ -246,7 +246,7 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
   late DateTime _end;
   bool _saving = false;
   String? _placeId;
-  String _placeLabel = '장소 미지정';
+  String _placeLabel = '장소를 선택해주세요';
   String _placeAddress = '';
   BitmapDescriptor? _placeIcon;
   int _placeIconRequest = 0;
@@ -260,6 +260,9 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
     _placeId = widget.schedule?.placeId;
     _latitude = widget.schedule?.latitude;
     _longitude = widget.schedule?.longitude;
+    if (_placeId == null && _latitude != null && _longitude != null) {
+      _placeLabel = '지도에서 선택한 위치';
+    }
     _participants = [...?widget.schedule?.collaboratorIds];
     if (_placeId != null) {
       _placeLabel = '장소명을 불러오는 중…';
@@ -323,6 +326,36 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
       _end = _start.add(duration);
     });
   }
+
+  DateTime _weekendDate(DateTime now) {
+    final today = DateUtils.dateOnly(now);
+    if (today.weekday >= DateTime.saturday) return today;
+    return DateTime(
+        today.year, today.month, today.day + DateTime.saturday - today.weekday);
+  }
+
+  bool _quickDateSelected(String label, DateTime date) {
+    if (!DateUtils.isSameDay(_start, date)) return false;
+    if (label == '이번 주말' &&
+        (DateUtils.isSameDay(_start, DateTime.now()) ||
+            DateUtils.isSameDay(
+                _start, DateTime.now().add(const Duration(days: 1))))) {
+      return false;
+    }
+    return true;
+  }
+
+  void _setDate(DateTime date) {
+    setState(() {
+      final duration = _end.difference(_start);
+      _start =
+          DateTime(date.year, date.month, date.day, _start.hour, _start.minute);
+      _end = _start.add(duration);
+    });
+  }
+
+  String _editTime(DateTime date) =>
+      '${date.hour < 12 ? '오전' : '오후'} ${date.hour % 12 == 0 ? 12 : date.hour % 12}:${date.minute.toString().padLeft(2, '0')}';
 
   Future<void> _pickTime(bool start) async {
     final time = await showTimePicker(
@@ -516,13 +549,13 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                     style: FilledButton.styleFrom(
                         backgroundColor: AppDesign.primary,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(48),
+                        minimumSize: const Size.fromHeight(56),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16))),
+                            borderRadius: BorderRadius.circular(30))),
                     child: Text(_saving
                         ? '처리 중…'
                         : widget.initialPlaces.isEmpty
-                            ? '저장'
+                            ? '저장하기   →'
                             : '${widget.initialPlaces.length}개 일정 추가')))),
         body: SafeArea(
             child: Form(
@@ -544,23 +577,16 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                             child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                              TextFormField(
-                                  controller: _title,
-                                  enabled: !_saving,
+                              Text(widget.schedule == null ? '일정 추가' : '일정 수정',
                                   style: const TextStyle(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.w800),
-                                  decoration: const InputDecoration(
-                                      hintText: '일정 제목',
-                                      filled: false,
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none),
-                                  validator: (value) =>
-                                      value == null || value.trim().isEmpty
-                                          ? '일정 제목을 입력해주세요.'
-                                          : null),
-                              const Text('일정 정보를 수정해보세요.',
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -1)),
+                              const SizedBox(height: 8),
+                              Text(
+                                  widget.schedule == null
+                                      ? '새로운 여행 일정을 계획해보세요.'
+                                      : '여행 일정을 자유롭게 수정해보세요.',
                                   style: AppDesign.bodySmall),
                             ])),
                         const SizedBox(width: 12),
@@ -574,20 +600,98 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                                 ? widget.initialPlaces.first.address
                                 : _placeAddress,
                             width: 96,
-                            height: 80),
+                            height: 96),
                       ]),
                       const SizedBox(height: 18),
-                      _field(
-                          Icons.calendar_today_outlined,
-                          '날짜',
-                          '${_start.year}년 ${_start.month}월 ${_start.day}일',
-                          _pickDate),
-                      _field(Icons.access_time_rounded, '시작 시간', _time(_start),
-                          () => _pickTime(true)),
+                      ReferenceCard(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          child: Row(children: [
+                            _formIcon(Icons.title),
+                            const SizedBox(width: 16),
+                            Expanded(
+                                child: TextFormField(
+                                    controller: _title,
+                                    enabled: !_saving,
+                                    style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w500),
+                                    decoration: InputDecoration(
+                                        labelText: '일정 제목',
+                                        hintText: '일정 제목을 입력해주세요',
+                                        filled: false,
+                                        border: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                        focusedBorder: InputBorder.none,
+                                        suffixIcon: IconButton(
+                                            tooltip: '제목 지우기',
+                                            onPressed:
+                                                _saving ? null : _title.clear,
+                                            icon: const Icon(Icons.cancel,
+                                                color: Color(0xffcccccf)))),
+                                    validator: (value) =>
+                                        value == null || value.trim().isEmpty
+                                            ? '일정 제목을 입력해주세요.'
+                                            : null)),
+                          ])),
+                      const SizedBox(height: 10),
+                      ReferenceCard(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(children: [
+                            ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                onTap: _saving ? null : _pickDate,
+                                leading:
+                                    _formIcon(Icons.calendar_today_outlined),
+                                title:
+                                    const Text('날짜', style: AppDesign.caption),
+                                subtitle: Text(
+                                    '${_start.year}년 ${_start.month}월 ${_start.day}일 (${'월화수목금토일'[_start.weekday - 1]})',
+                                    style: const TextStyle(fontSize: 17)),
+                                trailing: const Icon(Icons.chevron_right)),
+                            Align(
+                                alignment: Alignment.centerRight,
+                                child:
+                                    Wrap(spacing: 7, runSpacing: 4, children: [
+                                  for (final entry in [
+                                    ('오늘', DateTime.now()),
+                                    (
+                                      '내일',
+                                      DateTime.now()
+                                          .add(const Duration(days: 1))
+                                    ),
+                                    ('이번 주말', _weekendDate(DateTime.now()))
+                                  ])
+                                    ChoiceChip(
+                                        label: Text(entry.$1),
+                                        selected: _quickDateSelected(
+                                            entry.$1, entry.$2),
+                                        onSelected: _saving
+                                            ? null
+                                            : (_) => _setDate(entry.$2),
+                                        showCheckmark: false,
+                                        selectedColor: AppDesign.primary,
+                                        labelStyle: TextStyle(
+                                            color: _quickDateSelected(
+                                                    entry.$1, entry.$2)
+                                                ? Colors.white
+                                                : AppDesign.secondaryText),
+                                        side: BorderSide.none,
+                                        shape: const StadiumBorder()),
+                                  ActionChip(
+                                      label: const Text('날짜 선택'),
+                                      onPressed: _saving ? null : _pickDate,
+                                      side: BorderSide.none,
+                                      shape: const StadiumBorder()),
+                                ])),
+                          ])),
+                      const SizedBox(height: 10),
+                      _field(Icons.access_time_rounded, '시작 시간',
+                          _editTime(_start), () => _pickTime(true)),
                       _field(
                           Icons.access_time_rounded,
                           '종료 시간',
-                          '${_end.month}월 ${_end.day}일 ${_time(_end)}',
+                          '${DateUtils.isSameDay(_start, _end) ? '' : '${_end.month}월 ${_end.day}일 '}${_editTime(_end)}',
                           () => _pickTime(false)),
                       if (widget.initialPlaces.isNotEmpty)
                         _listPlacesPreview()
@@ -604,8 +708,7 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                                   child: Padding(
                                     padding: const EdgeInsets.only(bottom: 8),
                                     child: Row(children: [
-                                      const Icon(Icons.place_outlined,
-                                          size: 26),
+                                      _formIcon(Icons.place_outlined),
                                       const SizedBox(width: 12),
                                       Expanded(
                                           child: Column(
@@ -697,9 +800,13 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                               ],
                             ])),
                       const SizedBox(height: 12),
-                      _field(Icons.notes_rounded, '메모', '메모 없음', null),
-                      _field(Icons.people_outline, '참석자',
-                          '${_participants.length}명', _pickParticipants),
+                      _field(
+                          Icons.people_outline,
+                          '참석자',
+                          _participants.isEmpty
+                              ? '참석자 추가하기'
+                              : '${_participants.length}명 참여',
+                          _pickParticipants),
                     ]))),
       );
   Widget _listPlacesPreview() {
@@ -793,6 +900,14 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
     ]);
   }
 
+  Widget _formIcon(IconData icon) => Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+          color: const Color(0xfff2f2f4),
+          borderRadius: BorderRadius.circular(14)),
+      child: Icon(icon, size: 25, color: AppDesign.primaryText));
+
   Widget _field(
           IconData icon, String label, String value, VoidCallback? onTap) =>
       Padding(
@@ -802,9 +917,12 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
             child: ListTile(
                 enabled: !_saving,
                 onTap: onTap,
-                leading: Icon(icon, color: AppDesign.primaryText),
+                leading: _formIcon(icon),
                 title: Text(label, style: AppDesign.caption),
-                subtitle: Text(value, style: AppDesign.bodyMedium),
+                subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Text(value,
+                        style: AppDesign.bodyMedium.copyWith(fontSize: 17))),
                 trailing:
                     onTap == null ? null : const Icon(Icons.chevron_right))),
       );
