@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,57 +12,76 @@ class NotificationService {
   final SupabaseClient _supabase;
   static StreamSubscription<String>? _tokenRefreshSubscription;
 
-  Future<void> initializePushNotifications() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null || kIsWeb) {
-      debugPrint('❌ 사용자 없거나 Web 환경');
-      return;
+  static const _androidNotifications =
+      MethodChannel('fluttertrip/notifications');
+  static StreamSubscription<RemoteMessage>? _foregroundSubscription;
+  static Future<bool>? _initializing;
+
+  Future<bool> initializePushNotifications() {
+    return _initializing ??= _initializePush().whenComplete(() {
+      _initializing = null;
+    });
+  }
+
+  Future<bool> _initializePush() async {
+    if (_supabase.auth.currentUser == null || kIsWeb || Firebase.apps.isEmpty) {
+      return false;
     }
-
     try {
-      debugPrint('🔥 FCM 초기화 시작 - User ID: ${user.id}');
-
-      if (Firebase.apps.isEmpty) {
-        debugPrint('❌ Firebase App이 초기화되지 않음');
-        return;
-      }
-
       final messaging = FirebaseMessaging.instance;
-
-      final settings = await messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-
-      debugPrint('📱 푸시 권한 상태: ${settings.authorizationStatus}');
-
-      await messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-
-      final token = await messaging.getToken();
-      debugPrint(
-          '📌 getToken() 결과: ${token != null ? "${token.substring(0, 20)}..." : "null"}');
-
-      if (token != null) {
-        await _savePushToken(token);
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        await _androidNotifications.invokeMethod<void>('initialize');
+        _foregroundSubscription ??=
+            FirebaseMessaging.onMessage.listen((message) async {
+          if (_supabase.auth.currentUser == null ||
+              message.notification == null) {
+            return;
+          }
+          try {
+            await _androidNotifications.invokeMethod<void>('show', {
+              'id': message.messageId ?? DateTime.now().toIso8601String(),
+              'title': message.notification?.title,
+              'body': message.notification?.body,
+            });
+          } catch (error) {
+            debugPrint('안드로이드 알림 표시 실패: $error');
+          }
+        });
       }
-
+      final settings = await messaging.requestPermission(
+          alert: true, badge: true, sound: true);
+      if (settings.authorizationStatus != AuthorizationStatus.authorized &&
+          settings.authorizationStatus != AuthorizationStatus.provisional) {
+        return false;
+      }
+      await messaging.setForegroundNotificationPresentationOptions(
+          alert: true, badge: true, sound: true);
       await _tokenRefreshSubscription?.cancel();
       _tokenRefreshSubscription = messaging.onTokenRefresh.listen(
-        (newToken) {
-          debugPrint('🔄 Token Refresh 발생!');
-          unawaited(_savePushToken(newToken));
-        },
+        (token) => unawaited(_savePushToken(token).catchError((Object error) {
+          debugPrint('푸시 토큰 저장 실패: $error');
+        })),
+        onError: (Object error) => debugPrint('푸시 토큰 갱신 실패: $error'),
       );
-
-      debugPrint('✅ FCM 초기화 완료');
-    } catch (e, stackTrace) {
-      debugPrint('❌ 푸시 알림 초기화 실패: $e');
-      debugPrint('$stackTrace');
+      // APNs registration can finish after notification permission is granted.
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        var ready = false;
+        for (var attempt = 0; attempt < 10; attempt++) {
+          if (await messaging.getAPNSToken() != null) {
+            ready = true;
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+        if (!ready) return false;
+      }
+      final token = await messaging.getToken();
+      if (token == null) return false;
+      await _savePushToken(token);
+      return true;
+    } catch (error) {
+      debugPrint('푸시 알림 연결 실패: $error');
+      return false;
     }
   }
 
@@ -86,31 +106,12 @@ class NotificationService {
       debugPrint('✅ 토큰 강제 갱신 및 저장 성공!');
     } catch (e) {
       debugPrint('❌ 토큰 저장 실패: $e');
+      rethrow;
     }
   }
 
-  // NotificationService 클래스에 추가
   Future<void> refreshPushTokenOnLogin() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
-    debugPrint('🔄 로그인 시 FCM 토큰 리프레쉬 시작');
-
-    try {
-      final messaging = FirebaseMessaging.instance;
-
-      // 기존 토큰 삭제 (서버에서)
-      // Preserve tokens registered on the user’s other devices.
-
-      // 새 토큰 발급
-      final token = await messaging.getToken();
-      if (token != null) {
-        await _savePushToken(token);
-        debugPrint('✅ 로그인 시 토큰 리프레쉬 완료');
-      }
-    } catch (e) {
-      debugPrint('❌ 로그인 시 토큰 리프레쉬 실패: $e');
-    }
+    await initializePushNotifications();
   }
 
   // notifyMarkerAddedToList는 그대로 유지
