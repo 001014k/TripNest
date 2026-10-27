@@ -1,12 +1,16 @@
-import '../services/notification_service.dart';
+import '../../services/lists/list_access_service.dart';
+import '../../services/notifications/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/marker_model.dart';
+import '../../models/markers/marker_model.dart';
 
 class MarkerInfoViewModel extends ChangeNotifier {
   final String listId;
   List<MarkerModel> markers = [];
   bool isLoading = true;
+  String? role;
+  bool get isOwner => role == 'owner';
+  bool get canEditPlaces => isOwner || role == 'editor';
   String? error;
 
   final supabase = Supabase.instance.client;
@@ -20,6 +24,7 @@ class MarkerInfoViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      role = await ListAccessService.role(listId);
       // 1️⃣ 리스트 내 마커 목록 조회
       final listBookmarksData = await supabase
           .from('list_bookmarks')
@@ -84,6 +89,11 @@ class MarkerInfoViewModel extends ChangeNotifier {
   Future<void> deleteMarker(String markerId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
+    if (!await ListAccessService.canEditPlaces(listId)) {
+      error = '게스트는 장소를 추가하거나 삭제할 수 없습니다.';
+      notifyListeners();
+      return;
+    }
 
     try {
       final response = await supabase
