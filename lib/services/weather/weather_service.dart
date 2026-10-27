@@ -1,8 +1,8 @@
-import '../models/weather_forecast.dart';
+import '../../models/weather/weather_forecast.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
-import '../env.dart';
+import '../../env.dart';
 
 class WeatherData {
   const WeatherData(
