@@ -1,9 +1,10 @@
+import '../../services/lists/list_access_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import '../services/notification_service.dart';
+import '../../services/notifications/notification_service.dart';
 
 class AddMarkersToListViewModel extends ChangeNotifier {
   final Set<Marker> _markers = {};
@@ -23,6 +24,10 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     '사진': 'assets/photo_marker.png',
     '음식점': 'assets/restaurant_marker.png',
     '전시회': 'assets/exhibition_marker.png',
+    '자연': 'nature',
+    '관광명소': 'landmark',
+    '쇼핑': 'shopping',
+    '체험': 'activity',
   };
 
   final supabase = Supabase.instance.client;
@@ -106,6 +111,9 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     }
 
     try {
+      if (!await ListAccessService.canEditPlaces(listId)) {
+        return '게스트는 읽기 전용입니다.';
+      }
       await supabase.rpc('add_marker_to_list', params: {
         'p_list_id': listId,
         'p_marker_id':
