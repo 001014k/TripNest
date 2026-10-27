@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../env.dart';
+import '../../env.dart';
 import 'shared_link_platform.dart';
 
 class ApifyService {
@@ -88,7 +88,19 @@ class ApifyService {
       throw Exception('Apify Dataset 결과 형식이 올바르지 않습니다.');
     }
 
+    validateInstagramResults(result);
     return result;
+  }
+
+  static void validateInstagramResults(List<dynamic> results) {
+    if (results.whereType<Map>().any((item) => item['caption']?.toString().trim().isNotEmpty == true)) return;
+    for (final item in results.whereType<Map>()) {
+      if (item['error'] == 'restricted_page') {
+        throw InstagramAccessException(item['restricted_age'] != null
+          ? '인스타그램의 연령 제한으로 게시물 본문을 가져오지 못했어요. 지도에서 장소를 검색해 저장해주세요.'
+          : '인스타그램의 접근 제한으로 게시물 본문을 가져오지 못했어요. 지도에서 장소를 검색해 저장해주세요.');
+      }
+    }
   }
 
   /// Actor 실행 상태 확인
@@ -131,4 +143,11 @@ class ApifyService {
 
     throw TimeoutException('Apify Actor 실행 시간이 초과되었습니다.');
   }
+}
+
+class InstagramAccessException implements Exception {
+  const InstagramAccessException(this.message);
+  final String message;
+  @override
+  String toString() => message;
 }
