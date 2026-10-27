@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import '../services/weather_service.dart';
-import '../models/weather_forecast.dart';
+import '../../services/weather/weather_service.dart';
+import '../../models/weather/weather_forecast.dart';
 
 /// App-scoped weather state survives home route removal and recreation.
 class HomeWeatherViewModel extends ChangeNotifier {
