@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/community_post_model.dart';
+import '../../models/community/community_post_model.dart';
 
 class CommunityPostDetailViewModel extends ChangeNotifier {
   CommunityPostDetailViewModel({required this.postId, SupabaseClient? client})
@@ -17,6 +17,68 @@ class CommunityPostDetailViewModel extends ChangeNotifier {
   bool isLiked = false;
   int likeCount = 0;
   String? errorMessage;
+
+  bool isSavingPlace = false;
+  bool isPlaceSaved = false;
+
+  Future<String> savePlace() async {
+    if (isSavingPlace) return '';
+    if (_client.auth.currentUser == null) return '로그인 후 장소를 저장할 수 있습니다.';
+    isSavingPlace = true;
+    notifyListeners();
+    try {
+      final result = await _client
+          .rpc('save_community_place', params: {'p_post_id': postId});
+      isPlaceSaved = true;
+      return result['already_saved'] == true
+          ? '이미 내 지도에 저장된 장소입니다.'
+          : '내 지도에 장소를 저장했습니다.';
+    } catch (_) {
+      return '장소를 저장하지 못했습니다. 다시 시도해주세요.';
+    } finally {
+      isSavingPlace = false;
+      notifyListeners();
+    }
+  }
+
+  bool isDeleting = false;
+  bool _disposed = false;
+
+  bool canDelete(String authorId) => _client.auth.currentUser?.id == authorId;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  Future<bool> deletePost(String authorId) async {
+    if (isDeleting || !canDelete(authorId)) return false;
+    isDeleting = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final deleted = await _client
+          .from('travel_posts')
+          .delete()
+          .eq('id', postId)
+          .eq('author_id', _client.auth.currentUser!.id)
+          .select('id');
+      if (deleted.isEmpty) throw StateError('Post was not deleted');
+      return true;
+    } catch (_) {
+      errorMessage = '게시글을 삭제하지 못했습니다. 다시 시도해주세요.';
+      return false;
+    } finally {
+      isDeleting = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> load() async {
     isLoading = true;
