@@ -1,15 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../widgets/reference_design.dart';
+import '../../widgets/common/reference_design.dart';
 import 'package:flutter/services.dart';
-import '../main.dart';
+import '../../main.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/splash_viewmodel.dart';
-import '../viewmodels/mapsample_viewmodel.dart';
-import '../viewmodels/list_viewmodel.dart';
-import '../viewmodels/profile_viewmodel.dart';
-import 'shared_address_handler.dart';
+import '../../viewmodels/auth/splash_viewmodel.dart';
+import '../../viewmodels/map/mapsample_viewmodel.dart';
+import '../../viewmodels/lists/list_viewmodel.dart';
+import '../../viewmodels/profile/profile_viewmodel.dart';
+import '../shared_links/shared_address_handler.dart';
 
 class SplashScreenView extends StatefulWidget {
   const SplashScreenView({super.key});
