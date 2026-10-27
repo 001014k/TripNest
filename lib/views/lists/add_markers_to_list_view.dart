@@ -1,8 +1,8 @@
-import '../widgets/address_photo_preview.dart';
+import '../../widgets/places/address_photo_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/add_markers_to_list_viewmodel.dart';
-import '../design/app_design.dart'; // AppDesign 임포트 추가
+import '../../viewmodels/lists/add_markers_to_list_viewmodel.dart';
+import '../../design/app_design.dart'; // AppDesign 임포트 추가
 
 class AddMarkersToListPage extends StatelessWidget {
   final String listId;
