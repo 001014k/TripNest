@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:google_generative_ai/google_generative_ai.dart';
-import '../env.dart';
+import '../../env.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../models/instagram_place_source_model.dart';
+import '../../models/shared_links/instagram_place_source_model.dart';
 
 class GeminiService {
   late final GenerativeModel _model;
