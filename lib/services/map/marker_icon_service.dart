@@ -83,6 +83,10 @@ class MarkerIconService {
       '호텔' || '숙소' => 'hotel',
       '사진' => 'photo',
       '전시회' => 'exhibition',
+      '자연' => 'nature',
+      '관광명소' => 'landmark',
+      '쇼핑' => 'shopping',
+      '체험' => 'activity',
       _ => 'place',
     };
     return createCustomMarkerImage(asset, 48, 52, selected: true);
@@ -103,6 +107,14 @@ class MarkerIconService {
       icon = Icons.camera_alt;
     } else if (key.contains('exhibition')) {
       icon = Icons.image_outlined;
+    } else if (key.contains('nature')) {
+      icon = Icons.park_outlined;
+    } else if (key.contains('landmark')) {
+      icon = Icons.account_balance_outlined;
+    } else if (key.contains('shopping')) {
+      icon = Icons.shopping_bag_outlined;
+    } else if (key.contains('activity')) {
+      icon = Icons.local_activity_outlined;
     } else {
       icon = Icons.place;
     }
