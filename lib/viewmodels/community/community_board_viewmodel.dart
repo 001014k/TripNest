@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/community_post_model.dart';
+import '../../models/community/community_post_model.dart';
 
 class CommunityBoardViewModel extends ChangeNotifier {
   CommunityBoardViewModel({SupabaseClient? client})
@@ -62,7 +62,10 @@ class CommunityBoardViewModel extends ChangeNotifier {
   bool isLoadingMarkers = false;
   String? errorMessage;
 
+  int _postsRequest = 0;
+
   Future<void> loadPosts() async {
+    final request = ++_postsRequest;
     isLoading = true;
     errorMessage = null;
     notifyListeners();
@@ -100,6 +103,7 @@ class CommunityBoardViewModel extends ChangeNotifier {
             .inFilter('post_id', response.map((row) => row['id']).toList());
         nextLikes.addAll(ownLikes.map((row) => row['post_id'].toString()));
       }
+      if (_disposed || request != _postsRequest) return;
       likeCounts.clear();
       commentCounts.clear();
       for (final row in response) {
@@ -117,11 +121,14 @@ class CommunityBoardViewModel extends ChangeNotifier {
               (data) => CommunityPost.fromMap(data as Map<String, dynamic>)),
         );
     } catch (e) {
+      if (_disposed || request != _postsRequest) return;
       debugPrint('❌ loadPosts 에러: $e');
       errorMessage = '게시물을 불러오지 못했습니다.';
     } finally {
-      isLoading = false;
-      notifyListeners();
+      if (!_disposed && request == _postsRequest) {
+        isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
