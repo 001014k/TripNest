@@ -1,10 +1,74 @@
-import '../services/notification_service.dart';
+import '../../services/notifications/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 
 class FriendManagementViewModel extends ChangeNotifier {
   final supabase = Supabase.instance.client;
+  FriendManagementViewModel() {
+    _watchRequests();
+    _authSubscription = supabase.auth.onAuthStateChange.listen((_) => _watchRequests());
+  }
+
+  int pendingRequestCount = 0;
+  String? _requestUserId;
+  RealtimeChannel? _requestChannel;
+  StreamSubscription<AuthState>? _authSubscription;
+  Timer? _requestPoll;
+  bool _disposed = false;
+  int _requestRevision = 0;
+
+  void _watchRequests() {
+    final userId = supabase.auth.currentUser?.id;
+    if (_requestUserId == userId) return;
+    _requestUserId = userId;
+    _requestRevision++;
+    _requestChannel?.unsubscribe();
+    _requestChannel = null;
+    _requestPoll?.cancel();
+    pendingRequestCount = 0;
+    if (!_disposed) notifyListeners();
+    if (userId == null) return;
+    _requestChannel = supabase.channel('friend-request-badge-$userId')
+        .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public',
+          table: 'friend_requests',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq,
+              column: 'requested_id', value: userId),
+          callback: (_) => refreshPendingRequestCount())
+        .subscribe();
+    unawaited(refreshPendingRequestCount());
+    // Also refresh when realtime is unavailable for this table.
+    _requestPoll = Timer.periodic(const Duration(seconds: 30),
+        (_) => refreshPendingRequestCount());
+  }
+
+  Future<void> refreshPendingRequestCount() async {
+    final userId = _requestUserId;
+    if (userId == null || _disposed) return;
+    final revision = ++_requestRevision;
+    try {
+      final count = await supabase.from('friend_requests').count()
+          .eq('requested_id', userId).eq('status', 'pending');
+      if (_disposed || revision != _requestRevision || userId != _requestUserId) return;
+      if (pendingRequestCount != count) {
+        pendingRequestCount = count;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('친구 요청 배지 조회 실패: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _authSubscription?.cancel();
+    _requestPoll?.cancel();
+    _requestChannel?.unsubscribe();
+    unsubscribePresence();
+    super.dispose();
+  }
+
   Set<String> onlineUserIds = {};
   RealtimeChannel? _presenceChannel;
   String get currentUserId => supabase.auth.currentUser?.id ?? '';
@@ -44,6 +108,7 @@ class FriendManagementViewModel extends ChangeNotifier {
 
   // 친구 요청 보내기
   Future<String> sendFriendRequest(String nickname) async {
+    if (currentUserId.isEmpty) return '로그인이 필요합니다.';
     try {
       final userRes = await supabase
           .from('profiles')
@@ -55,6 +120,7 @@ class FriendManagementViewModel extends ChangeNotifier {
         return '사용자를 찾을 수 없습니다.';
       }
       final toUserId = userRes['id'] as String;
+      if (toUserId == currentUserId) return '나에게는 친구 요청을 보낼 수 없어요.';
 
       final existingReq = await supabase
           .from('friend_requests')
@@ -138,6 +204,7 @@ class FriendManagementViewModel extends ChangeNotifier {
         });
       }
 
+      await refreshPendingRequestCount();
       return '친구 요청을 수락했습니다.';
     } catch (e) {
       debugPrint('오류 발생: $e');
@@ -156,6 +223,7 @@ class FriendManagementViewModel extends ChangeNotifier {
           .eq('requester_id', requesterId)
           .eq('requested_id', currentUserId);
 
+      await refreshPendingRequestCount();
       return '친구 요청을 거절했습니다.';
     } catch (e) {
       debugPrint('오류 발생: $e');
