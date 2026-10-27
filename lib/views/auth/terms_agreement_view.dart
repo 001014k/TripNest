@@ -1,6 +1,6 @@
-import '../widgets/app_overlays.dart';
+import '../../widgets/common/app_overlays.dart';
 import 'package:flutter/material.dart';
-import '../design/app_design.dart';
+import '../../design/app_design.dart';
 
 class TermsAgreementPage extends StatefulWidget {
   final String userId;
