@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/geocoding_service.dart';
-import '../services/user_service.dart';
+import '../../services/places/geocoding_service.dart';
+import '../../services/profile/user_service.dart';
 
 class MarkerCreationScreenViewModel extends ChangeNotifier {
   final GeocodingService _geocodingService = const GeocodingService();
@@ -14,6 +14,10 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
     '사진': Icons.camera_alt,
     '음식점': Icons.restaurant,
     '전시회': Icons.art_track,
+    '자연': Icons.park_outlined,
+    '관광명소': Icons.account_balance_outlined,
+    '쇼핑': Icons.shopping_bag_outlined,
+    '체험': Icons.local_activity_outlined,
   };
 
   List<Map<String, dynamic>> _lists = [];
