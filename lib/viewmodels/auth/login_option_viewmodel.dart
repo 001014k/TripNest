@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/auth_service.dart';
-import '../services/notification_service.dart';
+import '../../services/auth/auth_service.dart';
+import '../../services/notifications/notification_service.dart';
 
 class LoginViewModel extends ChangeNotifier {
   bool _disposed = false;
