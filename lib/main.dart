@@ -1,17 +1,18 @@
+import 'views/notifications/notifications_view.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'navigation/app_tab_shell.dart';
 import 'navigation/app_page_route.dart';
-import 'views/community_board_view.dart';
-import 'views/schedule_view.dart';
-import 'viewmodels/home_weather_viewmodel.dart';
+import 'views/community/community_board_view.dart';
+import 'views/schedule/schedule_view.dart';
+import 'viewmodels/home/home_weather_viewmodel.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertrip/design/app_design.dart';
-import 'package:fluttertrip/views/profile_view.dart';
+import 'package:fluttertrip/views/profile/profile_view.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:fluttertrip/views/shared_address_handler.dart';
+import 'package:fluttertrip/views/shared_links/shared_address_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
@@ -20,65 +21,45 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:fluttertrip/env.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:fluttertrip/models/cached_photo_url.dart';
-import 'models/shared_link_model.dart';
+import 'package:fluttertrip/models/places/cached_photo_url.dart';
+import 'models/shared_links/shared_link_model.dart';
 
 // ViewModel imports...
 import 'firebase_options.dart';
-import 'viewmodels/mapsample_viewmodel.dart';
-import 'viewmodels/friend_management_viewmodel.dart';
-import 'viewmodels/imageview_viewmodel.dart';
-import 'viewmodels/list_viewmodel.dart';
-import 'viewmodels/profile_viewmodel.dart';
-import 'viewmodels/splash_viewmodel.dart';
-import 'viewmodels/add_markers_to_list_viewmodel.dart';
-import 'viewmodels/markercreationscreen_viewmodel.dart';
-import 'viewmodels/shared_link_viewmodel.dart';
-import 'package:fluttertrip/viewmodels/collaborator_viewmodel.dart';
-import 'viewmodels/home_viewmodel.dart';
-import 'viewmodels/marker_list_screen_viewmodel.dart';
+import 'viewmodels/map/mapsample_viewmodel.dart';
+import 'viewmodels/friends/friend_management_viewmodel.dart';
+import 'viewmodels/markers/imageview_viewmodel.dart';
+import 'viewmodels/lists/list_viewmodel.dart';
+import 'viewmodels/profile/profile_viewmodel.dart';
+import 'viewmodels/auth/splash_viewmodel.dart';
+import 'viewmodels/lists/add_markers_to_list_viewmodel.dart';
+import 'viewmodels/markers/markercreationscreen_viewmodel.dart';
+import 'viewmodels/shared_links/shared_link_viewmodel.dart';
+import 'package:fluttertrip/viewmodels/lists/collaborator_viewmodel.dart';
+import 'viewmodels/home/home_viewmodel.dart';
+import 'viewmodels/markers/marker_list_screen_viewmodel.dart';
 
 // Service imports...
-import 'services/marker_service.dart';
-import 'services/notification_service.dart';
+import 'services/markers/marker_service.dart';
+import 'services/notifications/notification_service.dart';
 
 // View imports...
-import 'views/forgot_password_view.dart';
-import 'views/friend_management_view.dart';
-import 'views/mapsample_view.dart';
-import 'views/signup_view.dart';
-import 'views/splash_screen_view.dart';
-import 'views/login_option_view.dart';
-import 'views/home_view.dart';
-import 'views/list_view.dart';
-import 'views/shared_link_view.dart';
-import 'views/shared_link_detail_view.dart';
-import 'views/marker_list_screen_view.dart';
-import 'views/nickname_dialog_view.dart';
-import 'views/notification_settings_view.dart';
+import 'views/auth/forgot_password_view.dart';
+import 'views/friends/friend_management_view.dart';
+import 'views/map/mapsample_view.dart';
+import 'views/auth/signup_view.dart';
+import 'views/auth/splash_screen_view.dart';
+import 'views/auth/login_option_view.dart';
+import 'views/home/home_view.dart';
+import 'views/lists/list_view.dart';
+import 'views/shared_links/shared_link_view.dart';
+import 'views/shared_links/shared_link_detail_view.dart';
+import 'views/markers/marker_list_screen_view.dart';
+import 'views/auth/nickname_dialog_view.dart';
+import 'views/notifications/notification_settings_view.dart';
 
 /// ✅ 전역 Navigator Key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
-Future<void> saveFcmToken() async {
-  final messaging = FirebaseMessaging.instance;
-
-  // 1. 기존 토큰 삭제 후 재발급 강제 (필요시)
-  // await messaging.deleteToken();
-
-  final token = await messaging.getToken();
-
-  if (token != null) {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) {
-      await Supabase.instance.client.from('user_push_tokens').upsert({
-        'user_id': userId,
-        'token': token,
-      }, onConflict: 'user_id'); // user_id 기준 중복 방지
-      debugPrint("✅ 토큰 새로 저장 완료: $token");
-    }
-  }
-}
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -186,7 +167,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
         // FCM 초기화 + 토큰 리프레시
         unawaited(NotificationService().initializePushNotifications());
-        unawaited(NotificationService().refreshPushTokenOnLogin()); // ← 강제 리프레시
       }
     });
   }
@@ -245,6 +225,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               return SharedLinkDetailView(link: link);
             },
             '/marker_list': (context) => MarkerListScreen(),
+            '/notifications': (context) => const NotificationsView(),
             '/notification_settings': (context) =>
                 const NotificationSettingsView(),
             '/profile': (context) {
