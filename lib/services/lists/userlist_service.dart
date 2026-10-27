@@ -1,4 +1,4 @@
-import 'package:fluttertrip/services/user_service.dart';
+import 'package:fluttertrip/services/profile/user_service.dart';
 
 // UserListService: 사용자 리스트 조회
 class UserListService {
