@@ -1,7 +1,7 @@
-import 'notification_service.dart';
+import '../notifications/notification_service.dart';
 import 'package:flutter/foundation.dart';
-import 'database_helper.dart';
-import 'connectivity_service.dart';
+import '../infrastructure/database_helper.dart';
+import '../infrastructure/connectivity_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MarkerService {
