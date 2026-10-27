@@ -1,10 +1,11 @@
-import 'app_overlays.dart';
-import 'weather_forecast_sheet.dart';
+import 'home_skeleton.dart';
+import '../common/app_overlays.dart';
+import '../weather/weather_forecast_sheet.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/home_weather_viewmodel.dart';
-import '../services/weather_service.dart';
+import '../../viewmodels/home/home_weather_viewmodel.dart';
+import '../../services/weather/weather_service.dart';
 
 class HomeWeatherCard extends StatefulWidget {
   const HomeWeatherCard({super.key});
@@ -122,6 +123,7 @@ class WeatherCardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = weather;
+    if (loading && data == null) return const HomeSkeleton(height: 120);
     final icon = data == null
         ? Icons.cloud_outlined
         : data.precipitation == 3 || data.precipitation == 7
