@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../widgets/tripnest_navigation.dart';
+import '../widgets/navigation/tripnest_navigation.dart';
 
 class AppTabController extends ChangeNotifier {
   static const routes = [
