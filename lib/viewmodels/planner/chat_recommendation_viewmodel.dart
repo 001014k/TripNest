@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart'; // 위치 정보 사용 시 필요
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/gemini_service.dart';
-import '../services/places_service.dart';
+import '../../services/ai/gemini_service.dart';
+import '../../services/places/places_service.dart';
 
 class ChatRecommendationViewModel extends ChangeNotifier {
   final GeminiService _geminiService = GeminiService();
