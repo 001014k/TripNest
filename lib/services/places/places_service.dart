@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../env.dart';
+import '../../env.dart';
 
 class PlacesService {
   PlacesService({http.Client? client, String? apiKey})
