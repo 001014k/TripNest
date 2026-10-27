@@ -1,6 +1,6 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import '../models/marker_model.dart';
+import '../models/markers/marker_model.dart';
 
 class MarkerMapAdapter {
   const MarkerMapAdapter._();
