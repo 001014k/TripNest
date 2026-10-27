@@ -1,31 +1,32 @@
-import '../widgets/reference_design.dart' show ReferencePlatform;
-import '../widgets/travel_list_card.dart';
-import '../navigation/app_tab_shell.dart';
-import '../widgets/app_photo_hero.dart';
-import '../navigation/app_page_route.dart';
-import '../widgets/home_weather_card.dart';
-import '../widgets/home_date_strip.dart';
-import '../widgets/tripnest_navigation.dart';
-import '../viewmodels/list_viewmodel.dart';
-import '../services/schedule_service.dart';
-import '../models/schedule_model.dart';
-import 'marker_info_view.dart';
-import 'schedule_view.dart';
+import '../../widgets/home/home_skeleton.dart';
+import '../../widgets/common/reference_design.dart' show ReferencePlatform;
+import '../../widgets/lists/travel_list_card.dart';
+import '../../navigation/app_tab_shell.dart';
+import '../../widgets/common/app_photo_hero.dart';
+import '../../navigation/app_page_route.dart';
+import '../../widgets/home/home_weather_card.dart';
+import '../../widgets/home/home_date_strip.dart';
+import '../../widgets/navigation/tripnest_navigation.dart';
+import '../../viewmodels/lists/list_viewmodel.dart';
+import '../../services/schedule/schedule_service.dart';
+import '../../models/schedule/schedule_model.dart';
+import '../lists/marker_info_view.dart';
+import '../schedule/schedule_view.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:elegant_notification/elegant_notification.dart';
 import 'package:elegant_notification/resources/arrays.dart';
-import '../models/link_preview_data.dart';
-import '../mappers/marker_map_adapter.dart';
-import 'package:fluttertrip/widgets/address_photo_preview.dart';
+import '../../models/shared_links/link_preview_data.dart';
+import '../../mappers/marker_map_adapter.dart';
+import 'package:fluttertrip/widgets/places/address_photo_preview.dart';
 import 'package:provider/provider.dart';
-import '../models/shared_link_model.dart';
-import '../viewmodels/shared_link_viewmodel.dart';
-import '../viewmodels/home_viewmodel.dart';
-import '../models/marker_model.dart';
-import '../design/app_design.dart';
-import 'markerdetail_view.dart';
+import '../../models/shared_links/shared_link_model.dart';
+import '../../viewmodels/shared_links/shared_link_viewmodel.dart';
+import '../../viewmodels/home/home_viewmodel.dart';
+import '../../models/markers/marker_model.dart';
+import '../../design/app_design.dart';
+import '../markers/markerdetail_view.dart';
 
 // ================================
 // 메인 홈 대시보드 뷰
@@ -136,7 +137,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const TripNestHeader(),
+                          const TripNestHeader(trailing: TripNestSocialActions()),
                           const SizedBox(height: 20),
                           const Text('오늘의 여행', style: AppDesign.headingXL),
                           const SizedBox(height: 6),
@@ -187,7 +188,8 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
 
   Widget _travelListCard() =>
       Consumer<ListViewModel>(builder: (context, vm, _) {
-        if (vm.isLoading) return const LinearProgressIndicator();
+        if (vm.isLoading && vm.lists.isEmpty)
+          return const HomeSkeleton(height: 150);
         if (vm.errorMessage != null) {
           return _summaryCard(const Icon(Icons.refresh), '리스트를 불러오지 못했어요',
               '눌러서 다시 시도', vm.loadLists);
@@ -214,7 +216,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
       future: _upcoming,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LinearProgressIndicator();
+          return const HomeSkeleton();
         }
         if (snapshot.hasError) {
           return _summaryCard(const Icon(Icons.refresh), '일정을 불러오지 못했어요',
@@ -440,6 +442,10 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
   }
 
   Widget _buildMarkersList() {
+    if (context.watch<HomeDashboardViewModel>().loadingRecentMarkers &&
+        widget.markers.isEmpty) {
+      return const HomePhotoSkeletons();
+    }
     if (widget.markers.isEmpty) {
       return _buildEmptyMarkersState();
     }
@@ -834,7 +840,12 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
       children: [
         _buildSectionHeader(),
         const SizedBox(height: 10),
-        _sourceLinks.isEmpty ? _buildEmptyLinksState() : _buildLinksList(),
+        context.watch<HomeDashboardViewModel>().loadingSharedLinks &&
+                _sourceLinks.isEmpty
+            ? const HomePhotoSkeletons()
+            : _sourceLinks.isEmpty
+                ? _buildEmptyLinksState()
+                : _buildLinksList(),
         const SizedBox(height: 20),
       ],
     );
@@ -1015,7 +1026,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
 
   Widget _buildLinksList() {
     return SizedBox(
-      height: MediaQuery.textScalerOf(context).scale(1) >= 1.3 ? 284.h : 226.h,
+      height: 174 + MediaQuery.textScalerOf(context).scale(112),
       child: ListView.separated(
         padding: EdgeInsets.symmetric(horizontal: 20.w),
         scrollDirection: Axis.horizontal,
@@ -1035,7 +1046,7 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
         widget.sharedLinks.where((item) => item.url == link.url).length;
 
     return Container(
-      width: (MediaQuery.sizeOf(context).width - 40.w).clamp(220.0, 274.w),
+      width: (MediaQuery.sizeOf(context).width * .72).clamp(240.0, 340.0),
       decoration: BoxDecoration(
         color: AppDesign.homeSurface,
         borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
@@ -1055,13 +1066,35 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(children: [
+                  Expanded(child: ReferencePlatform(platform: link.platform)),
+                  const SizedBox(width: 8),
+                  Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                          color: const Color(0xfff3f3f5),
+                          borderRadius: BorderRadius.circular(20)),
+                      child: Text('장소 $placeCount곳',
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xff85858f))))
+                ]),
+                const SizedBox(height: 10),
                 _buildLinkImage(previewData),
                 const SizedBox(height: AppDesign.spacing10),
                 _buildLinkTitle(previewData, link),
                 const SizedBox(height: AppDesign.spacing4),
                 _buildLinkDescription(subtitle),
                 const Spacer(),
-                _buildLinkFooter(link, placeCount),
+                const Divider(
+                    height: 16, thickness: 1, color: Color(0xffeeeeF1)),
+                const Row(children: [
+                  Expanded(
+                      child: Text('링크 상세 보기',
+                          style: TextStyle(
+                              fontSize: 13, color: Color(0xff484850)))),
+                  Icon(Icons.chevron_right, size: 21, color: Color(0xff85858f))
+                ]),
               ],
             ),
           ),
@@ -1071,76 +1104,40 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
   }
 
   Widget _buildLinkImage(LinkPreviewData? previewData) {
-    return Container(
-      height: 88.h,
-      decoration: BoxDecoration(
-        gradient:
-            previewData?.image != null ? null : AppDesign.homeListIconGradient,
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        image: previewData?.image != null
-            ? DecorationImage(
-                image: NetworkImage(previewData!.image!),
-                fit: BoxFit.cover,
-              )
-            : null,
-      ),
-      child: previewData?.image == null
-          ? Center(
-              child: Icon(
-                Icons.link,
-                color: Colors.white,
-                size: 40.sp,
-              ),
-            )
-          : null,
-    );
+    final url = previewData?.image;
+    final fallback = const ColoredBox(
+        color: Color(0xfff1f2f4),
+        child: Center(
+            child: Icon(Icons.image_outlined,
+                size: 32, color: Color(0xffaaaab3))));
+    return ClipRRect(
+        borderRadius: BorderRadius.circular(13),
+        child: SizedBox(
+            height: 100,
+            width: double.infinity,
+            child: url == null || url.isEmpty
+                ? fallback
+                : Image.network(url,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => fallback)));
   }
 
   Widget _buildLinkTitle(LinkPreviewData? previewData, SharedLinkModel link) {
-    return Text(
-      previewData?.title ?? link.platform,
-      style: AppDesign.headingSmall.copyWith(color: AppDesign.homeForeground),
+    return Text(previewData?.title ?? link.platform,
+        style: const TextStyle(
+            fontSize: 17,
+            height: 1.25,
+            fontWeight: FontWeight.w700,
+            color: Color(0xff202024)),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis);
+  }
+
+  Widget _buildLinkDescription(String subtitle) => Text(subtitle,
+      style:
+          const TextStyle(fontSize: 12, height: 1.4, color: Color(0xff85858f)),
       maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
-  Widget _buildLinkDescription(String subtitle) {
-    return Text(
-      subtitle,
-      style: AppDesign.bodyMedium.copyWith(color: AppDesign.homeMutedText),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
-  Widget _buildLinkFooter(SharedLinkModel link, int placeCount) {
-    return Row(
-      children: [
-        Flexible(child: ReferencePlatform(platform: link.platform)),
-        const SizedBox(width: AppDesign.spacing8),
-        Text(
-          '장소 $placeCount곳',
-          style: AppDesign.caption.copyWith(
-            color: AppDesign.homeMutedText,
-          ),
-        ),
-        const Spacer(),
-        Container(
-          padding: EdgeInsets.all(4.w),
-          decoration: BoxDecoration(
-            color: AppDesign.homeMutedSurface,
-            borderRadius: BorderRadius.circular(6.r),
-          ),
-          child: Icon(
-            Icons.open_in_new,
-            size: 14.sp,
-            color: AppDesign.homeNavigationText,
-          ),
-        ),
-      ],
-    );
-  }
+      overflow: TextOverflow.ellipsis);
 
   String _getClippedSubtitle(
       LinkPreviewData? previewData, SharedLinkModel link) {
