@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/list_model.dart';
+import '../../models/lists/list_model.dart';
 
 class ListViewModel extends ChangeNotifier {
   final SupabaseClient supabase = Supabase.instance.client;
