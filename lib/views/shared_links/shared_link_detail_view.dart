@@ -1,17 +1,17 @@
-import '../navigation/app_page_route.dart';
-import '../widgets/app_overlays.dart';
-import '../widgets/reference_design.dart';
-import '../widgets/tripnest_navigation.dart';
+import '../../navigation/app_page_route.dart';
+import '../../widgets/common/app_overlays.dart';
+import '../../widgets/common/reference_design.dart';
+import '../../widgets/navigation/tripnest_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../design/app_design.dart';
-import '../models/link_preview_data.dart';
-import '../models/shared_link_model.dart';
-import '../viewmodels/mapsample_viewmodel.dart';
-import '../viewmodels/shared_link_detail_viewmodel.dart';
-import 'markercreationscreen_view.dart';
+import '../../design/app_design.dart';
+import '../../models/shared_links/link_preview_data.dart';
+import '../../models/shared_links/shared_link_model.dart';
+import '../../viewmodels/map/mapsample_viewmodel.dart';
+import '../../viewmodels/shared_links/shared_link_detail_viewmodel.dart';
+import '../markers/markercreationscreen_view.dart';
 
 class SharedLinkDetailView extends StatefulWidget {
   const SharedLinkDetailView({required this.link, super.key});
