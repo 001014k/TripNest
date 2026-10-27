@@ -2,16 +2,18 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../env.dart';
-import '../models/marker_model.dart';
-import '../models/link_preview_data.dart';
-import '../models/shared_link_model.dart'; // SharedLinkModel 임포트
-import '../services/marker_service.dart';
-import '../services/link_preview_service.dart';
-import '../services/shared_link_service.dart';
+import '../../env.dart';
+import '../../models/markers/marker_model.dart';
+import '../../models/shared_links/link_preview_data.dart';
+import '../../models/shared_links/shared_link_model.dart'; // SharedLinkModel 임포트
+import '../../services/markers/marker_service.dart';
+import '../../services/shared_links/link_preview_service.dart';
+import '../../services/shared_links/shared_link_service.dart';
 
 class HomeDashboardViewModel extends ChangeNotifier {
   bool _disposed = false;
+  bool loadingRecentMarkers = true;
+  bool loadingSharedLinks = true;
   final Map<String, LinkPreviewData?> _previewCache = {};
   final Map<String, Future<LinkPreviewData?>> _previewRequests = {};
 
@@ -102,13 +104,18 @@ class HomeDashboardViewModel extends ChangeNotifier {
 
   // loadRecentMarkers() 안에 _loadRatings() 호출 유지
   Future<void> loadRecentMarkers() async {
-    final rawMarkers = await MarkerService().getRecentMarkers(limit: 5);
-    _recentMarkers.clear();
-    _recentMarkers
-        .addAll(rawMarkers.map((e) => MarkerModel.fromMap(e)).toList());
-
-    notifyListeners();
-    _loadRatings(); // 평점 로드
+    try {
+      final rawMarkers = await MarkerService().getRecentMarkers(limit: 5);
+      if (_disposed) return;
+      _recentMarkers.clear();
+      _recentMarkers.addAll(rawMarkers.map((e) => MarkerModel.fromMap(e)));
+      _loadRatings();
+    } catch (error) {
+      debugPrint('홈 장소 조회 실패: $error');
+    } finally {
+      loadingRecentMarkers = false;
+      if (!_disposed) notifyListeners();
+    }
   }
 
   Future<void> _loadRatings() async {
@@ -162,10 +169,17 @@ class HomeDashboardViewModel extends ChangeNotifier {
 
   // 공유 링크 불러오는 함수 추가
   Future<void> loadSharedLinks() async {
-    final rawLinks = await SharedLinkService().loadSharedLinks(); // ✅ 수정된 부분
-    _sharedLinks.clear();
-    _sharedLinks.addAll(rawLinks);
-    notifyListeners();
+    try {
+      final rawLinks = await SharedLinkService().loadSharedLinks();
+      if (_disposed) return;
+      _sharedLinks.clear();
+      _sharedLinks.addAll(rawLinks);
+    } catch (error) {
+      debugPrint('홈 공유 링크 조회 실패: $error');
+    } finally {
+      loadingSharedLinks = false;
+      if (!_disposed) notifyListeners();
+    }
   }
 
   @override
