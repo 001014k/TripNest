@@ -1,38 +1,41 @@
-import '../widgets/selected_location_sheet.dart';
-import '../widgets/address_photo_preview.dart';
-import '../widgets/place_keyword_icon.dart';
-import '../navigation/app_page_route.dart';
-import '../widgets/app_overlays.dart';
-import '../widgets/map_keyword_sheet.dart';
-import '../widgets/map_trip_list_sheet.dart';
-import '../widgets/tripnest_navigation.dart';
+import '../../widgets/map/map_loading_placeholder.dart';
+import '../../widgets/map/route_order_sheet.dart';
+import '../../widgets/map/selected_location_sheet.dart';
+import '../../widgets/places/address_photo_preview.dart';
+import '../../widgets/places/place_keyword_icon.dart';
+import '../../navigation/app_page_route.dart';
+import '../../widgets/common/app_overlays.dart';
+import '../../widgets/map/map_keyword_sheet.dart';
+import '../../widgets/map/map_trip_list_sheet.dart';
+import '../../widgets/navigation/tripnest_navigation.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:fluttertrip/views/markercreationscreen_view.dart';
+import 'package:fluttertrip/views/markers/markercreationscreen_view.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/add_markers_to_list_viewmodel.dart';
-import '../views/markerdetail_view.dart';
-import '../viewmodels/mapsample_viewmodel.dart';
-import '../design/app_design.dart';
+import '../../viewmodels/lists/add_markers_to_list_viewmodel.dart';
+import '../markers/markerdetail_view.dart';
+import '../../viewmodels/map/mapsample_viewmodel.dart';
+import '../../design/app_design.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
-import 'chat_recommendation_view.dart';
+import '../planner/chat_recommendation_view.dart';
 
 /// A focused map opened from a detail page owns its controller so that closing
 /// it does not detach the retained map tab's controller or callbacks.
 class MapPreviewView extends StatelessWidget {
-  const MapPreviewView({super.key, this.initialMarkerId, this.initialListId});
+  const MapPreviewView({super.key, this.initialMarkerId, this.initialListId, this.initialPlace});
+  final Marker? initialPlace;
   final MarkerId? initialMarkerId;
   final String? initialListId;
   @override
   Widget build(BuildContext context) => ChangeNotifierProvider(
         create: (_) => MapSampleViewModel(),
         child: MapSampleView(
-            initialMarkerId: initialMarkerId, initialListId: initialListId),
+            initialMarkerId: initialMarkerId, initialListId: initialListId, initialPlace: initialPlace),
       );
 }
 
@@ -40,7 +43,8 @@ class MapSampleView extends StatefulWidget {
   final MarkerId? initialMarkerId;
   final String? initialListId;
 
-  const MapSampleView({super.key, this.initialMarkerId, this.initialListId});
+  final Marker? initialPlace;
+  const MapSampleView({super.key, this.initialMarkerId, this.initialListId, this.initialPlace});
 
   @override
   State<MapSampleView> createState() => _MapSampleViewState();
@@ -54,14 +58,22 @@ class _MapSampleViewState extends State<MapSampleView> {
   final TextEditingController _searchController = TextEditingController();
   bool _isMapInitialized = false;
   bool _hasLoadedMarkers = false;
+  bool _filterLoading = false;
   final Map<String, String> keywordMarkerImages = {
     '카페': 'assets/cafe_marker.png',
     '호텔': 'assets/hotel_marker.png',
     '사진': 'assets/photo_marker.png',
     '음식점': 'assets/restaurant_marker.png',
     '전시회': 'assets/exhibition_marker.png',
+    '자연': 'nature',
+    '관광명소': 'landmark',
+    '쇼핑': 'shopping',
+    '체험': 'activity',
   };
   LatLng? _pendingLatLng;
+  bool _initialPlaceSaved = false;
+  bool _initialPlaceDismissed = false;
+  final _markerCallbacksReady = Completer<void>();
 
   @override
   void didChangeDependencies() {
@@ -73,7 +85,37 @@ class _MapSampleViewState extends State<MapSampleView> {
     _viewModel.onSearchMarkerTapped = (Marker marker) async {
       debugPrint("✅ [Search Marker Tap] 클릭됨 → ${marker.markerId.value}");
 
-      final confirmed = await showModalBottomSheet<bool>(
+      if (widget.initialPlace?.markerId == marker.markerId) {
+        final lookup = _viewModel.findSavedPlace(marker);
+        final proceed = await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          builder: (sheetContext) => FutureBuilder<String?>(
+            future: lookup,
+            builder: (_, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const MapPlaceLoadingSheet();
+              }
+              if (snapshot.hasError) {
+                return const SafeArea(child: Padding(padding: EdgeInsets.all(24),
+                  child: Text('저장 여부를 확인하지 못했어요. 잠시 후 다시 시도해주세요.')));
+              }
+              return SelectedLocationSheet(
+                marker: marker,
+                currentLocation: _viewModel.currentLocation,
+                onAdd: () => Navigator.pop(sheetContext, true),
+                actionLabel: snapshot.data == null ? '내 지도에 추가하기' : '저장된 마커 보기',
+              );
+            },
+          ),
+        );
+        if (!mounted) return;
+        setState(() => _initialPlaceDismissed = true);
+        if (proceed != true) return;
+        if (await _showExistingPlace(marker)) return;
+      }
+      if (!mounted) return;
+      final confirmed = widget.initialPlace?.markerId == marker.markerId ? true : await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
         showDragHandle: false,
@@ -87,7 +129,11 @@ class _MapSampleViewState extends State<MapSampleView> {
           onAdd: () => Navigator.pop(sheet, true),
         ),
       );
-      if (!mounted || confirmed != true) return;
+      if (!mounted) return;
+      if (widget.initialPlace?.markerId == marker.markerId) {
+        setState(() => _initialPlaceDismissed = true);
+      }
+      if (confirmed != true) return;
       final result = await Navigator.push(
         context,
         AppPageRoute(
@@ -101,6 +147,11 @@ class _MapSampleViewState extends State<MapSampleView> {
       );
 
       if (result != null && result is Map<String, dynamic>) {
+        if (!mounted) return;
+        if (widget.initialPlace?.markerId == marker.markerId &&
+            await _showExistingPlace(marker)) {
+          return;
+        }
         if (!mounted) return;
         final saved = await _viewModel.addMarker(
           title: result['title'],
@@ -117,6 +168,9 @@ class _MapSampleViewState extends State<MapSampleView> {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('마커를 저장하지 못했어요. 다시 시도해주세요.')));
           return;
+        }
+        if (widget.initialPlace?.markerId == marker.markerId) {
+          setState(() => _initialPlaceSaved = true);
         }
         _viewModel.clearSearchResults();
 
@@ -221,7 +275,12 @@ class _MapSampleViewState extends State<MapSampleView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final viewModel = context.read<MapSampleViewModel>();
-      await viewModel.loadMarkers();
+      try {
+        await viewModel.loadMarkers();
+      } catch (error) {
+        debugPrint('지도 초기 마커 조회 실패: $error');
+      }
+      if (!mounted) return;
 
       viewModel.onMarkerTappedCallback = (marker) {
         String keyword = viewModel.getKeywordByMarkerId(marker.markerId.value);
@@ -268,11 +327,33 @@ class _MapSampleViewState extends State<MapSampleView> {
         );
       };
 
+      if (!_markerCallbacksReady.isCompleted) _markerCallbacksReady.complete();
       final initialMarkerId = (widget).initialMarkerId;
       if (initialMarkerId != null) {
         await viewModel.onMarkerTapped(initialMarkerId);
       }
     });
+  }
+
+  Future<bool> _showExistingPlace(Marker place) async {
+    try {
+      final id = await _viewModel.findSavedPlace(place);
+      if (!mounted) return true;
+      if (id == null) return false;
+      await _viewModel.loadMarkers();
+      if (!mounted) return true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이미 내 지도에 저장된 장소예요.')));
+      setState(() => _initialPlaceSaved = true);
+      await _viewModel.onMarkerTapped(MarkerId(id));
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('저장 여부를 확인하지 못했어요. 잠시 후 다시 시도해주세요.')));
+      }
+      return true;
+    }
   }
 
   void _onMapTapped(BuildContext context, LatLng latLng) async {
@@ -390,11 +471,16 @@ class _MapSampleViewState extends State<MapSampleView> {
   void showMarkersForSelectedList(String listId) async {
     if (!mounted) return;
     final viewModel = context.read<MapSampleViewModel>();
-    await viewModel.loadMarkersForList(listId);
+    setState(() => _filterLoading = true);
+    try {
+      await viewModel.loadMarkersForList(listId);
+    } finally {
+      if (mounted) setState(() => _filterLoading = false);
+    }
 
     if (!mounted) return;
 
-    final markers = viewModel.filteredMarkers.toList();
+    final markers = List<Marker>.of(viewModel.orderedMarkers);
 
     if (markers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -428,657 +514,57 @@ class _MapSampleViewState extends State<MapSampleView> {
     );
 
     if (!mounted) return;
+    final parentContext = context;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.95,
-          builder: (context, scrollController) {
-            return StatefulBuilder(
-              builder: (context, setState) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: AppDesign.cardBg,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(AppDesign.radiusLarge),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 20,
-                        offset: Offset(0, -5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // 헤더 섹션
-                      Container(
-                        padding: EdgeInsets.all(AppDesign.spacing20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppDesign.primaryBg,
-                              AppDesign.secondaryBg,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(AppDesign.radiusLarge),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            // 드래그 핸들
-                            Container(
-                              width: 40,
-                              height: 4,
-                              margin:
-                                  EdgeInsets.only(bottom: AppDesign.spacing16),
-                              decoration: BoxDecoration(
-                                color: AppDesign.borderColor,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            // 타이틀과 카운트
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '경로 순서',
-                                      style: AppDesign.headingMedium,
-                                    ),
-                                    SizedBox(height: AppDesign.spacing4),
-                                    Text(
-                                      '${markers.length}개의 장소',
-                                      style: AppDesign.caption.copyWith(
-                                        color: AppDesign.secondaryText,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: AppDesign.spacing12,
-                                    vertical: AppDesign.spacing8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: AppDesign.primaryGradient,
-                                    borderRadius: BorderRadius.circular(
-                                        AppDesign.radiusXL),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.route_rounded,
-                                        color: Colors.white,
-                                        size: 16,
-                                      ),
-                                      SizedBox(width: AppDesign.spacing4),
-                                      Text(
-                                        '경로 보기',
-                                        style: AppDesign.caption.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: AppDesign.spacing16),
-                            // 안내 메시지 카드
-                            Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.all(AppDesign.spacing12),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppDesign.travelBlue.withValues(alpha: 0.1),
-                                    AppDesign.travelPurple
-                                        .withValues(alpha: 0.1),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                    AppDesign.radiusMedium),
-                                border: Border.all(
-                                  color: AppDesign.travelBlue
-                                      .withValues(alpha: 0.2),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(AppDesign.spacing8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.touch_app_rounded,
-                                      color: AppDesign.travelBlue,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  SizedBox(width: AppDesign.spacing12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '드래그하여 순서 변경',
-                                          style: AppDesign.bodyMedium.copyWith(
-                                            color: AppDesign.travelBlue,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        Text(
-                                          '카드를 탭하면 지도에서 위치를 확인할 수 있어요',
-                                          style: AppDesign.caption.copyWith(
-                                            color: AppDesign.travelBlue
-                                                .withValues(alpha: 0.8),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // 마커 리스트
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: AppDesign.primaryBg,
-                          ),
-                          child: Consumer<MapSampleViewModel>(
-                            builder: (context, viewModel, _) {
-                              return ReorderableListView.builder(
-                                scrollController: scrollController,
-                                padding: EdgeInsets.fromLTRB(
-                                  AppDesign.spacing16,
-                                  AppDesign.spacing8,
-                                  AppDesign.spacing16,
-                                  AppDesign.spacing80,
-                                ),
-                                itemCount: viewModel.orderedMarkers.length,
-                                onReorderItem:
-                                    (int oldIndex, int newIndex) async {
-                                  HapticFeedback.lightImpact(); // 햅틱 피드백 추가
-                                  await viewModel.reorderMarkers(
-                                    oldIndex,
-                                    newIndex,
-                                    listId,
-                                    context.read<AddMarkersToListViewModel>(),
-                                  );
-                                },
-                                itemBuilder: (context, index) {
-                                  final marker =
-                                      viewModel.orderedMarkers[index];
-                                  final details =
-                                      markerDetailsMap[marker.markerId.value] ??
-                                          {
-                                            'title': '제목 없음',
-                                            'keyword': '키워드 없음',
-                                            'address': '주소 없음',
-                                          };
-
-                                  final title = details['title']!;
-                                  final keyword = details['keyword']!;
-                                  final address = details['address'] ?? '';
-                                  final orderNumber = index + 1;
-
-                                  // 키워드별 색상 매핑
-                                  final keywordColors = {
-                                    '카페': AppDesign.travelOrange,
-                                    '호텔': AppDesign.travelBlue,
-                                    '사진': AppDesign.travelPurple,
-                                    '음식점': AppDesign.travelGreen,
-                                    '전시회': AppDesign.sunsetGradientStart,
-                                  };
-                                  final keywordColor = keywordColors[keyword] ??
-                                      AppDesign.travelBlue;
-
-                                  return Container(
-                                    key: ValueKey(marker.markerId.value),
-                                    margin: EdgeInsets.only(
-                                        bottom: AppDesign.spacing12),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () {
-                                          HapticFeedback.selectionClick();
-                                          Navigator.pop(context);
-                                          viewModel
-                                              .onMarkerTapped(marker.markerId);
-                                        },
-                                        borderRadius: BorderRadius.circular(
-                                            AppDesign.radiusLarge),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: AppDesign.cardBg,
-                                            borderRadius: BorderRadius.circular(
-                                                AppDesign.radiusLarge),
-                                            border: Border.all(
-                                              color: AppDesign.borderColor
-                                                  .withValues(alpha: 0.5),
-                                              width: 1,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: keywordColor.withValues(
-                                                    alpha: 0.08),
-                                                blurRadius: 12,
-                                                offset: Offset(0, 4),
-                                              ),
-                                              BoxShadow(
-                                                color: Colors.black
-                                                    .withValues(alpha: 0.04),
-                                                blurRadius: 4,
-                                                offset: Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Container(
-                                            padding: EdgeInsets.all(
-                                                AppDesign.spacing16),
-                                            child: Row(
-                                              children: [
-                                                // 드래그 핸들과 순서 번호
-                                                Column(
-                                                  children: [
-                                                    Icon(
-                                                      Icons
-                                                          .drag_indicator_rounded,
-                                                      color:
-                                                          AppDesign.subtleText,
-                                                      size: 20,
-                                                    ),
-                                                    Container(
-                                                      width: 36,
-                                                      height: 36,
-                                                      decoration: BoxDecoration(
-                                                        gradient:
-                                                            LinearGradient(
-                                                          begin:
-                                                              Alignment.topLeft,
-                                                          end: Alignment
-                                                              .bottomRight,
-                                                          colors: [
-                                                            keywordColor,
-                                                            keywordColor
-                                                                .withValues(
-                                                                    alpha: 0.7),
-                                                          ],
-                                                        ),
-                                                        shape: BoxShape.circle,
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: keywordColor
-                                                                .withValues(
-                                                                    alpha: 0.3),
-                                                            blurRadius: 8,
-                                                            offset:
-                                                                Offset(0, 2),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      child: Center(
-                                                        child: Text(
-                                                          orderNumber
-                                                              .toString(),
-                                                          style: TextStyle(
-                                                            color: Colors.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 16,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                SizedBox(
-                                                    width: AppDesign.spacing16),
-                                                // 콘텐츠
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child: Text(
-                                                              title,
-                                                              style: AppDesign
-                                                                  .bodyMedium
-                                                                  .copyWith(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                fontSize: 15,
-                                                              ),
-                                                              maxLines: 1,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                            ),
-                                                          ),
-                                                          SizedBox(
-                                                              width: AppDesign
-                                                                  .spacing8),
-                                                          Container(
-                                                            padding: EdgeInsets
-                                                                .symmetric(
-                                                              horizontal:
-                                                                  AppDesign
-                                                                      .spacing10,
-                                                              vertical:
-                                                                  AppDesign
-                                                                      .spacing4,
-                                                            ),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: keywordColor
-                                                                  .withValues(
-                                                                      alpha:
-                                                                          0.1),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          AppDesign
-                                                                              .radiusXL),
-                                                              border:
-                                                                  Border.all(
-                                                                color: keywordColor
-                                                                    .withValues(
-                                                                        alpha:
-                                                                            0.2),
-                                                                width: 1,
-                                                              ),
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                Icon(
-                                                                  _getKeywordIcon(
-                                                                      keyword),
-                                                                  size: 12,
-                                                                  color:
-                                                                      keywordColor,
-                                                                ),
-                                                                SizedBox(
-                                                                    width: AppDesign
-                                                                        .spacing4),
-                                                                Text(
-                                                                  keyword,
-                                                                  style:
-                                                                      TextStyle(
-                                                                    color:
-                                                                        keywordColor,
-                                                                    fontSize:
-                                                                        11,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      if (address
-                                                          .isNotEmpty) ...[
-                                                        SizedBox(
-                                                            height: AppDesign
-                                                                .spacing8),
-                                                        Row(
-                                                          children: [
-                                                            Icon(
-                                                              Icons
-                                                                  .location_on_outlined,
-                                                              size: 14,
-                                                              color: AppDesign
-                                                                  .subtleText,
-                                                            ),
-                                                            SizedBox(
-                                                                width: AppDesign
-                                                                    .spacing4),
-                                                            Expanded(
-                                                              child: Text(
-                                                                address,
-                                                                style: AppDesign
-                                                                    .caption
-                                                                    .copyWith(
-                                                                  color: AppDesign
-                                                                      .secondaryText,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ],
-                                                  ),
-                                                ),
-                                                // 화살표
-                                                Container(
-                                                  padding: EdgeInsets.all(
-                                                      AppDesign.spacing8),
-                                                  decoration: BoxDecoration(
-                                                    color: AppDesign.lightGray,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: Icon(
-                                                    Icons
-                                                        .arrow_forward_ios_rounded,
-                                                    color:
-                                                        AppDesign.secondaryText,
-                                                    size: 14,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      // 하단 액션 버튼
-                      Container(
-                        padding: EdgeInsets.all(AppDesign.spacing20),
-                        decoration: BoxDecoration(
-                          color: AppDesign.cardBg,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: Offset(0, -5),
-                            ),
-                          ],
-                        ),
-                        child: SafeArea(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: AppDesign.borderColor,
-                                      width: 1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(
-                                        AppDesign.radiusMedium),
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(
-                                          AppDesign.radiusMedium),
-                                      onTap: () {
-                                        Navigator.pop(context);
-                                        showUserLists(context);
-                                      },
-                                      child: Padding(
-                                        padding: EdgeInsets.symmetric(
-                                            vertical: AppDesign.spacing16),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.arrow_back_rounded,
-                                              color: AppDesign.secondaryText,
-                                              size: 20,
-                                            ),
-                                            SizedBox(width: AppDesign.spacing8),
-                                            Text(
-                                              '뒤로가기',
-                                              style:
-                                                  AppDesign.bodyMedium.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: AppDesign.spacing12),
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: AppDesign.primaryGradient,
-                                    borderRadius: BorderRadius.circular(
-                                        AppDesign.radiusMedium),
-                                    boxShadow: AppDesign.glowShadow,
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(
-                                          AppDesign.radiusMedium),
-                                      onTap: () {
-                                        Navigator.pop(context);
-                                        final viewModel = context.read<
-                                            MapSampleViewModel>(); // ViewModel 타입에 맞게 바꿔주세요
-                                        viewModel.showPolyline();
-                                        // 경로 최적화 또는 네비게이션 시작
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Row(
-                                              children: [
-                                                Icon(Icons.navigation_rounded,
-                                                    color: Colors.white,
-                                                    size: 20),
-                                                SizedBox(
-                                                    width: AppDesign.spacing8),
-                                                Text('경로 안내를 시작합니다'),
-                                              ],
-                                            ),
-                                            backgroundColor:
-                                                AppDesign.travelGreen,
-                                            behavior: SnackBarBehavior.floating,
-                                            margin: EdgeInsets.all(
-                                                AppDesign.spacing16),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                      AppDesign.radiusMedium),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      child: Padding(
-                                        padding: EdgeInsets.symmetric(
-                                            vertical: AppDesign.spacing16),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.navigation_rounded,
-                                              color: Colors.white,
-                                              size: 20,
-                                            ),
-                                            SizedBox(width: AppDesign.spacing8),
-                                            Text(
-                                              '경로 시작',
-                                              style:
-                                                  AppDesign.bodyMedium.copyWith(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: .85,
+        minChildSize: .45,
+        maxChildSize: .95,
+        builder: (context, controller) => ListenableBuilder(
+            listenable: viewModel,
+            builder: (context, _) => RouteOrderSheet(
+                  controller: controller,
+                  places: viewModel.orderedMarkers.map((marker) {
+                    final details =
+                        markerDetailsMap[marker.markerId.value] ?? {};
+                    return RouteOrderPlace(
+                        id: marker.markerId.value,
+                        title: details['title'] ?? '제목 없음',
+                        address: details['address'] ?? '',
+                        keyword: details['keyword'] ?? '장소');
+                  }).toList(),
+                  onReorder: (oldIndex, newIndex) async {
+                    HapticFeedback.lightImpact();
+                    await viewModel.reorderMarkers(oldIndex, newIndex, listId,
+                        parentContext.read<AddMarkersToListViewModel>());
+                  },
+                  onPlace: (id) {
+                    Navigator.pop(sheetContext);
+                    viewModel.onMarkerTapped(MarkerId(id));
+                  },
+                  onMap: () {
+                    Navigator.pop(sheetContext);
+                    viewModel.showPolyline();
+                  },
+                  onBack: () {
+                    Navigator.pop(sheetContext);
+                    showUserLists(parentContext);
+                  },
+                  onStart: () async {
+                    Navigator.pop(sheetContext);
+                    await viewModel.startOrderedRoute();
+                    if (!parentContext.mounted) return;
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                        const SnackBar(content: Text('선택한 순서대로 경로를 표시합니다.')));
+                  },
+                )),
+      ),
     );
-  }
-
-// 키워드별 아이콘 헬퍼 함수
-  IconData _getKeywordIcon(String keyword) {
-    switch (keyword) {
-      case '카페':
-        return Icons.coffee_rounded;
-      case '호텔':
-        return Icons.hotel_rounded;
-      case '사진':
-        return Icons.camera_alt_rounded;
-      case '음식점':
-        return Icons.restaurant_rounded;
-      case '전시회':
-        return Icons.museum_rounded;
-      default:
-        return Icons.place_rounded;
-    }
   }
 
   @override
@@ -1116,7 +602,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                   }
 
                   // 핵심 수정: initialMarkerId가 있으면 내 위치 이동 안 함!
-                  if (widget.initialMarkerId == null &&
+                  if (widget.initialMarkerId == null && widget.initialPlace == null &&
                       viewModel.currentLocation != null) {
                     // 처음 앱 켤 때만 내 위치로 이동
                     controller.animateCamera(
@@ -1134,17 +620,26 @@ class _MapSampleViewState extends State<MapSampleView> {
                     await Future.delayed(const Duration(milliseconds: 300));
                   }
 
-                  // GoogleMap 위젯 attach 후 ClusterManager 실행
-                  WidgetsBinding.instance.addPostFrameCallback((_) async {
-                    await viewModel.applyMarkersToCluster(controller);
-                    if (widget.initialListId != null && mounted) {
-                      viewModel.setSelectedListId(widget.initialListId);
-                      showMarkersForSelectedList(widget.initialListId!);
+                  // Wait for saved-marker callbacks before opening a focused place.
+                  // A post-frame callback here may never run without another frame.
+                  await _markerCallbacksReady.future;
+                  if (!mounted) return;
+                  await viewModel.applyMarkersToCluster(controller);
+                  if (!mounted) return;
+                  if (widget.initialPlace != null) {
+                    await controller.animateCamera(CameraUpdate.newLatLngZoom(
+                        widget.initialPlace!.position, 16));
+                    if (mounted) {
+                      viewModel.onSearchMarkerTapped?.call(widget.initialPlace!);
                     }
-                  });
+                  }
+                  if (widget.initialListId != null && mounted) {
+                    viewModel.setSelectedListId(widget.initialListId);
+                    showMarkersForSelectedList(widget.initialListId!);
+                  }
                 },
                 initialCameraPosition: CameraPosition(
-                  target: LatLng(
+                  target: widget.initialPlace?.position ?? LatLng(
                     viewModel.currentLocation?.latitude ??
                         viewModel.seoulCityHall.latitude,
                     viewModel.currentLocation?.longitude ??
@@ -1160,6 +655,10 @@ class _MapSampleViewState extends State<MapSampleView> {
                 markers: {
                   // 1. 기존 사용자 마커들 (클러스터 등)
                   ...viewModel.displayMarkers,
+                  if (widget.initialPlace != null &&
+                      !_initialPlaceSaved && !_initialPlaceDismissed)
+                    widget.initialPlace!.copyWith(onTapParam: () =>
+                      viewModel.onSearchMarkerTapped?.call(widget.initialPlace!)),
 
                   // 2. 검색 결과 마커들 전체 추가 ← 이게 핵심!!
                   ...viewModel.searchResults,
@@ -1194,6 +693,19 @@ class _MapSampleViewState extends State<MapSampleView> {
               );
             },
           ),
+          Positioned.fill(child: IgnorePointer(child: AnimatedSwitcher(
+            duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 220),
+            child: _controller == null
+                ? const MapLoadingPlaceholder()
+                : const SizedBox.expand(),
+          ))),
+          if (_controller != null && (!_hasLoadedMarkers || _filterLoading))
+            Positioned(top: MediaQuery.paddingOf(context).top + 130, left: 20, right: 20,
+              child: IgnorePointer(child: Center(child: Chip(
+                backgroundColor: Colors.white,
+                avatar: const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                label: Text(_filterLoading ? '선택한 장소 불러오는 중…' : '저장한 장소 불러오는 중…'),
+              )))),
           Positioned(
             top: 0,
             left: 0,
@@ -1249,32 +761,8 @@ class _MapSampleViewState extends State<MapSampleView> {
               ]),
             ),
           ),
-          // 지도 초기화 로딩 인디케이터
-          if (!_hasLoadedMarkers)
-            Positioned.fill(
-              child: Container(
-                color: AppDesign.primaryBg.withValues(alpha: 0.9),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(AppDesign.travelBlue),
-                      ),
-                      SizedBox(height: AppDesign.spacing16),
-                      Text(
-                        "지도를 불러오는 중...",
-                        style: AppDesign.bodyLarge.copyWith(
-                          color: AppDesign.primaryText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           if (_hasLoadedMarkers &&
+              widget.initialPlace == null &&
               context.watch<MapSampleViewModel>().filteredMarkers.isEmpty &&
               searchResults.isEmpty)
             Center(
@@ -1316,7 +804,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                 child: ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   scrollDirection: Axis.horizontal,
-                  itemCount: keywords.length + 1,
+                  itemCount: keywords.take(4).length + 1,
                   separatorBuilder: (_, __) => const SizedBox(width: 6),
                   itemBuilder: (context, index) {
                     final vm = context.watch<MapSampleViewModel>();
@@ -1340,17 +828,24 @@ class _MapSampleViewState extends State<MapSampleView> {
                                   ? Colors.white
                                   : const Color(0xFF202020)),
                       label: Text({'호텔': '숙소', '음식점': '맛집'}[keyword] ?? keyword,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                               color: active
                                   ? Colors.white
                                   : const Color(0xFF202020))),
-                      onPressed: () async {
+                      onPressed: _filterLoading ? null : () async {
+                        setState(() => _filterLoading = true);
+                        try {
                         if (index == 0) {
                           for (final key in vm.activeKeywords.toList()) {
                             await vm.toggleKeyword(key);
                           }
                         } else {
                           await vm.toggleKeyword(keyword);
+                        }
+                        } finally {
+                          if (mounted) setState(() => _filterLoading = false);
                         }
                       },
                     );
