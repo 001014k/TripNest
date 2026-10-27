@@ -1,16 +1,16 @@
-import '../services/shared_link_platform.dart';
-import '../widgets/app_overlays.dart';
-import '../widgets/reference_design.dart';
-import '../widgets/tripnest_navigation.dart';
+import '../../services/shared_links/shared_link_platform.dart';
+import '../../widgets/common/app_overlays.dart';
+import '../../widgets/common/reference_design.dart';
+import '../../widgets/navigation/tripnest_navigation.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-import '../models/link_place_preview_model.dart';
-import '../models/link_preview_data.dart';
-import '../models/shared_link_model.dart';
-import '../viewmodels/shared_link_viewmodel.dart';
-import '../design/app_design.dart';
+import '../../models/shared_links/link_place_preview_model.dart';
+import '../../models/shared_links/link_preview_data.dart';
+import '../../models/shared_links/shared_link_model.dart';
+import '../../viewmodels/shared_links/shared_link_viewmodel.dart';
+import '../../design/app_design.dart';
 
 class SharedLinkView extends StatefulWidget {
   const SharedLinkView({super.key});
@@ -141,7 +141,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
     try {
       final platform = _viewModel.detectPlatformFromUrl(url);
 
-      if (platform == 'Instagram' || SharedLinkPlatform.supportsPlaces(url)) {
+      if (platform == 'Instagram' || platform == 'Threads' || SharedLinkPlatform.supportsPlaces(url)) {
         await _processMultiPlaceUrl(
           url,
           sharedText: sharedText,
@@ -228,6 +228,8 @@ class _SharedLinkViewState extends State<SharedLinkView>
         debugPrint('[공유 링크] Instagram → Apify');
         previews = await _viewModel.extractInstagramPlaces(url,
             sharedText: sharedText);
+      } else if (SharedLinkPlatform.detect(url) == 'Threads') {
+        previews = await _viewModel.extractThreadsPlaces(url);
       } else if (SharedLinkPlatform.supportsPlaces(url)) {
         debugPrint('[공유 링크] 공개 후기 → HTTP 본문 추출');
         previews =
@@ -242,7 +244,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
         Navigator.of(context, rootNavigator: true).pop();
         isExtractingDialogVisible = false;
         await _showExtractionFailedDialog(
-          '링크에서 여행 장소를 찾지 못했습니다.',
+          _viewModel.errorMessage ?? '링크에서 여행 장소를 찾지 못했습니다.',
         );
         return;
       }
@@ -448,7 +450,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
                                             style: AppDesign.headingSmall),
                                         SizedBox(height: 5),
                                         Text(
-                                            '인스타그램·블로그·카페에서 발견한 장소를 링크로 공유하고 저장해보세요.',
+                                            '인스타그램·Threads·블로그·카페에서 발견한 장소를 링크로 공유하고 저장해보세요.',
                                             style: AppDesign.bodySmall)
                                       ])),
                                   FilledButton(
@@ -578,7 +580,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
           _GuideCard(
             icon: Icons.photo_library_outlined,
             title: 'SNS에서',
-            description: '인스타그램 또는 공개 블로그·카페 글을 공유하세요',
+            description: '인스타그램·Threads 또는 공개 블로그·카페 글을 공유하세요',
             color: AppDesign.sunsetGradientStart,
           ),
           const SizedBox(height: AppDesign.spacing12),
@@ -646,7 +648,11 @@ class _SharedLinkViewState extends State<SharedLinkView>
               ElevatedButton.icon(
                 onPressed: () =>
                     context.read<SharedLinkViewModel>().loadSharedLinks(),
-                icon: const Icon(Icons.refresh_rounded),
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  size: 20,
+                  color: Colors.white,
+                ),
                 label: const Text('다시 시도'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppDesign.primaryText,
@@ -952,6 +958,7 @@ class _PremiumLinkCardState extends State<_PremiumLinkCard> {
 
     final platformColors = {
       'Instagram': AppDesign.sunsetGradientStart,
+      'Threads': const Color(0xFF222222),
       'YouTube': Colors.red,
       'Twitter': AppDesign.travelBlue,
       'Facebook': const Color(0xFF1877F2),
