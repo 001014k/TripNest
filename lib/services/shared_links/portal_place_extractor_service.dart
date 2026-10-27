@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
-import '../models/instagram_place_source_model.dart';
-import '../models/link_place_preview_model.dart';
-import 'gemini_service.dart';
+import '../../models/shared_links/instagram_place_source_model.dart';
+import '../../models/shared_links/link_place_preview_model.dart';
+import '../ai/gemini_service.dart';
 import 'link_place_extractor_service.dart';
 import 'shared_link_platform.dart';
 
