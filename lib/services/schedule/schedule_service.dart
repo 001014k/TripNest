@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/schedule_model.dart';
+import '../../models/schedule/schedule_model.dart';
 
 class ScheduleService {
   ScheduleService({SupabaseClient? client})
