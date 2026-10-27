@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../viewmodels/security_settings_viewmodel.dart';
-import '../widgets/tripnest_navigation.dart';
+import '../../viewmodels/profile/security_settings_viewmodel.dart';
+import '../../widgets/navigation/tripnest_navigation.dart';
 
 class SecuritySettingsView extends StatelessWidget {
   const SecuritySettingsView({super.key});
