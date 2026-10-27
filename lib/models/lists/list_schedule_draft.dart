@@ -1,6 +1,6 @@
 import 'package:uuid/uuid.dart';
-import 'marker_model.dart';
-import 'schedule_model.dart';
+import '../markers/marker_model.dart';
+import '../schedule/schedule_model.dart';
 
 /// Allocates the selected interval in list order, preserving every place ID.
 List<ScheduleModel> buildListSchedules({
