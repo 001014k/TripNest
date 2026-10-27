@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../services/app_group_handler_service.dart';
-import '../viewmodels/shared_link_viewmodel.dart';
+import '../../services/shared_links/app_group_handler_service.dart';
+import '../../viewmodels/shared_links/shared_link_viewmodel.dart';
 
 Future<void> handleIncomingSharedAddress(
   BuildContext context, {
