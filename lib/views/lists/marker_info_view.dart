@@ -1,20 +1,21 @@
-import '../widgets/place_keyword_icon.dart';
-import '../navigation/app_page_route.dart';
-import '../widgets/app_overlays.dart';
-import '../viewmodels/mapsample_viewmodel.dart';
-import '../viewmodels/add_markers_to_list_viewmodel.dart';
-import '../widgets/reference_design.dart';
-import 'mapsample_view.dart';
-import 'schedule_view.dart';
-import '../widgets/address_photo_preview.dart';
+import '../../widgets/markers/marker_delete_dialog.dart';
+import '../../widgets/places/place_keyword_icon.dart';
+import '../../navigation/app_page_route.dart';
+import '../../viewmodels/map/mapsample_viewmodel.dart';
+import '../../viewmodels/lists/add_markers_to_list_viewmodel.dart';
+import '../../widgets/common/reference_design.dart';
+import '../map/mapsample_view.dart';
+import '../schedule/schedule_view.dart';
+import '../../widgets/places/address_photo_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../design/app_design.dart';
-import '../models/marker_model.dart';
-import '../mappers/marker_map_adapter.dart';
-import '../viewmodels/marker_info_viewmodel.dart';
-import '../views/add_markers_to_list_view.dart';
-import 'markerdetail_view.dart';
+import '../../design/app_design.dart';
+import '../../models/markers/marker_model.dart';
+import '../../mappers/marker_map_adapter.dart';
+import '../../viewmodels/lists/marker_info_viewmodel.dart';
+import 'add_markers_to_list_view.dart';
+import '../markers/markerdetail_view.dart';
+import 'list_collaboration_view.dart';
 
 class MarkerInfoPage extends StatefulWidget {
   final String listId;
@@ -51,6 +52,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
   }
 
   Future<void> navigateToAddMarkersToListPage() async {
+    if (!viewModel.canEditPlaces) return;
     final result = await Navigator.push(
       context,
       AppPageRoute(
@@ -98,6 +100,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                         sliver: SliverReorderableList(
                           itemCount: vm.markers.length,
                           onReorderItem: (oldIndex, newIndex) async {
+                            if (!vm.isOwner) return;
                             final map = context.read<MapSampleViewModel>();
                             final add =
                                 context.read<AddMarkersToListViewModel>();
@@ -126,8 +129,10 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                                   'keyword': marker.keyword
                                 },
                                 index: index,
-                                onDelete: () =>
-                                    _confirmDelete(context, vm, marker.id));
+                                canReorder: vm.isOwner,
+                                onDelete: vm.canEditPlaces
+                                    ? () => _confirmDelete(context, vm, marker)
+                                    : null);
                           },
                         ),
                       ),
@@ -141,7 +146,10 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
             ),
           ),
         ),
-        floatingActionButton: _buildPremiumFAB(),
+        floatingActionButton: Consumer<MarkerInfoViewModel>(
+          builder: (_, vm, __) =>
+              vm.canEditPlaces ? _buildPremiumFAB() : const SizedBox.shrink(),
+        ),
         bottomNavigationBar: SafeArea(
             child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
@@ -182,10 +190,11 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 onPressed: () =>
                     Navigator.pushNamed(context, '/notification_settings'),
                 icon: const Icon(Icons.notifications_none_rounded)),
-            IconButton(
-                tooltip: '리스트 관리',
-                onPressed: widget.onManage ?? navigateToAddMarkersToListPage,
-                icon: const Icon(Icons.more_vert)),
+            if (viewModel.isOwner && widget.onManage != null)
+              IconButton(
+                  tooltip: '리스트 관리',
+                  onPressed: widget.onManage,
+                  icon: const Icon(Icons.more_vert)),
           ]),
           const SizedBox(height: 14),
           Consumer<MarkerInfoViewModel>(
@@ -254,7 +263,8 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                                         ),
                                       )),
                                     )),
-                                    if (widget.onCollaborate != null)
+                                    if (viewModel.isOwner &&
+                                        widget.onCollaborate != null)
                                       FilledButton.icon(
                                         style: FilledButton.styleFrom(
                                           backgroundColor: Colors.white,
@@ -294,8 +304,14 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                 Icons.format_list_bulleted, '일정으로 추가', _addListToSchedule),
             _listAction(Icons.link, '공유 링크',
                 () => Navigator.pushNamed(context, '/shared_link')),
-            _listAction(Icons.add_location_alt_outlined, '장소 추가',
-                navigateToAddMarkersToListPage),
+            _listAction(
+                Icons.group_outlined,
+                '협업 관리',
+                () => Navigator.push(
+                    context,
+                    AppPageRoute(
+                        builder: (_) =>
+                            ListCollaborationView(listId: widget.listId)))),
           ]),
         ]),
       );
@@ -600,17 +616,20 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
   }
 
   void _confirmDelete(
-      BuildContext context, MarkerInfoViewModel vm, String markerId) async {
+      BuildContext context, MarkerInfoViewModel vm, MarkerModel marker) async {
     final result = await showDialog<bool>(
         context: context,
-        builder: (_) => const AppConfirmDialog(
-            title: '마커를 삭제할까요?',
-            message: '삭제한 마커는 복구할 수 없습니다.',
-            confirmLabel: '삭제',
-            destructive: true,
-            icon: Icons.delete_outline));
-    if (result == true) {
-      vm.deleteMarker(markerId);
+        builder: (_) => MarkerDeleteDialog(
+              removeFromList: true,
+              title: marker.title,
+              address: marker.address,
+              imageUrl: marker.markerImagePath.startsWith('http')
+                  ? marker.markerImagePath
+                  : null,
+              tags: [if (marker.keyword.trim().isNotEmpty) marker.keyword],
+            ));
+    if (result == true && context.mounted) {
+      await vm.deleteMarker(marker.id);
     }
   }
 }
@@ -620,7 +639,8 @@ class _MarkerInfoCard extends StatelessWidget {
   final MarkerModel marker;
   final Map<String, String> details;
   final int index;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
+  final bool canReorder;
 
   const _MarkerInfoCard({
     super.key,
@@ -628,6 +648,7 @@ class _MarkerInfoCard extends StatelessWidget {
     required this.details,
     required this.index,
     required this.onDelete,
+    required this.canReorder,
   });
 
   @override
@@ -721,16 +742,19 @@ class _MarkerInfoCard extends StatelessWidget {
                                 style: AppDesign.caption)),
                       ]),
                     ])),
-                IconButton(
-                    tooltip: '리스트에서 삭제',
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.bookmark_remove_outlined, size: 22)),
-                ReorderableDragStartListener(
-                    index: index,
-                    child: const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(Icons.drag_handle,
-                            size: 22, color: AppDesign.subtleText))),
+                if (onDelete != null)
+                  IconButton(
+                      tooltip: '리스트에서 삭제',
+                      onPressed: onDelete,
+                      icon:
+                          const Icon(Icons.bookmark_remove_outlined, size: 22)),
+                if (canReorder)
+                  ReorderableDragStartListener(
+                      index: index,
+                      child: const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(Icons.drag_handle,
+                              size: 22, color: AppDesign.subtleText))),
               ])),
         ));
   }
