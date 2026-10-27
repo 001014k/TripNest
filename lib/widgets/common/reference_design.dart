@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'address_photo_preview.dart';
+import '../places/address_photo_preview.dart';
 
 /// Measurements are logical pixels, relative to the 390px reference viewport.
 class ReferenceCard extends StatelessWidget {
@@ -332,6 +332,7 @@ class ReferencePlatform extends StatelessWidget {
     final name = platform.toLowerCase();
     final instagram = name.contains('instagram');
     final naver = name.contains('naver');
+    final threads = name.contains('threads');
     final youtube = name.contains('youtube');
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Container(
@@ -364,6 +365,8 @@ class ReferencePlatform extends StatelessWidget {
                   : Icon(
                       instagram
                           ? Icons.camera_alt_outlined
+                          : threads
+                              ? Icons.alternate_email_rounded
                           : youtube
                               ? Icons.play_arrow_rounded
                               : Icons.link,
