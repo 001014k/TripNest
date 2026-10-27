@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
-import '../env.dart';
-import '../models/link_place_preview_model.dart';
+import '../../env.dart';
+import '../../models/shared_links/link_place_preview_model.dart';
 import 'package:flutter/foundation.dart';
-import '../services/apify_service.dart';
-import '../services/gemini_service.dart';
+import 'apify_service.dart';
+import '../ai/gemini_service.dart';
 
 class LinkPlaceExtractorService {
   const LinkPlaceExtractorService();
@@ -281,6 +281,8 @@ class LinkPlaceExtractorService {
       }
 
       return finalResults;
+    } on InstagramAccessException {
+      rethrow;
     } catch (e, stackTrace) {
       debugPrint(
         '❌ [Instagram] 장소 분석 실패: $e',
