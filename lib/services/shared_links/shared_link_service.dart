@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/link_place_preview_model.dart';
-import '../models/shared_link_model.dart';
+import '../../models/shared_links/link_place_preview_model.dart';
+import '../../models/shared_links/shared_link_model.dart';
 
 class SharedLinkService {
   final SupabaseClient _client = Supabase.instance.client;
