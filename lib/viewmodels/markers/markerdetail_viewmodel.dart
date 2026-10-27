@@ -1,11 +1,11 @@
-import '../services/place_hours.dart';
+import '../../services/places/place_hours.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/marker_service.dart';
-import '../services/places_service.dart';
+import '../../services/markers/marker_service.dart';
+import '../../services/places/places_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MarkerDetailViewModel extends ChangeNotifier {
