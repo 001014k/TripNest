@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user_model.dart';
-import '../models/userprofile_model.dart';
+import '../../models/profile/user_model.dart';
+import '../../models/profile/userprofile_model.dart';
 
 final supabase = Supabase.instance.client;
 
