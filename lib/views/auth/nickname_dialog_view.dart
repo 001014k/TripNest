@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../design/app_design.dart';
-import '../viewmodels/nickname_dialog_viewmodel.dart';
+import '../../design/app_design.dart';
+import '../../viewmodels/auth/nickname_dialog_viewmodel.dart';
 
 class NicknameSetupPage extends StatelessWidget {
   final String userId;
