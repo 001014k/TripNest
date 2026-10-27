@@ -1,15 +1,15 @@
-import '../navigation/app_page_route.dart';
-import '../widgets/app_overlays.dart';
+import '../../navigation/app_page_route.dart';
+import '../../widgets/common/app_overlays.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../design/app_design.dart';
-import '../viewmodels/marker_list_screen_viewmodel.dart';
-import '../views/markerdetail_view.dart';
-import '../models/marker_model.dart';
-import '../mappers/marker_map_adapter.dart';
-import '../widgets/travel_shimmer.dart';
-import '../widgets/address_photo_preview.dart';
+import '../../design/app_design.dart';
+import '../../viewmodels/markers/marker_list_screen_viewmodel.dart';
+import 'markerdetail_view.dart';
+import '../../models/markers/marker_model.dart';
+import '../../mappers/marker_map_adapter.dart';
+import '../../widgets/common/travel_shimmer.dart';
+import '../../widgets/places/address_photo_preview.dart';
 
 class MarkerListScreen extends StatefulWidget {
   const MarkerListScreen({super.key});
@@ -608,6 +608,10 @@ class _MarkerListScreenState extends State<MarkerListScreen>
               _buildCategoryChip('사진'),
               _buildCategoryChip('음식점'),
               _buildCategoryChip('전시회'),
+              _buildCategoryChip('자연'),
+              _buildCategoryChip('관광명소'),
+              _buildCategoryChip('쇼핑'),
+              _buildCategoryChip('체험'),
             ],
           ),
         ),
