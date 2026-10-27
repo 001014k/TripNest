@@ -1,15 +1,15 @@
-import '../navigation/app_page_route.dart';
+import '../../navigation/app_page_route.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:fluttertrip/views/terms_agreement_view.dart';
+import 'package:fluttertrip/views/auth/terms_agreement_view.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/auth_service.dart';
-import '../viewmodels/list_viewmodel.dart';
-import '../viewmodels/login_option_viewmodel.dart';
-import '../viewmodels/profile_viewmodel.dart';
-import '../widgets/reference_design.dart';
-import '../design/app_design.dart'; // 디자인 시스템 import
+import '../../services/auth/auth_service.dart';
+import '../../viewmodels/lists/list_viewmodel.dart';
+import '../../viewmodels/auth/login_option_viewmodel.dart';
+import '../../viewmodels/profile/profile_viewmodel.dart';
+import '../../widgets/common/reference_design.dart';
+import '../../design/app_design.dart'; // 디자인 시스템 import
 
 class CombinedLoginView extends StatefulWidget {
   const CombinedLoginView({super.key});
