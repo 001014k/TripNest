@@ -1,4 +1,4 @@
-import '../design/map_style.dart';
+import '../../design/map_style.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -11,12 +11,12 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart'
     as cluster_manager;
 import 'package:http/http.dart' as http;
-import '../env.dart';
-import '../models/marker_model.dart';
-import '../models/place_model.dart';
-import '../services/marker_icon_service.dart';
-import '../services/marker_service.dart';
-import '../viewmodels/add_markers_to_list_viewmodel.dart';
+import '../../env.dart';
+import '../../models/markers/marker_model.dart';
+import '../../models/places/place_model.dart';
+import '../../services/map/marker_icon_service.dart';
+import '../../services/markers/marker_service.dart';
+import '../lists/add_markers_to_list_viewmodel.dart';
 import 'package:geolocator/geolocator.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
@@ -56,7 +56,11 @@ class MapSampleViewModel extends ChangeNotifier {
 
   Set<Marker> get filteredMarkers => _filteredMarkers;
 
+  Set<Marker>? _routeMarkers;
+  int _routeRevision = 0;
+
   Set<Marker> get displayMarkers {
+    if (_routeMarkers != null) return _routeMarkers!;
     // 클러스터 계산이 끝나기 전에는 저장된 마커를 임시로 표시한다.
     return _clusteredMarkers.isEmpty
         ? _filteredMarkers
@@ -131,6 +135,10 @@ class MapSampleViewModel extends ChangeNotifier {
     '사진': 'assets/photo_marker.png',
     '음식점': 'assets/restaurant_marker.png',
     '전시회': 'assets/exhibition_marker.png',
+    '자연': 'nature',
+    '관광명소': 'landmark',
+    '쇼핑': 'shopping',
+    '체험': 'activity',
   };
   static const LatLng _seoulCityHall = LatLng(37.5665, 126.9780);
 
@@ -142,6 +150,10 @@ class MapSampleViewModel extends ChangeNotifier {
     '사진': Icons.camera_alt,
     '음식점': Icons.restaurant,
     '전시회': Icons.art_track,
+    '자연': Icons.park_outlined,
+    '관광명소': Icons.account_balance_outlined,
+    '쇼핑': Icons.shopping_bag_outlined,
+    '체험': Icons.local_activity_outlined,
   };
 
   bool _isDisposed = false;
@@ -154,6 +166,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _routeRevision++;
     _isDisposed = true;
     _clusterRefreshTimer?.cancel();
     clusterManager = null;
@@ -390,6 +403,25 @@ class MapSampleViewModel extends ChangeNotifier {
     }
   }
 
+  Future<String?> findSavedPlace(Marker place) async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) throw StateError('로그인이 필요합니다.');
+    final rows = await client.from('user_markers').select('id, title')
+        .eq('user_id', user.id)
+        .gte('lat', place.position.latitude - .00001)
+        .lte('lat', place.position.latitude + .00001)
+        .gte('lng', place.position.longitude - .00001)
+        .lte('lng', place.position.longitude + .00001);
+    final title = (place.infoWindow.title ?? '').trim().toLowerCase();
+    for (final row in rows) {
+      if ((row['title']?.toString() ?? '').trim().toLowerCase() == title) {
+        return row['id'].toString();
+      }
+    }
+    return null;
+  }
+
   Future<bool> addMarker({
     required String? title,
     required String? snippet,
@@ -539,6 +571,8 @@ class MapSampleViewModel extends ChangeNotifier {
   }
 
   void clearPolylines() {
+    _routeRevision++;
+    _routeMarkers = null;
     _polygonPoints.clear();
     notifyListeners();
   }
@@ -626,6 +660,26 @@ class MapSampleViewModel extends ChangeNotifier {
         'ViewModel _orderedMarkers ID 순서: ${markers.map((m) => m.markerId.value).toList()}');
     _orderedMarkers = markers;
     setFilteredMarkers(markers);
+    notifyListeners();
+  }
+
+  Future<void> startOrderedRoute() async {
+    final revision = ++_routeRevision;
+    final markers = List<Marker>.of(_orderedMarkers);
+    final numbered = await Future.wait(markers.asMap().entries.map((entry) async {
+      final icon = await _markerIconService.createClusterMarker(40, '${entry.key + 1}');
+      return entry.value.copyWith(
+        iconParam: icon,
+        anchorParam: const Offset(.5, .5),
+        infoWindowParam: InfoWindow(
+          title: '${entry.key + 1}. ${entry.value.infoWindow.title ?? '장소'}',
+          snippet: entry.value.infoWindow.snippet,
+        ),
+      );
+    }));
+    if (revision != _routeRevision) return;
+    _routeMarkers = numbered.toSet();
+    _polygonPoints = markers.map((marker) => marker.position).toList();
     notifyListeners();
   }
 
@@ -1008,10 +1062,7 @@ class MapSampleViewModel extends ChangeNotifier {
     final markerImagePath = keywordMarkerImages[keyword];
 
     if (markerImagePath != null) {
-      final customMarker = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(48, 48)),
-        markerImagePath,
-      );
+      final customMarker = await createCustomMarkerImage(markerImagePath, 48, 52);
 
       final newMarker = updatedMarker.copyWith(iconParam: customMarker);
 
@@ -1081,6 +1132,8 @@ class MapSampleViewModel extends ChangeNotifier {
 
   // 리스트에 있는 마커를 필터링하여 지도에 표시
   void setFilteredMarkers(List<Marker> markers) {
+    _routeRevision++;
+    _routeMarkers = null;
     _filteredMarkers = markers.toSet();
 
     _filteredPlaces = markers.map((marker) {
