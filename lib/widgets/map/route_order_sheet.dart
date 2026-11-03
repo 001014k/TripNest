@@ -1,3 +1,4 @@
+import '../onboarding/screen_guide_target.dart';
 import 'package:flutter/material.dart';
 import '../places/address_photo_preview.dart';
 import '../places/place_keyword_icon.dart';
@@ -31,7 +32,6 @@ class RouteOrderSheet extends StatefulWidget {
 }
 
 class _RouteOrderSheetState extends State<RouteOrderSheet> {
-  bool _showTip = true;
   @override
   Widget build(BuildContext context) => Material(
       color: Colors.white,
@@ -74,47 +74,13 @@ class _RouteOrderSheetState extends State<RouteOrderSheet> {
                                     style: TextStyle(fontSize: 13)))
                           ]),
                           const SizedBox(height: 7),
-                          Text('${widget.places.length}개의 장소를 방문할 순서를 정해보세요.',
-                              style: const TextStyle(
-                                  fontSize: 14, color: Color(0xff898992))),
-                          if (_showTip) ...[
-                            const SizedBox(height: 18),
-                            Container(
-                                padding:
-                                    const EdgeInsets.fromLTRB(12, 14, 4, 14),
-                                decoration: BoxDecoration(
-                                    color: const Color(0xfff0f0f2),
-                                    borderRadius: BorderRadius.circular(18)),
-                                child: Row(children: [
-                                  const CircleAvatar(
-                                      backgroundColor: Colors.white,
-                                      child: Icon(Icons.touch_app_outlined,
-                                          color: Colors.black)),
-                                  const SizedBox(width: 12),
-                                  const Expanded(
-                                      child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                        Text('드래그하여 순서 변경',
-                                            style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w700)),
-                                        SizedBox(height: 4),
-                                        Text('카드를 길게 눌러 원하는 순서로 움직일 수 있어요.',
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                height: 1.4,
-                                                color: Color(0xff898992)))
-                                      ])),
-                                  IconButton(
-                                      tooltip: '안내 닫기',
-                                      onPressed: () =>
-                                          setState(() => _showTip = false),
-                                      icon: const Icon(Icons.close,
-                                          size: 20, color: Color(0xff9999a1)))
-                                ]))
-                          ],
+                          ScreenGuideTarget(
+                              guide: FeatureGuide.routeOrder,
+                              showOnArrival: true,
+                              child: Text(
+                                  '${widget.places.length}개의 장소를 방문할 순서를 정해보세요.',
+                                  style: const TextStyle(
+                                      fontSize: 14, color: Color(0xff898992)))),
                         ])),
                 itemCount: widget.places.length,
                 onReorderItem: widget.onReorder,

@@ -1,3 +1,6 @@
+import '../../widgets/onboarding/screen_guide_target.dart';
+import '../onboarding/app_guide_view.dart';
+import '../../widgets/onboarding/guide_art.dart';
 import '../../services/lists/list_access_service.dart';
 import 'list_collaboration_view.dart';
 import '../../widgets/lists/travel_list_card.dart';
@@ -131,8 +134,14 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                         fontSize: 25,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.8))),
-            _headerAction(
-                Icons.add, '리스트 만들기', () => _showCreateListDialog(context)),
+            ScreenGuideTarget(
+                guide: FeatureGuide.collaboration,
+                priority: -1,
+                description:
+                    '먼저 여행 리스트를 만들어주세요. 리스트 관리에서 친구를 초대하고 게스트·편집자 역할을 설정할 수 있어요.',
+                onTry: () => _showCreateListDialog(context),
+                child: _headerAction(Icons.add, '리스트 만들기',
+                    () => _showCreateListDialog(context))),
             const SizedBox(width: 8),
             _headerAction(Icons.search, '리스트 검색',
                 () => setState(() => _searchVisible = !_searchVisible)),
@@ -274,52 +283,32 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Container(
-      margin: const EdgeInsets.all(24),
-      padding: const EdgeInsets.all(40),
-      decoration: BoxDecoration(
-        gradient: AppDesign.sunsetGradient,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.elevatedShadow,
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: const Icon(
-              Icons.add_location_alt,
-              color: Colors.white,
-              size: 48,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing24),
-          Text(
-            '첫 번째 여행 리스트를\n만들어보세요!',
-            style: AppDesign.headingMedium.copyWith(
-              color: Colors.white,
-              height: 1.3,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppDesign.spacing12),
-          Text(
-            '새로운 여행지를 발견하고 나만의 리스트로 정리해보세요',
-            style: AppDesign.bodyMedium.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
-              height: 1.4,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildEmptyState() => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        child: Column(children: [
+          const GuideArt(compact: true),
+          const SizedBox(height: 24),
+          const Text('첫 여행을 만들어볼까요?',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          const Text('가고 싶은 장소를 모으고\n친구와 함께 계획해보세요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 15, height: 1.6, color: AppDesign.secondaryText)),
+          const SizedBox(height: 28),
+          SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                  onPressed: () => _showCreateListDialog(context),
+                  icon: const Icon(Icons.add),
+                  label: const Text('리스트 만들기'))),
+          const SizedBox(height: 12),
+          TextButton(
+              onPressed: () => AppGuideView.showTopic(context, 2),
+              child: const Text('리스트는 어떻게 사용하나요?')),
+        ]),
+      );
 
   Widget _buildListGrid(ListViewModel viewModel) {
     final lists = viewModel.lists
@@ -339,21 +328,27 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
           final list = lists[index];
           return Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: TravelListCard(
-                list: list,
-                onTap: () => _showListOptions(context, list.id, viewModel),
-                onOpen: () => Navigator.push(
-                    context,
-                    AppPageRoute(
-                        builder: (_) => MarkerInfoPage(
-                            listId: list.id,
-                            listName: list.name,
-                            collaboratorCount: list.collaboratorCount,
-                            onManage: () =>
-                                _showListOptions(context, list.id, viewModel),
-                            onCollaborate: () =>
-                                _showCollaborationDialog(context, list.id)))),
-              ));
+              child: ScreenGuideTarget(
+                  guide: list.isOwner ? FeatureGuide.collaboration : null,
+                  priority: 1,
+                  description:
+                      '이 리스트의 협업 관리에서 친구를 초대할 수 있어요. 게스트는 읽기만, 편집자는 장소 추가·삭제가 가능해요.',
+                  onTry: () => _showCollaborationDialog(context, list.id),
+                  child: TravelListCard(
+                    list: list,
+                    onTap: () => _showListOptions(context, list.id, viewModel),
+                    onOpen: () => Navigator.push(
+                        context,
+                        AppPageRoute(
+                            builder: (_) => MarkerInfoPage(
+                                listId: list.id,
+                                listName: list.name,
+                                collaboratorCount: list.collaboratorCount,
+                                onManage: () => _showListOptions(
+                                    context, list.id, viewModel),
+                                onCollaborate: () => _showCollaborationDialog(
+                                    context, list.id)))),
+                  )));
         });
   }
 

@@ -1,3 +1,4 @@
+import '../onboarding/screen_guide_target.dart';
 import '../../services/community/story_saved_places.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -55,8 +56,8 @@ class _StoryPlacePreviewState extends State<StoryPlacePreview> {
 
   Future<void> _openMap() async {
     if (_point == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('장소 위치를 찾지 못했어요. 잠시 후 다시 눌러주세요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('장소 위치를 찾지 못했어요. 잠시 후 다시 눌러주세요.')));
       setState(() => _loading = true);
       await _resolve();
       return;
@@ -65,7 +66,8 @@ class _StoryPlacePreviewState extends State<StoryPlacePreview> {
     final icon = await MarkerIconService().createSearchMarker();
     if (!mounted) return;
     await Navigator.of(context).push(AppPageRoute(
-      builder: (_) => MapPreviewView(initialPlace: Marker(
+      builder: (_) => MapPreviewView(
+          initialPlace: Marker(
         markerId: MarkerId('community-place-${post.id}'),
         icon: icon,
         anchor: const Offset(.5, 44 / 48),
@@ -80,105 +82,122 @@ class _StoryPlacePreviewState extends State<StoryPlacePreview> {
   }
 
   @override
-  Widget build(BuildContext context) => Semantics(
-      button: true,
-      label: '${widget.post.placeTitle ?? widget.post.title} 지도에서 보기',
-      child: Material(
-          color: const Color(0xfff5f5f7),
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-              onTap: _loading ? null : _openMap,
-              child: SizedBox(
-                  height: 96,
-                  child: Row(children: [
-                    const SizedBox(width: 12),
-                    const CircleAvatar(
-                        radius: 15,
-                        backgroundColor: Colors.white,
-                        child: Icon(Icons.location_on,
-                            size: 21, color: Colors.black)),
-                    const SizedBox(width: 9),
-                    Expanded(
-                        child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text(widget.post.placeTitle ?? widget.post.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 13)),
-                          const SizedBox(height: 6),
-                          Text(widget.post.placeAddress ?? '지도에서 장소 확인하기',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  height: 1.5,
-                                  color: Color(0xff85858f)))
-                        ])),
-                    const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 5),
-                        child: Icon(Icons.chevron_right,
-                            size: 19, color: Color(0xff85858f))),
-                    SizedBox(
-                        width: MediaQuery.sizeOf(context).width * .24,
-                        height: 96,
-                        child: _loading
-                            ? const Center(
-                                child: SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2)))
-                            : _point == null
-                                ? const ColoredBox(
-                                    color: Color(0xffe9eeeb),
-                                    child: Center(
-                                        child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                          Icon(Icons.map_outlined,
-                                              color: Color(0xff7d8880)),
-                                          SizedBox(height: 4),
-                                          Text('지도에서 확인',
-                                              style: TextStyle(
-                                                  fontSize: 10,
-                                                  color: Color(0xff7d8880)))
-                                        ])))
-                                : Stack(alignment: Alignment.center, children: [
-                                    Positioned.fill(
-                                        child: IgnorePointer(
-                                            child: GoogleMap(
-                                                key: ValueKey(_point),
-                                                style: tripNestMapStyle,
-                                                initialCameraPosition:
-                                                    CameraPosition(
-                                                        target: _point!,
-                                                        zoom: 14),
-                                                zoomControlsEnabled: false,
-                                                mapToolbarEnabled: false,
-                                                myLocationButtonEnabled: false,
-                                                compassEnabled: false,
-                                                scrollGesturesEnabled: false,
-                                                zoomGesturesEnabled: false,
-                                                rotateGesturesEnabled: false,
-                                                tiltGesturesEnabled: false))),
-                                    const IgnorePointer(
-                                        child: Icon(Icons.location_on,
-                                            size: 35,
-                                            color: Colors.white,
-                                            shadows: [
-                                          Shadow(
-                                              color: Colors.black26,
-                                              blurRadius: 5)
-                                        ])),
-                                    const IgnorePointer(
-                                        child: Icon(Icons.location_on,
-                                            size: 29, color: Color(0xff202020)))
-                                  ])),
-                  ])))));
+  Widget build(BuildContext context) => ScreenGuideTarget(
+      guide: FeatureGuide.temporaryMarker,
+      showOnArrival: true,
+      onTry: _openMap,
+      description:
+          '이 주소 카드를 누르면 앱의 지도에서 장소를 확인할 수 있어요. 미저장 장소는 하단창을 닫으면 사라지며, 저장한 장소는 유지돼요.',
+      child: Semantics(
+          button: true,
+          label: '${widget.post.placeTitle ?? widget.post.title} 지도에서 보기',
+          child: Material(
+              color: const Color(0xfff5f5f7),
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                  onTap: _loading ? null : _openMap,
+                  child: SizedBox(
+                      height: 96,
+                      child: Row(children: [
+                        const SizedBox(width: 12),
+                        const CircleAvatar(
+                            radius: 15,
+                            backgroundColor: Colors.white,
+                            child: Icon(Icons.location_on,
+                                size: 21, color: Colors.black)),
+                        const SizedBox(width: 9),
+                        Expanded(
+                            child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                              Text(widget.post.placeTitle ?? widget.post.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13)),
+                              const SizedBox(height: 6),
+                              Text(widget.post.placeAddress ?? '지도에서 장소 확인하기',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      height: 1.5,
+                                      color: Color(0xff85858f)))
+                            ])),
+                        const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 5),
+                            child: Icon(Icons.chevron_right,
+                                size: 19, color: Color(0xff85858f))),
+                        SizedBox(
+                            width: MediaQuery.sizeOf(context).width * .24,
+                            height: 96,
+                            child: _loading
+                                ? const Center(
+                                    child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2)))
+                                : _point == null
+                                    ? const ColoredBox(
+                                        color: Color(0xffe9eeeb),
+                                        child: Center(
+                                            child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                              Icon(Icons.map_outlined,
+                                                  color: Color(0xff7d8880)),
+                                              SizedBox(height: 4),
+                                              Text('지도에서 확인',
+                                                  style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: Color(0xff7d8880)))
+                                            ])))
+                                    : Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                            Positioned.fill(
+                                                child: IgnorePointer(
+                                                    child: GoogleMap(
+                                                        key: ValueKey(_point),
+                                                        style: tripNestMapStyle,
+                                                        initialCameraPosition:
+                                                            CameraPosition(
+                                                                target: _point!,
+                                                                zoom: 14),
+                                                        zoomControlsEnabled:
+                                                            false,
+                                                        mapToolbarEnabled:
+                                                            false,
+                                                        myLocationButtonEnabled:
+                                                            false,
+                                                        compassEnabled: false,
+                                                        scrollGesturesEnabled:
+                                                            false,
+                                                        zoomGesturesEnabled:
+                                                            false,
+                                                        rotateGesturesEnabled:
+                                                            false,
+                                                        tiltGesturesEnabled:
+                                                            false))),
+                                            const IgnorePointer(
+                                                child: Icon(Icons.location_on,
+                                                    size: 35,
+                                                    color: Colors.white,
+                                                    shadows: [
+                                                  Shadow(
+                                                      color: Colors.black26,
+                                                      blurRadius: 5)
+                                                ])),
+                                            const IgnorePointer(
+                                                child: Icon(Icons.location_on,
+                                                    size: 29,
+                                                    color: Color(0xff202020)))
+                                          ])),
+                      ]))))));
 }
 
 class StoryActionButton extends StatelessWidget {

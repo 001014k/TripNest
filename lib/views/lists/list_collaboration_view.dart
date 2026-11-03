@@ -1,3 +1,4 @@
+import '../../widgets/onboarding/screen_guide_target.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/lists/collaborator_viewmodel.dart';
@@ -136,10 +137,16 @@ class _ListCollaborationViewState extends State<ListCollaborationView> {
                       ]))
                 ]),
                 const SizedBox(height: 26),
-                SocialTabs(labels: [
-                  '멤버 ${members.length + (vm.listOwnerId == null ? 0 : 1)}',
-                  '친구 초대'
-                ], selected: tab, onChanged: (v) => setState(() => tab = v)),
+                ScreenGuideTarget(
+                    guide: FeatureGuide.collaboration,
+                    showOnArrival: !loading,
+                    child: SocialTabs(
+                        labels: [
+                          '멤버 ${members.length + (vm.listOwnerId == null ? 0 : 1)}',
+                          '친구 초대'
+                        ],
+                        selected: tab,
+                        onChanged: (v) => setState(() => tab = v))),
                 const SizedBox(height: 18),
                 if (loading)
                   const Center(child: CircularProgressIndicator())

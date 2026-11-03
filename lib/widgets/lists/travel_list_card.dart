@@ -1,3 +1,4 @@
+import '../onboarding/screen_guide_target.dart';
 import 'package:flutter/material.dart';
 import '../../models/lists/list_model.dart';
 import '../../design/app_design.dart';
@@ -38,12 +39,21 @@ class TravelListCard extends StatelessWidget {
                     SizedBox(
                         width: 26,
                         height: 28,
-                        child: IconButton(
-                            padding: EdgeInsets.zero,
-                            tooltip: '리스트 관리',
-                            onPressed: onTap,
-                            icon: const Icon(Icons.more_vert,
-                                size: 20, color: AppDesign.secondaryText))),
+                        child: ScreenGuideTarget(
+                            guide: list.isOwner
+                                ? FeatureGuide.collaboration
+                                : null,
+                            priority: 2,
+                            onTry: onTap,
+                            description:
+                                '리스트 관리(⋮)에서 협업자 관리를 선택한 뒤 친구 초대 탭을 눌러보세요. 게스트는 읽기 전용이며 편집자는 장소 추가·삭제가 가능해요.',
+                            child: IconButton(
+                                padding: EdgeInsets.zero,
+                                tooltip: '리스트 관리',
+                                onPressed: onTap,
+                                icon: const Icon(Icons.more_vert,
+                                    size: 20,
+                                    color: AppDesign.secondaryText)))),
                   ]),
                   const SizedBox(height: 2),
                   Text('저장한 장소 ${list.markerCount}개',

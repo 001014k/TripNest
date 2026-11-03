@@ -1,3 +1,4 @@
+import '../../widgets/onboarding/screen_guide_target.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../widgets/places/address_photo_preview.dart';
 import '../../services/community/story_saved_places.dart';
@@ -174,8 +175,18 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
                           button,
                         ]),
                       const SizedBox(height: 6),
-                      const Text('여행자들이 발견한 장소를 만나보세요',
-                          style: AppDesign.bodySmall),
+                      ScreenGuideTarget(
+                          guide: FeatureGuide.temporaryMarker,
+                          priority: -1,
+                          description:
+                              '장소가 포함된 게시물을 열고 주소 카드를 눌러보세요. 지도에 임시 마커가 표시되고 하단창을 닫으면 사라져요. 저장된 마커는 유지돼요.',
+                          child: ScreenGuideTarget(
+                              guide: FeatureGuide.storySave,
+                              priority: -1,
+                              description:
+                                  '장소가 포함된 게시물의 북마크 버튼으로 내 지도에 저장할 수 있어요. 게시물이 보이지 않으면 최근 탭에서 다시 확인해주세요.',
+                              child: const Text('여행자들이 발견한 장소를 만나보세요',
+                                  style: AppDesign.bodySmall))),
                       if (compact) ...[
                         const SizedBox(height: 12),
                         Align(alignment: Alignment.centerRight, child: button),
@@ -193,28 +204,31 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
                     children: List.generate(
                         3,
                         (i) => Expanded(
-                            child: Semantics(
-                                selected: _tab == i,
-                                child: InkWell(
-                                    borderRadius: BorderRadius.circular(30),
-                                    onTap: () => _selectTab(i),
-                                    child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 11),
-                                        decoration: BoxDecoration(
-                                            color: _tab == i
-                                                ? AppDesign.primary
-                                                : Colors.transparent,
-                                            borderRadius:
-                                                BorderRadius.circular(30)),
-                                        child: Text(['최근', '인기', '내 주변'][i],
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                                fontSize: 13,
+                            child: ScreenGuideTarget(
+                                guide: i == 2 ? FeatureGuide.nearby : null,
+                                onTry: () => _selectTab(i),
+                                child: Semantics(
+                                    selected: _tab == i,
+                                    child: InkWell(
+                                        borderRadius: BorderRadius.circular(30),
+                                        onTap: () => _selectTab(i),
+                                        child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 11),
+                                            decoration: BoxDecoration(
                                                 color: _tab == i
-                                                    ? Colors.white
-                                                    : AppDesign
-                                                        .secondaryText)))))))),
+                                                    ? AppDesign.primary
+                                                    : Colors.transparent,
+                                                borderRadius:
+                                                    BorderRadius.circular(30)),
+                                            child: Text(['최근', '인기', '내 주변'][i],
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: _tab == i
+                                                        ? Colors.white
+                                                        : AppDesign
+                                                            .secondaryText))))))))),
               ),
             ),
             Expanded(
@@ -410,87 +424,91 @@ class _PopularCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final board = context.watch<CommunityBoardViewModel>();
-    return Material(
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        color: const Color(0xff333333),
-        child: InkWell(
-            onTap: () => _PostCard(post: post)._open(context),
-            child: Stack(fit: StackFit.expand, children: [
-              CommunityPostPhoto(post: post),
-              const DecoratedBox(
-                  decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                    Color(0x44000000),
-                    Colors.transparent,
-                    Color(0xdd000000)
-                  ],
-                          stops: [
-                    0,
-                    .4,
-                    1
-                  ]))),
-              Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          _PostAvatar(nickname: post.authorNickname),
-                          const SizedBox(width: 6),
-                          Expanded(
-                              child: Text(post.authorNickname,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+    return ScreenGuideTarget(
+        guide: post.isMarkerShare ? FeatureGuide.temporaryMarker : null,
+        priority: 1,
+        onTry: () => _PostCard(post: post)._open(context),
+        child: Material(
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
+            color: const Color(0xff333333),
+            child: InkWell(
+                onTap: () => _PostCard(post: post)._open(context),
+                child: Stack(fit: StackFit.expand, children: [
+                  CommunityPostPhoto(post: post),
+                  const DecoratedBox(
+                      decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                        Color(0x44000000),
+                        Colors.transparent,
+                        Color(0xdd000000)
+                      ],
+                              stops: [
+                        0,
+                        .4,
+                        1
+                      ]))),
+                  Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              _PostAvatar(nickname: post.authorNickname),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                  child: Text(post.authorNickname,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600))),
+                              StorySaveButton(
+                                  key: ValueKey(post.id),
+                                  post: post,
+                                  color: Colors.white),
+                            ]),
+                            const Spacer(),
+                            Text(post.placeTitle ?? post.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15)),
+                            const SizedBox(height: 7),
+                            Text(
+                                '⌖ ${post.placeAddress ?? post.destination ?? '여행 이야기'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 11)),
+                            const SizedBox(height: 10),
+                            Row(children: [
+                              Icon(
+                                  board.likedPosts.contains(post.id)
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color: Colors.white,
+                                  size: 19),
+                              const SizedBox(width: 5),
+                              Text('${board.likeCounts[post.id] ?? 0}',
                                   style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600))),
-                          StorySaveButton(
-                              key: ValueKey(post.id),
-                              post: post,
-                              color: Colors.white),
-                        ]),
-                        const Spacer(),
-                        Text(post.placeTitle ?? post.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15)),
-                        const SizedBox(height: 7),
-                        Text(
-                            '⌖ ${post.placeAddress ?? post.destination ?? '여행 이야기'}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 11)),
-                        const SizedBox(height: 10),
-                        Row(children: [
-                          Icon(
-                              board.likedPosts.contains(post.id)
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              color: Colors.white,
-                              size: 19),
-                          const SizedBox(width: 5),
-                          Text('${board.likeCounts[post.id] ?? 0}',
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12)),
-                          const SizedBox(width: 16),
-                          const Icon(Icons.chat_bubble_outline,
-                              color: Colors.white, size: 18),
-                          const SizedBox(width: 5),
-                          Text('${board.commentCounts[post.id] ?? 0}',
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12))
-                        ]),
-                      ])),
-            ])));
+                                      color: Colors.white, fontSize: 12)),
+                              const SizedBox(width: 16),
+                              const Icon(Icons.chat_bubble_outline,
+                                  color: Colors.white, size: 18),
+                              const SizedBox(width: 5),
+                              Text('${board.commentCounts[post.id] ?? 0}',
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 12))
+                            ]),
+                          ])),
+                ]))));
   }
 }
 
@@ -544,14 +562,20 @@ class _PostCard extends StatelessWidget {
             ]),
             const SizedBox(height: 14),
             if (post.isMarkerShare) ...[
-              AppPhotoHero(
-                tag: 'community-photo-${post.id}',
-                child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: AspectRatio(
-                        aspectRatio: 1.85,
-                        child: CommunityPostPhoto(post: post))),
-              ),
+              ScreenGuideTarget(
+                  guide: FeatureGuide.temporaryMarker,
+                  priority: 1,
+                  onTry: () => _open(context),
+                  description:
+                      '게시물 사진이나 제목을 누르면 상세 페이지가 열려요. 상세 페이지에서 장소 주소 카드를 선택하면 지도로 이동할 수 있어요.',
+                  child: AppPhotoHero(
+                    tag: 'community-photo-${post.id}',
+                    child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: AspectRatio(
+                            aspectRatio: 1.85,
+                            child: CommunityPostPhoto(post: post))),
+                  )),
               const SizedBox(height: 12),
             ],
             Text(post.placeTitle ?? post.title,

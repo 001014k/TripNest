@@ -1,3 +1,4 @@
+import '../onboarding/screen_guide_target.dart';
 import '../../services/community/story_saved_places.dart';
 import 'package:flutter/material.dart';
 import '../places/place_keyword_icon.dart';
@@ -81,14 +82,17 @@ class StoryTags extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10)),
               child: showIcons
                   ? Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(placeKeywordIcon(tag), size: 15,
-                          color: const Color(0xff777b84)),
+                      Icon(placeKeywordIcon(tag),
+                          size: 15, color: const Color(0xff777b84)),
                       const SizedBox(width: 5),
-                      Flexible(child: Text(tag,
-                          style: const TextStyle(fontSize: 12, color: Color(0xff777b84)))),
+                      Flexible(
+                          child: Text(tag,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Color(0xff777b84)))),
                     ])
                   : Text('#$tag',
-                      style: const TextStyle(fontSize: 12, color: Color(0xff777b84)))))
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xff777b84)))))
           .toList());
 }
 
@@ -116,15 +120,21 @@ class _StorySaveButtonState extends State<StorySaveButton> {
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<int>(
-    valueListenable: StorySavedPlaces.revision,
-    builder: (context, _, child) {
-      final saved = _saved || StorySavedPlaces.contains(widget.post);
-      return IconButton(
-      color: widget.color,
-      tooltip: saved ? '저장됨' : '저장하기',
-      onPressed: _busy || saved || !widget.post.isMarkerShare ? null : _save,
-      icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border, size: 22));
-    },
-  );
-
+        valueListenable: StorySavedPlaces.revision,
+        builder: (context, _, child) {
+          final saved = _saved || StorySavedPlaces.contains(widget.post);
+          return ScreenGuideTarget(
+              guide: widget.post.isMarkerShare ? FeatureGuide.storySave : null,
+              priority: 1,
+              onTry: saved || _busy ? null : _save,
+              child: IconButton(
+                  color: widget.color,
+                  tooltip: saved ? '저장됨' : '저장하기',
+                  onPressed: _busy || saved || !widget.post.isMarkerShare
+                      ? null
+                      : _save,
+                  icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border,
+                      size: 22)));
+        },
+      );
 }

@@ -223,6 +223,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Column(children: [
                     _profileMenu(Icons.person_outline, '내 정보', _showMyInfo),
+                    _profileMenu(Icons.help_outline_rounded, '앱 사용 가이드',
+                        () => Navigator.pushNamed(context, '/app_guide')),
                     _profileMenu(
                         Icons.people_outline,
                         '협업 리스트',
