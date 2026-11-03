@@ -3,6 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/lists/list_model.dart';
 
 class ListViewModel extends ChangeNotifier {
+  bool _accountDisposed = false;
+  @override
+  void notifyListeners() {
+    if (!_accountDisposed) super.notifyListeners();
+  }
+
   final SupabaseClient supabase = Supabase.instance.client;
 
   List<ListModel> lists = [];
@@ -184,5 +190,11 @@ class ListViewModel extends ChangeNotifier {
 
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _accountDisposed = true;
+    super.dispose();
   }
 }

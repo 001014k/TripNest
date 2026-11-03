@@ -3,6 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 
 class SplashViewModel extends ChangeNotifier {
+  bool _accountDisposed = false;
+  @override
+  void notifyListeners() {
+    if (!_accountDisposed) super.notifyListeners();
+  }
+
   bool _isLoading = true;
   String? _nextRoute;
   Object? _arguments;
@@ -29,6 +35,8 @@ class SplashViewModel extends ChangeNotifier {
 
     // 1. 최소 Splash 표시 시간
     await Future.delayed(const Duration(seconds: 3));
+
+    if (_accountDisposed) return;
 
     // 2. 현재 로그인 상태를 가장 먼저 확인
     final session = Supabase.instance.client.auth.currentSession;
@@ -94,6 +102,7 @@ class SplashViewModel extends ChangeNotifier {
 
       debugPrint('🏠 [Splash] 정상 사용자 → 앱 초기화 시작');
 
+      if (_accountDisposed) return;
       await _prepareAuthenticatedUser?.call(userId);
 
       _nextRoute = '/home';
@@ -145,6 +154,7 @@ class SplashViewModel extends ChangeNotifier {
               _nextRoute = '/nickname_setup';
               _arguments = userId;
             } else {
+              if (_accountDisposed) return;
               await _prepareAuthenticatedUser?.call(userId);
 
               _nextRoute = '/home';
@@ -172,6 +182,7 @@ class SplashViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _accountDisposed = true;
     stopWatchingAuth();
     _deepLinkSub?.cancel();
     super.dispose();

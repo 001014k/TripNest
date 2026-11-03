@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ImageviewViewmodel extends ChangeNotifier {
+  bool _accountDisposed = false;
+  @override
+  void notifyListeners() {
+    if (!_accountDisposed) super.notifyListeners();
+  }
+
   final supabase = Supabase.instance.client;
 
   Future<bool> deleteImage(String imageUrl) async {
@@ -38,5 +44,11 @@ class ImageviewViewmodel extends ChangeNotifier {
     if (segments.length < 6) return null;
 
     return segments.sublist(5).join('/');
+  }
+
+  @override
+  void dispose() {
+    _accountDisposed = true;
+    super.dispose();
   }
 }

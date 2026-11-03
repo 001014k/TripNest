@@ -5,6 +5,12 @@ import '../../services/places/geocoding_service.dart';
 import '../../services/profile/user_service.dart';
 
 class MarkerCreationScreenViewModel extends ChangeNotifier {
+  bool _accountDisposed = false;
+  @override
+  void notifyListeners() {
+    if (!_accountDisposed) super.notifyListeners();
+  }
+
   final GeocodingService _geocodingService = const GeocodingService();
   Map<String, IconData> get keywordIcons => _keywordIcons;
 
@@ -96,5 +102,11 @@ class MarkerCreationScreenViewModel extends ChangeNotifier {
       debugPrint('Exception during reverse geocoding: $e');
       return '주소 정보를 불러올 수 없습니다';
     }
+  }
+
+  @override
+  void dispose() {
+    _accountDisposed = true;
+    super.dispose();
   }
 }

@@ -5,6 +5,12 @@ import '../../models/profile/user_model.dart';
 import '../../services/profile/user_service.dart';
 
 class ProfileViewModel extends ChangeNotifier {
+  bool _accountDisposed = false;
+  @override
+  void notifyListeners() {
+    if (!_accountDisposed) super.notifyListeners();
+  }
+
   final UserService _userService;
 
   ProfileViewModel({UserService? userService})
@@ -194,5 +200,11 @@ class ProfileViewModel extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _accountDisposed = true;
+    super.dispose();
   }
 }

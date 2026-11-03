@@ -315,7 +315,7 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
           ),
           const SizedBox(width: AppDesign.spacing8),
           Text(
-            '로그인 정보 기억하기',
+            '이메일 기억하기',
             style: AppDesign.bodyMedium.copyWith(
               color: AppDesign.secondaryText,
             ),

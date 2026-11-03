@@ -6,6 +6,12 @@ import '../../models/lists/list_model.dart';
 import '../../models/lists/collaborator_model.dart';
 
 class CollaboratorViewModel extends ChangeNotifier {
+  bool _accountDisposed = false;
+  @override
+  void notifyListeners() {
+    if (!_accountDisposed) super.notifyListeners();
+  }
+
   final SupabaseClient supabase = Supabase.instance.client;
 
   List<Collaborator> _collaborators = [];
@@ -296,5 +302,11 @@ class CollaboratorViewModel extends ChangeNotifier {
     } catch (e) {
       return false;
     }
+  }
+
+  @override
+  void dispose() {
+    _accountDisposed = true;
+    super.dispose();
   }
 }

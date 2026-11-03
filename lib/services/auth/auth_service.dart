@@ -19,24 +19,24 @@ class AuthService {
   Future<void> saveUserCredentials(
       String email, String password, bool rememberMe) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('password');
     if (rememberMe) {
-      prefs.setBool('remember_me', true);
-      prefs.setString('email', email);
-      prefs.setString('password', password);
+      await prefs.setBool('remember_me', true);
+      await prefs.setString('email', email);
     } else {
-      prefs.remove('remember_me');
-      prefs.remove('email');
-      prefs.remove('password');
+      await prefs.remove('remember_me');
+      await prefs.remove('email');
     }
   }
 
   /// 자동 로그인 정보 로드
   Future<Map<String, dynamic>> loadUserCredentials() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('password');
     return {
       'rememberMe': prefs.getBool('remember_me') ?? false,
       'email': prefs.getString('email') ?? '',
-      'password': prefs.getString('password') ?? '',
+      'password': '',
     };
   }
 

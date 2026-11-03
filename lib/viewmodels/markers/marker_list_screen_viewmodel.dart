@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MarkerListViewModel extends ChangeNotifier {
+  bool _accountDisposed = false;
+  @override
+  void notifyListeners() {
+    if (!_accountDisposed) super.notifyListeners();
+  }
+
   final SupabaseClient supabase;
   bool isLoading = false;
   List<Map<String, dynamic>> markers = [];
@@ -55,5 +61,11 @@ class MarkerListViewModel extends ChangeNotifier {
       debugPrint('deleteMarker error: $e');
       return false;
     }
+  }
+
+  @override
+  void dispose() {
+    _accountDisposed = true;
+    super.dispose();
   }
 }
