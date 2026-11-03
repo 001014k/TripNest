@@ -1,3 +1,4 @@
+import '../../services/map/map_route_repository.dart';
 import '../../services/lists/list_access_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -7,6 +8,12 @@ import 'package:uuid/uuid.dart';
 import '../../services/notifications/notification_service.dart';
 
 class AddMarkersToListViewModel extends ChangeNotifier {
+  bool _accountDisposed = false;
+  @override
+  void notifyListeners() {
+    if (!_accountDisposed) super.notifyListeners();
+  }
+
   final Set<Marker> _markers = {};
   final Map<MarkerId, String> _markerKeywords = {};
   bool _isLoading = true;
@@ -179,65 +186,18 @@ class AddMarkersToListViewModel extends ChangeNotifier {
 
   Future<void> updateMarkerOrders(
       String listId, List<Marker> orderedMarkers) async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    // Flutter 쪽에서 JSON 형식으로 변환
-    final List<Map<String, dynamic>> markerOrders =
-        orderedMarkers.asMap().entries.map((entry) {
-      final index = entry.key;
-      final markerId = entry.value.markerId.value;
-      return {
-        // 서버 함수에서 보통 'marker_id'로 기대하므로 키를 명확히 지정
-        'marker_id': markerId,
-        'sort_order': index,
-      };
-    }).toList();
+    await MapRouteRepository(supabase, orderedMarkers, {})
+        .updateMarkerOrdersForList(listId);
     try {
-      // Supabase RPC 호출
-      final result = await supabase.rpc(
-        'update_marker_orders',
-        params: {
-          'p_list_id': listId,
-          'p_orders': markerOrders, // 함수 파라미터 이름에 맞게 'p_orders'로
-        },
-      );
-      debugPrint('✅ RPC 호출 성공 결과: $result');
       await _notificationService.notifyListUpdated(listId, 'reordered');
-    } on PostgrestException catch (e) {
-      // RPC 스키마 불일치/RLS 등 상세 로그 확인
-      debugPrint('❌ RPC PostgrestException: ${e.message}, code=${e.code}');
-      debugPrint('➡️ 개별 업데이트 폴백을 시도합니다.');
-      await _fallbackUpdateOrders(listId, markerOrders);
-      await _notificationService.notifyListUpdated(listId, 'reordered');
-    } catch (e) {
-      debugPrint('❌ Marker order update error: $e');
-      debugPrint('➡️ 개별 업데이트 폴백을 시도합니다.');
-      await _fallbackUpdateOrders(listId, markerOrders);
-      await _notificationService.notifyListUpdated(listId, 'reordered');
+    } catch (_) {
+      debugPrint('경로 저장 완료, 알림 전송 보류');
     }
   }
 
-  Future<void> _fallbackUpdateOrders(
-      String listId, List<Map<String, dynamic>> markerOrders) async {
-    for (final order in markerOrders) {
-      final String markerId = order['marker_id'] as String;
-      final int sortOrder = order['sort_order'] as int;
-      try {
-        await supabase
-            .from('list_bookmarks')
-            .update({'sort_order': sortOrder})
-            .eq('list_id', listId)
-            .eq('marker_id', markerId);
-      } on PostgrestException catch (e) {
-        debugPrint('❌ 개별 정렬 업데이트 실패 (marker_id=$markerId): ${e.message}');
-        rethrow;
-      } catch (e) {
-        debugPrint('❌ 개별 정렬 업데이트 예외 (marker_id=$markerId): $e');
-        rethrow;
-      }
-    }
-
-    debugPrint('✅ 폴백 개별 업데이트 완료');
+  @override
+  void dispose() {
+    _accountDisposed = true;
+    super.dispose();
   }
 }

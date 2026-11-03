@@ -1,6 +1,8 @@
+import '../../services/map/map_marker_repository.dart';
+import '../../services/map/map_route_repository.dart';
+import '../../services/map/map_search_service.dart';
 import '../../design/map_style.dart';
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,8 +12,6 @@ import 'package:location/location.dart' as location;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart'
     as cluster_manager;
-import 'package:http/http.dart' as http;
-import '../../env.dart';
 import '../../models/markers/marker_model.dart';
 import '../../models/places/place_model.dart';
 import '../../services/map/marker_icon_service.dart';
@@ -21,7 +21,18 @@ import 'package:geolocator/geolocator.dart';
 
 class MapSampleViewModel extends ChangeNotifier {
   final MarkerIconService _markerIconService = MarkerIconService();
-  final MarkerService _markerService = MarkerService();
+  MapSampleViewModel(
+      {MarkerService? markerService,
+      MapSearchService? searchService,
+      MapMarkerRepository? markerRepository})
+      : _markerService = markerService ?? MarkerService(),
+        _searchService = searchService ?? MapSearchService(),
+        _markerRepository =
+            markerRepository ?? MapMarkerRepository(Supabase.instance.client);
+  final MarkerService _markerService;
+  final MapSearchService _searchService;
+  final MapMarkerRepository _markerRepository;
+  int _searchRevision = 0;
   // 확대해도 가까운 장소는 계속 묶고, 확대 단계마다 군집 범위를 줄인다.
   static const List<double> clusterLevels = [
     1,
@@ -159,14 +170,22 @@ class MapSampleViewModel extends ChangeNotifier {
   bool _isDisposed = false;
 
   void clearSearchResults() {
+    _searchRevision++;
+    searchPlaceMetadata.clear();
     _searchResults.clear();
     temporaryMarker = null;
     notifyListeners();
   }
 
   @override
+  void notifyListeners() {
+    if (!_isDisposed) super.notifyListeners();
+  }
+
+  @override
   void dispose() {
     _routeRevision++;
+    _searchRevision++;
     _isDisposed = true;
     _clusterRefreshTimer?.cancel();
     clusterManager = null;
@@ -175,43 +194,8 @@ class MapSampleViewModel extends ChangeNotifier {
   }
 
   Future<void> fetchAllAccessibleMarkers() async {
-    final currentUserId = _supabase.auth.currentUser!.id;
-
-    // 1. 참여 중인 리스트 ID 가져오기
-    final memberResponse = await _supabase
-        .from('list_members')
-        .select('list_id')
-        .eq('user_id', currentUserId);
-
-    final listIds = (memberResponse as List<dynamic>)
-        .map((e) => e['list_id'] as String)
-        .toList();
-
-    // 2. 접근 가능한 marker_id 추출
-    final bookmarkedMarkerIds = await _supabase
-        .from('list_bookmarks')
-        .select('marker_id')
-        .inFilter('list_id', listIds);
-
-    final List<String> accessibleMarkerIds =
-        (bookmarkedMarkerIds as List<dynamic>)
-            .map((e) => e['marker_id'] as String)
-            .toList();
-
-    final String idList = accessibleMarkerIds.isEmpty
-        ? '00000000-0000-0000-0000-000000000000'
-        : accessibleMarkerIds.join(',');
-
-    final response = await _supabase
-        .from('user_markers')
-        .select('*, list_bookmarks(*)')
-        .or('user_id.eq.$currentUserId,id.in.($idList)')
-        .isFilter('deleted_at', null);
-
-    final List<dynamic> data = response as List<dynamic>;
-    final List<MarkerModel> markerModels = data
-        .map((item) => MarkerModel.fromMap(item as Map<String, dynamic>))
-        .toList();
+    final markerModels = await _markerRepository.loadAccessible();
+    if (_isDisposed) return;
 
     // ✅ 커스텀 아이콘 + 키워드 매핑까지 같이 처리
     final Map<MarkerId, Marker> uniqueMarkersMap = {};
@@ -355,7 +339,7 @@ class MapSampleViewModel extends ChangeNotifier {
   Future<void> applyKeywords(Set<String> keywords) async {
     activeKeywords = Set<String>.of(keywords);
     if (activeKeywords.isEmpty) {
-      _filteredMarkers = _allMarkers;
+      _filteredMarkers = _allMarkers.toSet();
     } else {
       _filteredMarkers = _allMarkers.where((marker) {
         final markerKeyword =
@@ -407,7 +391,9 @@ class MapSampleViewModel extends ChangeNotifier {
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
     if (user == null) throw StateError('로그인이 필요합니다.');
-    final rows = await client.from('user_markers').select('id, title')
+    final rows = await client
+        .from('user_markers')
+        .select('id, title')
         .eq('user_id', user.id)
         .gte('lat', place.position.latitude - .00001)
         .lte('lat', place.position.latitude + .00001)
@@ -447,11 +433,6 @@ class MapSampleViewModel extends ChangeNotifier {
       onTap: () => onTapCallback(markerId),
     );
 
-    _markers.add(marker);
-    _allMarkers.add(marker);
-    _filteredMarkers = _allMarkers;
-    _markerKeywords[marker.markerId] = keyword;
-
     var saved = false;
     try {
       saved = await _markerService.createUserMarker(
@@ -469,14 +450,12 @@ class MapSampleViewModel extends ChangeNotifier {
       debugPrint('Supabase insert 실패: $error');
     }
 
-    if (!saved) {
-      _markers.remove(marker);
-      _allMarkers.remove(marker);
-      _filteredMarkers.remove(marker);
-      _markerKeywords.remove(markerId);
-      notifyListeners();
-      return false;
-    }
+    if (!saved) return false;
+    if (_isDisposed) return true;
+    _markers.add(marker);
+    _allMarkers.add(marker);
+    _filteredMarkers = _allMarkers.toSet();
+    _markerKeywords[marker.markerId] = keyword;
 
     _filteredPlaces = _filteredMarkers.map((marker) {
       return Place(
@@ -493,13 +472,8 @@ class MapSampleViewModel extends ChangeNotifier {
   }
 
   Future<void> loadMarkers() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-
-    final response = await Supabase.instance.client
-        .from('user_markers')
-        .select()
-        .eq('user_id', user.id);
+    final response = await _markerRepository.loadOwn();
+    if (_isDisposed) return;
 
     _markers.clear();
     _allMarkers.clear();
@@ -590,6 +564,7 @@ class MapSampleViewModel extends ChangeNotifier {
     String listId,
     AddMarkersToListViewModel addMarkersVM,
   ) async {
+    final previous = List<Marker>.of(_orderedMarkers);
     final marker = _orderedMarkers.removeAt(oldIndex);
     _orderedMarkers.insert(newIndex, marker);
 
@@ -601,7 +576,10 @@ class MapSampleViewModel extends ChangeNotifier {
       await updateMarkerOrdersForList(listId);
       debugPrint('✅ updateMarkerOrdersForList 호출 성공');
     } catch (e) {
-      debugPrint('❌ updateMarkerOrdersForList 호출 에러: $e');
+      _orderedMarkers = previous;
+      _updatePolygonPoints();
+      notifyListeners();
+      rethrow;
     }
     await loadMarkersForList(listId); // 여기서 notifyListeners 포함
   }
@@ -619,8 +597,8 @@ class MapSampleViewModel extends ChangeNotifier {
         .select(
             'id, marker_id, title, snippet, lat, lng, keyword, sort_order') // sort_order도 같이 받아서 출력해보기
         .eq('list_id', listId)
-        .order('sort_order', ascending: true) // 정렬 보장
-        .limit(100)
+        .isFilter('deleted_at', null)
+        .order('sort_order', ascending: true)
         .withConverter<List<Map<String, dynamic>>>((data) => data);
 
     debugPrint('DB에서 불러온 마커 ID 및 순서:');
@@ -666,8 +644,10 @@ class MapSampleViewModel extends ChangeNotifier {
   Future<void> startOrderedRoute() async {
     final revision = ++_routeRevision;
     final markers = List<Marker>.of(_orderedMarkers);
-    final numbered = await Future.wait(markers.asMap().entries.map((entry) async {
-      final icon = await _markerIconService.createClusterMarker(40, '${entry.key + 1}');
+    final numbered =
+        await Future.wait(markers.asMap().entries.map((entry) async {
+      final icon =
+          await _markerIconService.createClusterMarker(40, '${entry.key + 1}');
       return entry.value.copyWith(
         iconParam: icon,
         anchorParam: const Offset(.5, .5),
@@ -688,232 +668,9 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateMarkerOrdersForList(String listId) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-
-    // 현재 메모리상의 순서를 list_bookmarks의 row id 기준으로 변환
-    debugPrint(
-        'updateMarkerOrdersForList: _orderedMarkers.length=${_orderedMarkers.length}');
-    debugPrint(
-        'updateMarkerOrdersForList: ordered markerIds=${_orderedMarkers.map((m) => m.markerId.value).toList()}');
-    debugPrint(
-        'updateMarkerOrdersForList: mapping keys=${_listBookmarkRowIdByMarkerId.keys.toList()}');
-    final List<Map<String, dynamic>> orders = _orderedMarkers
-        .asMap()
-        .entries
-        .map((entry) {
-          final int index = entry.key;
-          final String markerId = entry.value.markerId.value;
-          final String? rowId = _listBookmarkRowIdByMarkerId[markerId];
-          if (rowId == null) return null;
-          return {
-            'id': rowId, // list_bookmarks의 PK id
-            'sort_order': index,
-          };
-        })
-        .whereType<Map<String, dynamic>>()
-        .toList();
-
-    if (orders.isEmpty) {
-      debugPrint(
-          '⚠️ updateMarkerOrdersForList: 업데이트할 orders가 비어있습니다. 매핑 리프레시를 시도합니다.');
-      await _ensureRowIdMappingForList(listId);
-
-      final refreshedOrders = _orderedMarkers
-          .asMap()
-          .entries
-          .map((entry) {
-            final int index = entry.key;
-            final String markerId = entry.value.markerId.value;
-            final String? rowId = _listBookmarkRowIdByMarkerId[markerId];
-            if (rowId == null) return null;
-            return {
-              'id': rowId,
-              'sort_order': index,
-            };
-          })
-          .whereType<Map<String, dynamic>>()
-          .toList();
-
-      if (refreshedOrders.isEmpty) {
-        debugPrint(
-            '⚠️ updateMarkerOrdersForList: 리프레시 후에도 orders 비어있음 → marker_id 기반 폴백 업데이트 수행');
-        await _fallbackUpdateOrdersByMarkerId(listId);
-        return;
-      }
-
-      // 리프레시된 orders로 진행
-      await _performRpcOrFallback(listId, refreshedOrders);
-      return;
-    }
-
-    await _performRpcOrFallback(listId, orders);
-  }
-
-  Future<void> _performRpcOrFallback(
-      String listId, List<Map<String, dynamic>> orders) async {
-    try {
-      final result = await Supabase.instance.client.rpc(
-        'update_marker_orders',
-        params: {
-          'p_list_id': listId,
-          'p_orders': orders,
-        },
-      );
-      debugPrint('✅ RPC(update_marker_orders) 결과: $result');
-    } on PostgrestException catch (e) {
-      debugPrint('❌ RPC PostgrestException: ${e.message}, code=${e.code}');
-      debugPrint('➡️ 두 단계 폴백(id 기반)을 시도합니다.');
-      await _fallbackUpdateOrdersByRowId(listId, orders);
-    } catch (e) {
-      debugPrint('❌ RPC 예외: $e');
-      debugPrint('➡️ 두 단계 폴백(id 기반)을 시도합니다.');
-      await _fallbackUpdateOrdersByRowId(listId, orders);
-    }
-  }
-
-  Future<void> _fallbackUpdateOrdersByRowId(
-      String listId, List<Map<String, dynamic>> orders) async {
-    // 1) 현재 최대 sort_order를 조회하여 충돌 없는 스테이징 오프셋 계산
-    final int offset = await _getSortOrderOffset(listId);
-    debugPrint('fallbackByRowId: using offset=$offset');
-
-    // 2) 1차: 각 행을 고유한 스테이징 값으로 이동 (offset + index)
-    for (final order in orders) {
-      final String rowId = order['id'] as String;
-      final int index = order['sort_order'] as int;
-      final int stagingOrder = offset + index;
-      try {
-        await Supabase.instance.client
-            .from('list_bookmarks')
-            .update({'sort_order': stagingOrder})
-            .eq('id', rowId)
-            .eq('list_id', listId);
-      } on PostgrestException catch (e) {
-        debugPrint('❌ 1차(스테이징) 업데이트 실패 (row id=$rowId): ${e.message}');
-      } catch (e) {
-        debugPrint('❌ 1차(스테이징) 업데이트 예외 (row id=$rowId): $e');
-      }
-    }
-
-    // 3) 2차: 최종 인덱스로 정렬 값 재설정
-    for (final order in orders) {
-      final String rowId = order['id'] as String;
-      final int finalOrder = order['sort_order'] as int;
-      try {
-        await Supabase.instance.client
-            .from('list_bookmarks')
-            .update({'sort_order': finalOrder})
-            .eq('id', rowId)
-            .eq('list_id', listId);
-      } on PostgrestException catch (e) {
-        debugPrint('❌ 2차(최종) 업데이트 실패 (row id=$rowId): ${e.message}');
-      } catch (e) {
-        debugPrint('❌ 2차(최종) 업데이트 예외 (row id=$rowId): $e');
-      }
-    }
-
-    debugPrint('✅ 폴백 개별 업데이트(id 기반, 2단계) 완료');
-  }
-
-  Future<void> _fallbackUpdateOrdersByMarkerId(String listId) async {
-    final List<Map<String, dynamic>> markerIdOrders = _orderedMarkers
-        .asMap()
-        .entries
-        .map((entry) => {
-              'marker_id': entry.value.markerId.value,
-              'sort_order': entry.key,
-            })
-        .toList();
-
-    // 1) 현재 최대 sort_order를 조회하여 충돌 없는 스테이징 오프셋 계산
-    final int offset = await _getSortOrderOffset(listId);
-    debugPrint('fallbackByMarkerId: using offset=$offset');
-
-    // 2) 1차: 스테이징 값으로 이동
-    for (final order in markerIdOrders) {
-      final String markerId = order['marker_id'] as String;
-      final int index = order['sort_order'] as int;
-      final int stagingOrder = offset + index;
-      try {
-        await Supabase.instance.client
-            .from('list_bookmarks')
-            .update({'sort_order': stagingOrder})
-            .eq('list_id', listId)
-            .eq('marker_id', markerId);
-      } on PostgrestException catch (e) {
-        debugPrint('❌ 1차(스테이징) 업데이트 실패 (marker_id=$markerId): ${e.message}');
-      } catch (e) {
-        debugPrint('❌ 1차(스테이징) 업데이트 예외 (marker_id=$markerId): $e');
-      }
-    }
-
-    // 3) 2차: 최종 인덱스로 재설정
-    for (final order in markerIdOrders) {
-      final String markerId = order['marker_id'] as String;
-      final int finalOrder = order['sort_order'] as int;
-      try {
-        await Supabase.instance.client
-            .from('list_bookmarks')
-            .update({'sort_order': finalOrder})
-            .eq('list_id', listId)
-            .eq('marker_id', markerId);
-      } on PostgrestException catch (e) {
-        debugPrint('❌ 2차(최종) 업데이트 실패 (marker_id=$markerId): ${e.message}');
-      } catch (e) {
-        debugPrint('❌ 2차(최종) 업데이트 예외 (marker_id=$markerId): $e');
-      }
-    }
-
-    debugPrint('✅ 폴백 개별 업데이트(marker_id 기반, 2단계) 완료');
-  }
-
-  Future<int> _getSortOrderOffset(String listId) async {
-    try {
-      final rows = await Supabase.instance.client
-          .from('list_bookmarks')
-          .select('sort_order')
-          .eq('list_id', listId);
-      int maxOrder = -1;
-      for (final row in rows as List) {
-        final dynamic v = row['sort_order'];
-        if (v is int) {
-          if (v > maxOrder) maxOrder = v;
-        } else if (v is num) {
-          final int vi = v.toInt();
-          if (vi > maxOrder) maxOrder = vi;
-        }
-      }
-      return maxOrder + 1000; // 넉넉한 오프셋
-    } catch (e) {
-      debugPrint('sort_order offset 조회 실패: $e');
-      return 1000; // 조회 실패 시 기본 오프셋
-    }
-  }
-
-  Future<void> _ensureRowIdMappingForList(String listId) async {
-    try {
-      final rows = await Supabase.instance.client
-          .from('list_bookmarks')
-          .select('id, marker_id')
-          .eq('list_id', listId);
-
-      _listBookmarkRowIdByMarkerId.clear();
-      for (final row in rows as List) {
-        final String rowId = row['id']?.toString() ?? '';
-        final String markerId = row['marker_id']?.toString() ?? '';
-        if (rowId.isNotEmpty && markerId.isNotEmpty) {
-          _listBookmarkRowIdByMarkerId[markerId] = rowId;
-        }
-      }
-
-      debugPrint(
-          'ensureRowIdMapping: mapping size=${_listBookmarkRowIdByMarkerId.length}');
-    } catch (e) {
-      debugPrint('ensureRowIdMapping 실패: $e');
-    }
-  }
+  Future<void> updateMarkerOrdersForList(String listId) => MapRouteRepository(
+          _supabase, _orderedMarkers, _listBookmarkRowIdByMarkerId)
+      .updateMarkerOrdersForList(listId);
 
   Future<Marker> Function(cluster_manager.Cluster<Place>) get _markerBuilder =>
       (cluster) async {
@@ -1062,7 +819,8 @@ class MapSampleViewModel extends ChangeNotifier {
     final markerImagePath = keywordMarkerImages[keyword];
 
     if (markerImagePath != null) {
-      final customMarker = await createCustomMarkerImage(markerImagePath, 48, 52);
+      final customMarker =
+          await createCustomMarkerImage(markerImagePath, 48, 52);
 
       final newMarker = updatedMarker.copyWith(iconParam: customMarker);
 
@@ -1154,46 +912,8 @@ class MapSampleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<Map<String, dynamic>>> getUserLists() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return [];
-
-    try {
-      // 1️⃣ 내가 생성한 리스트
-      final List<dynamic> myLists = await Supabase.instance.client
-          .from('lists')
-          .select('*, list_bookmarks(title), list_members(user_id)')
-          .eq('user_id', user.id);
-
-      // 2️⃣ 내가 멤버로 속한 리스트
-      final List<dynamic> invitedLists = await Supabase.instance.client
-          .from('list_members')
-          .select(
-              'lists(*, list_bookmarks(title), list_members(user_id))') // list_members에 연결된 리스트를 가져오기
-          .eq('user_id', user.id);
-
-      // invitedLists에서 lists 필드만 추출
-      final List<Map<String, dynamic>> invitedListsData = invitedLists
-          .map<Map<String, dynamic>>(
-              (item) => item['lists'] as Map<String, dynamic>)
-          .toList();
-
-      // 3️⃣ 합치고 중복 제거
-      final Map<String, Map<String, dynamic>> tempLists = {};
-
-      for (var list in myLists.cast<Map<String, dynamic>>()) {
-        tempLists[list['id']] = list;
-      }
-      for (var list in invitedListsData) {
-        tempLists[list['id']] = list;
-      }
-
-      return tempLists.values.toList();
-    } catch (e) {
-      debugPrint('Error fetching user lists: $e');
-      return [];
-    }
-  }
+  Future<List<Map<String, dynamic>>> getUserLists() =>
+      _markerRepository.getUserLists();
 
   Future<void> checkLocationPermissionAndFetch() async {
     debugPrint('📍 checkLocationPermissionAndFetch 호출됨');
@@ -1301,6 +1021,8 @@ class MapSampleViewModel extends ChangeNotifier {
   }
 
   void updateSearchResults(String query) {
+    _searchRevision++;
+    searchPlaceMetadata.clear();
     query = query.trim();
 
     if (query.isEmpty) {
@@ -1332,6 +1054,8 @@ class MapSampleViewModel extends ChangeNotifier {
   CameraPosition get currentCameraPosition => _currentCameraPosition;
 
   Future<void> onSearchSubmitted(String query) async {
+    final revision = ++_searchRevision;
+    searchPlaceMetadata.clear();
     query = query.trim();
     if (query.isEmpty) {
       _searchResults = [];
@@ -1363,89 +1087,53 @@ class MapSampleViewModel extends ChangeNotifier {
         centerLng = _currentLocation!.longitude;
       }
 
-      final placesUrl = Uri.parse(
-          'https://places.googleapis.com/v1/places:searchText?key=${Env.googleMapsApiKey}');
+      final places =
+          await _searchService.search(originalQuery, centerLat, centerLng);
+      if (_isDisposed || revision != _searchRevision) return;
+      if (places.isNotEmpty) {
+        final searchPin = await _markerIconService.createSearchMarker();
+        if (_isDisposed || revision != _searchRevision) return;
+        final newSearchMarkers = <Marker>[];
+        int addedCount = 0;
 
-      final requestBody = json.encode({
-        "textQuery": originalQuery,
-        "languageCode": "ko",
-        "maxResultCount": 20,
-        "rankPreference": "DISTANCE",
-        "locationBias": {
-          "circle": {
-            "center": {"latitude": centerLat, "longitude": centerLng},
-            "radius": 5000.0,
-          }
+        for (var place in places) {
+          if (addedCount >= 10) break;
+
+          final lat = (place['location']?['latitude'] as num?)?.toDouble();
+          final lng = (place['location']?['longitude'] as num?)?.toDouble();
+          if (lat == null || lng == null) continue;
+
+          final latLng = LatLng(lat, lng);
+          final placeId = place['id'] ?? 'result_$addedCount';
+          searchPlaceMetadata['search_$placeId'] =
+              Map<String, dynamic>.from(place);
+
+          final marker = Marker(
+            markerId: MarkerId('search_$placeId'),
+            position: latLng,
+            infoWindow: InfoWindow(
+              title: place['displayName']?['text'] ?? originalQuery,
+              snippet: place['formattedAddress'] ?? '',
+            ),
+            icon: searchPin,
+            anchor: const Offset(.5, 44 / 48),
+            onTap: () => onMarkerTapped(MarkerId('search_$placeId')),
+          );
+
+          newSearchMarkers.add(marker);
+          addedCount++;
         }
-      });
 
-      final placesResponse = await http.post(
-        placesUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-FieldMask':
-              'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.primaryTypeDisplayName',
-        },
-        body: requestBody,
-      );
+        _searchResults = [..._searchResults, ...newSearchMarkers];
 
-      if (placesResponse.statusCode == 200) {
-        final data = json.decode(placesResponse.body);
-        final list = (data['places'] as List?) ?? [];
+        // 검색 완료 신호 보내기 (카메라 이동용)
+        onSearchCompleted?.call(_searchResults);
 
-        if (list.isNotEmpty) {
-          final Map<String, Map<String, dynamic>> uniquePlaces = {};
-          for (var place in list) {
-            final latStr = place['location']?['latitude']?.toStringAsFixed(6);
-            final lngStr = place['location']?['longitude']?.toStringAsFixed(6);
-            if (latStr != null && lngStr != null) {
-              uniquePlaces.putIfAbsent('$latStr,$lngStr', () => place);
-            }
-          }
-
-          final searchPin = await _markerIconService.createSearchMarker();
-          if (_isDisposed) return;
-          final newSearchMarkers = <Marker>[];
-          int addedCount = 0;
-
-          for (var place in uniquePlaces.values) {
-            if (addedCount >= 10) break;
-
-            final lat = place['location']?['latitude'] as double?;
-            final lng = place['location']?['longitude'] as double?;
-            if (lat == null || lng == null) continue;
-
-            final latLng = LatLng(lat, lng);
-            final placeId = place['id'] ?? 'result_$addedCount';
-            searchPlaceMetadata['search_$placeId'] =
-                Map<String, dynamic>.from(place);
-
-            final marker = Marker(
-              markerId: MarkerId('search_$placeId'),
-              position: latLng,
-              infoWindow: InfoWindow(
-                title: place['displayName']?['text'] ?? originalQuery,
-                snippet: place['formattedAddress'] ?? '',
-              ),
-              icon: searchPin,
-              anchor: const Offset(.5, 44 / 48),
-              onTap: () => onMarkerTapped(MarkerId('search_$placeId')),
-            );
-
-            newSearchMarkers.add(marker);
-            addedCount++;
-          }
-
-          _searchResults = [..._searchResults, ...newSearchMarkers];
-
-          // 검색 완료 신호 보내기 (카메라 이동용)
-          onSearchCompleted?.call(_searchResults);
-
-          notifyListeners();
-          return;
-        }
+        notifyListeners();
+        return;
       }
     } catch (e) {
+      if (_isDisposed || revision != _searchRevision) return;
       debugPrint("Places 검색 오류: $e");
     }
 

@@ -1,3 +1,4 @@
+import '../../widgets/onboarding/screen_guide_target.dart';
 import '../../widgets/map/map_loading_placeholder.dart';
 import '../../widgets/map/route_order_sheet.dart';
 import '../../widgets/map/selected_location_sheet.dart';
@@ -27,7 +28,8 @@ import '../planner/chat_recommendation_view.dart';
 /// A focused map opened from a detail page owns its controller so that closing
 /// it does not detach the retained map tab's controller or callbacks.
 class MapPreviewView extends StatelessWidget {
-  const MapPreviewView({super.key, this.initialMarkerId, this.initialListId, this.initialPlace});
+  const MapPreviewView(
+      {super.key, this.initialMarkerId, this.initialListId, this.initialPlace});
   final Marker? initialPlace;
   final MarkerId? initialMarkerId;
   final String? initialListId;
@@ -35,7 +37,9 @@ class MapPreviewView extends StatelessWidget {
   Widget build(BuildContext context) => ChangeNotifierProvider(
         create: (_) => MapSampleViewModel(),
         child: MapSampleView(
-            initialMarkerId: initialMarkerId, initialListId: initialListId, initialPlace: initialPlace),
+            initialMarkerId: initialMarkerId,
+            initialListId: initialListId,
+            initialPlace: initialPlace),
       );
 }
 
@@ -44,7 +48,8 @@ class MapSampleView extends StatefulWidget {
   final String? initialListId;
 
   final Marker? initialPlace;
-  const MapSampleView({super.key, this.initialMarkerId, this.initialListId, this.initialPlace});
+  const MapSampleView(
+      {super.key, this.initialMarkerId, this.initialListId, this.initialPlace});
 
   @override
   State<MapSampleView> createState() => _MapSampleViewState();
@@ -97,14 +102,17 @@ class _MapSampleViewState extends State<MapSampleView> {
                 return const MapPlaceLoadingSheet();
               }
               if (snapshot.hasError) {
-                return const SafeArea(child: Padding(padding: EdgeInsets.all(24),
-                  child: Text('저장 여부를 확인하지 못했어요. 잠시 후 다시 시도해주세요.')));
+                return const SafeArea(
+                    child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('저장 여부를 확인하지 못했어요. 잠시 후 다시 시도해주세요.')));
               }
               return SelectedLocationSheet(
                 marker: marker,
                 currentLocation: _viewModel.currentLocation,
                 onAdd: () => Navigator.pop(sheetContext, true),
                 actionLabel: snapshot.data == null ? '내 지도에 추가하기' : '저장된 마커 보기',
+                isTemporary: snapshot.data == null,
               );
             },
           ),
@@ -115,20 +123,23 @@ class _MapSampleViewState extends State<MapSampleView> {
         if (await _showExistingPlace(marker)) return;
       }
       if (!mounted) return;
-      final confirmed = widget.initialPlace?.markerId == marker.markerId ? true : await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: false,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-        builder: (sheet) => SelectedLocationSheet(
-          marker: marker,
-          metadata: _viewModel.searchPlaceMetadata[marker.markerId.value],
-          currentLocation: _viewModel.currentLocation,
-          onAdd: () => Navigator.pop(sheet, true),
-        ),
-      );
+      final confirmed = widget.initialPlace?.markerId == marker.markerId
+          ? true
+          : await showModalBottomSheet<bool>(
+              context: context,
+              isScrollControlled: true,
+              showDragHandle: false,
+              backgroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(26))),
+              builder: (sheet) => SelectedLocationSheet(
+                marker: marker,
+                metadata: _viewModel.searchPlaceMetadata[marker.markerId.value],
+                currentLocation: _viewModel.currentLocation,
+                onAdd: () => Navigator.pop(sheet, true),
+              ),
+            );
       if (!mounted) return;
       if (widget.initialPlace?.markerId == marker.markerId) {
         setState(() => _initialPlaceDismissed = true);
@@ -342,15 +353,15 @@ class _MapSampleViewState extends State<MapSampleView> {
       if (id == null) return false;
       await _viewModel.loadMarkers();
       if (!mounted) return true;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이미 내 지도에 저장된 장소예요.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('이미 내 지도에 저장된 장소예요.')));
       setState(() => _initialPlaceSaved = true);
       await _viewModel.onMarkerTapped(MarkerId(id));
       return true;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('저장 여부를 확인하지 못했어요. 잠시 후 다시 시도해주세요.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('저장 여부를 확인하지 못했어요. 잠시 후 다시 시도해주세요.')));
       }
       return true;
     }
@@ -423,13 +434,17 @@ class _MapSampleViewState extends State<MapSampleView> {
     await vm.applyKeywords(selected);
   }
 
-  void showUserLists(BuildContext context) async {
+  void showUserLists(BuildContext context, {bool fromGuide = false}) async {
     List<Map<String, dynamic>> userLists =
         await context.read<MapSampleViewModel>().getUserLists();
     if (!mounted) return;
 
     if (userLists.isEmpty) {
       if (!context.mounted) return;
+      if (fromGuide) {
+        Navigator.pushNamed(context, '/list');
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('저장된 리스트가 없습니다'),
@@ -602,7 +617,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                   }
 
                   // 핵심 수정: initialMarkerId가 있으면 내 위치 이동 안 함!
-                  if (widget.initialMarkerId == null && widget.initialPlace == null &&
+                  if (widget.initialMarkerId == null &&
+                      widget.initialPlace == null &&
                       viewModel.currentLocation != null) {
                     // 처음 앱 켤 때만 내 위치로 이동
                     controller.animateCamera(
@@ -630,7 +646,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                     await controller.animateCamera(CameraUpdate.newLatLngZoom(
                         widget.initialPlace!.position, 16));
                     if (mounted) {
-                      viewModel.onSearchMarkerTapped?.call(widget.initialPlace!);
+                      viewModel.onSearchMarkerTapped
+                          ?.call(widget.initialPlace!);
                     }
                   }
                   if (widget.initialListId != null && mounted) {
@@ -639,12 +656,13 @@ class _MapSampleViewState extends State<MapSampleView> {
                   }
                 },
                 initialCameraPosition: CameraPosition(
-                  target: widget.initialPlace?.position ?? LatLng(
-                    viewModel.currentLocation?.latitude ??
-                        viewModel.seoulCityHall.latitude,
-                    viewModel.currentLocation?.longitude ??
-                        viewModel.seoulCityHall.longitude,
-                  ),
+                  target: widget.initialPlace?.position ??
+                      LatLng(
+                        viewModel.currentLocation?.latitude ??
+                            viewModel.seoulCityHall.latitude,
+                        viewModel.currentLocation?.longitude ??
+                            viewModel.seoulCityHall.longitude,
+                      ),
                   zoom: 15.0,
                 ),
                 zoomControlsEnabled: false,
@@ -656,9 +674,11 @@ class _MapSampleViewState extends State<MapSampleView> {
                   // 1. 기존 사용자 마커들 (클러스터 등)
                   ...viewModel.displayMarkers,
                   if (widget.initialPlace != null &&
-                      !_initialPlaceSaved && !_initialPlaceDismissed)
-                    widget.initialPlace!.copyWith(onTapParam: () =>
-                      viewModel.onSearchMarkerTapped?.call(widget.initialPlace!)),
+                      !_initialPlaceSaved &&
+                      !_initialPlaceDismissed)
+                    widget.initialPlace!.copyWith(
+                        onTapParam: () => viewModel.onSearchMarkerTapped
+                            ?.call(widget.initialPlace!)),
 
                   // 2. 검색 결과 마커들 전체 추가 ← 이게 핵심!!
                   ...viewModel.searchResults,
@@ -693,19 +713,32 @@ class _MapSampleViewState extends State<MapSampleView> {
               );
             },
           ),
-          Positioned.fill(child: IgnorePointer(child: AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 220),
+          Positioned.fill(
+              child: IgnorePointer(
+                  child: AnimatedSwitcher(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
             child: _controller == null
                 ? const MapLoadingPlaceholder()
                 : const SizedBox.expand(),
           ))),
           if (_controller != null && (!_hasLoadedMarkers || _filterLoading))
-            Positioned(top: MediaQuery.paddingOf(context).top + 130, left: 20, right: 20,
-              child: IgnorePointer(child: Center(child: Chip(
-                backgroundColor: Colors.white,
-                avatar: const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-                label: Text(_filterLoading ? '선택한 장소 불러오는 중…' : '저장한 장소 불러오는 중…'),
-              )))),
+            Positioned(
+                top: MediaQuery.paddingOf(context).top + 130,
+                left: 20,
+                right: 20,
+                child: IgnorePointer(
+                    child: Center(
+                        child: Chip(
+                  backgroundColor: Colors.white,
+                  avatar: const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  label: Text(
+                      _filterLoading ? '선택한 장소 불러오는 중…' : '저장한 장소 불러오는 중…'),
+                )))),
           Positioned(
             top: 0,
             left: 0,
@@ -752,10 +785,13 @@ class _MapSampleViewState extends State<MapSampleView> {
                         }
                       },
                     )),
-                    IconButton(
-                        tooltip: '키워드 필터',
-                        onPressed: _showKeywordFilter,
-                        icon: const Icon(Icons.tune_rounded)),
+                    ScreenGuideTarget(
+                        guide: FeatureGuide.keywords,
+                        onTry: _showKeywordFilter,
+                        child: IconButton(
+                            tooltip: '키워드 필터',
+                            onPressed: _showKeywordFilter,
+                            icon: const Icon(Icons.tune_rounded))),
                   ]),
                 ),
               ]),
@@ -834,20 +870,25 @@ class _MapSampleViewState extends State<MapSampleView> {
                               color: active
                                   ? Colors.white
                                   : const Color(0xFF202020))),
-                      onPressed: _filterLoading ? null : () async {
-                        setState(() => _filterLoading = true);
-                        try {
-                        if (index == 0) {
-                          for (final key in vm.activeKeywords.toList()) {
-                            await vm.toggleKeyword(key);
-                          }
-                        } else {
-                          await vm.toggleKeyword(keyword);
-                        }
-                        } finally {
-                          if (mounted) setState(() => _filterLoading = false);
-                        }
-                      },
+                      onPressed: _filterLoading
+                          ? null
+                          : () async {
+                              setState(() => _filterLoading = true);
+                              try {
+                                if (index == 0) {
+                                  for (final key
+                                      in vm.activeKeywords.toList()) {
+                                    await vm.toggleKeyword(key);
+                                  }
+                                } else {
+                                  await vm.toggleKeyword(keyword);
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _filterLoading = false);
+                                }
+                              }
+                            },
                     );
                   },
                 )),
@@ -872,17 +913,22 @@ class _MapSampleViewState extends State<MapSampleView> {
                   child: const Icon(Icons.smart_toy_outlined, size: 27),
                 ),
                 const SizedBox(height: 12),
-                FloatingActionButton(
-                  heroTag: 'btn_list',
-                  elevation: 3,
-                  tooltip: '여행 리스트 선택 및 필터 초기화',
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF202020),
-                  shape: const CircleBorder(),
-                  onPressed: () => showUserLists(context),
-                  child:
-                      const Icon(Icons.format_list_bulleted_rounded, size: 27),
-                ),
+                ScreenGuideTarget(
+                    guide: FeatureGuide.routeOrder,
+                    description:
+                        '이 버튼에서 여행 리스트를 선택해보세요. 리스트를 선택하면 방문 순서 하단창에서 장소를 길게 눌러 순서를 바꾸고 번호 마커로 볼 수 있어요.',
+                    onTry: () => showUserLists(context, fromGuide: true),
+                    child: FloatingActionButton(
+                      heroTag: 'btn_list',
+                      elevation: 3,
+                      tooltip: '여행 리스트 선택 및 필터 초기화',
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF202020),
+                      shape: const CircleBorder(),
+                      onPressed: () => showUserLists(context),
+                      child: const Icon(Icons.format_list_bulleted_rounded,
+                          size: 27),
+                    )),
                 const SizedBox(height: 12),
                 FloatingActionButton(
                   heroTag: 'btn_location',

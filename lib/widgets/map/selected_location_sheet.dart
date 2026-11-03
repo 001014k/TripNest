@@ -1,3 +1,4 @@
+import '../onboarding/screen_guide_target.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -10,8 +11,10 @@ class SelectedLocationSheet extends StatelessWidget {
       required this.onAdd,
       this.metadata,
       this.actionLabel,
+      this.isTemporary = false,
       this.currentLocation});
   final Marker marker;
+  final bool isTemporary;
   final String? actionLabel;
   final VoidCallback onAdd;
   final Map<String, dynamic>? metadata;
@@ -51,6 +54,11 @@ class SelectedLocationSheet extends StatelessWidget {
                             color: const Color(0xFFCFD1D5),
                             borderRadius: BorderRadius.circular(8)))),
                 const SizedBox(height: 13),
+                if (isTemporary) ...[
+                  const Text('미저장 장소',
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ],
                 const Text('선택한 위치',
                     style: TextStyle(
                         fontSize: 16,
@@ -135,18 +143,23 @@ class SelectedLocationSheet extends StatelessWidget {
                 const SizedBox(height: 18),
                 SizedBox(
                     width: double.infinity,
-                    child: FilledButton(
-                        onPressed: onAdd,
-                        style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF191919),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(54),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18))),
-                        child: Text(actionLabel ?? '이 장소로 추가하기',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600)))),
+                    child: ScreenGuideTarget(
+                        guide:
+                            isTemporary ? FeatureGuide.temporaryMarker : null,
+                        showOnArrival: isTemporary,
+                        child: FilledButton(
+                            onPressed: onAdd,
+                            style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF191919),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(54),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18))),
+                            child: Text(actionLabel ?? '이 장소로 추가하기',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600))))),
               ]),
         ));
   }

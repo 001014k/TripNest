@@ -5,9 +5,18 @@ import '../infrastructure/connectivity_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MarkerService {
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final DatabaseHelper _dbHelper;
   final ConnectivityService _connectivityService = ConnectivityService();
-  final SupabaseClient supabase = Supabase.instance.client;
+  MarkerService(
+      {SupabaseClient? client,
+      DatabaseHelper? database,
+      Future<void> Function(String listId, String markerId, String title)?
+          notifyAdded})
+      : _dbHelper = database ?? DatabaseHelper(),
+        supabase = client ?? Supabase.instance.client,
+        _notifyAdded = notifyAdded;
+  final SupabaseClient supabase;
+  final Future<void> Function(String, String, String)? _notifyAdded;
 
   Future<Map<String, dynamic>?> loadMarkerDetail(String markerId) => supabase
       .from('user_markers')
@@ -38,33 +47,28 @@ class MarkerService {
   }) async {
     final user = supabase.auth.currentUser;
     if (user == null) return false;
-    await supabase.from('user_markers').insert({
-      'id': id,
-      'user_id': user.id,
-      'title': title,
-      'snippet': snippet,
-      'lat': latitude,
-      'lng': longitude,
-      'keyword': keyword,
-      'marker_image_path': imagePath,
-      'address': address,
+    await supabase.rpc('create_user_marker_atomic', params: {
+      'p_id': id,
+      'p_title': title,
+      'p_snippet': snippet,
+      'p_lat': latitude,
+      'p_lng': longitude,
+      'p_keyword': keyword,
+      'p_image_path': imagePath,
+      'p_address': address,
+      'p_list_id': listId,
     });
+    // Notifications are best-effort after the database commit.
     if (listId != null) {
       try {
-        await supabase.from('list_bookmarks').insert({
-          'list_id': listId,
-          'marker_id': id,
-          'title': title,
-          'keyword': keyword,
-          'lat': latitude,
-          'lng': longitude,
-          'snippet': snippet,
-          'created_at': DateTime.now().toIso8601String(),
-        });
-        await NotificationService(supabase: supabase).notifyMarkerAddedToList(
-            listId: listId, markerId: id, markerTitle: title ?? '장소');
-      } catch (error) {
-        debugPrint('list_bookmarks Insert 실패: $error');
+        if (_notifyAdded != null) {
+          await _notifyAdded(listId, id, title ?? '장소');
+        } else {
+          await NotificationService(supabase: supabase).notifyMarkerAddedToList(
+              listId: listId, markerId: id, markerTitle: title ?? '장소');
+        }
+      } catch (_) {
+        debugPrint('장소 저장 완료, 알림 전송 실패');
       }
     }
     return true;
@@ -72,64 +76,55 @@ class MarkerService {
 
   Future<void> saveMarkerOfflineOrOnline(
       Map<String, dynamic> markerData) async {
-    final isConnected = await _connectivityService.isConnected();
-
-    final user = supabase.auth.currentUser;
-    if (user == null) return; // 로그인 안 된 상태 예외 처리
-
-    final userId = user.id;
-
-    if (!isConnected) {
-      // 오프라인일 때 SQLite에 저장
-      await _dbHelper.insertMarker(markerData);
-    } else {
-      // 온라인일 때 Supabase에 저장
-      final response = await supabase.from('user_markers').upsert({
-        'id': markerData['id'], // UUID
-        'user_id': userId,
-        'title': markerData['title'],
-        'description': markerData['description'],
-        'lat': markerData['latitude'],
-        'lng': markerData['longitude'],
-        'created_at':
-            markerData['created_at'] ?? DateTime.now().toIso8601String(),
-      });
-
-      if (response.error != null) {
-        debugPrint('Supabase 저장 오류: ${response.error!.message}');
-        return;
-      }
-
-      // 동기화된 마커를 로컬 DB에 표시
-      await _dbHelper.insertMarker({...markerData, 'synced': 1});
-    }
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) throw StateError('로그인이 필요합니다.');
+    final row = <String, dynamic>{
+      'id': markerData['id'],
+      'user_id': userId,
+      'title': markerData['title'],
+      'description': markerData['description'],
+      'latitude': markerData['latitude'],
+      'longitude': markerData['longitude'],
+      'synced': 0,
+    };
+    await _dbHelper.insertMarker(row);
+    if (await _connectivityService.isConnected()) await syncOfflineMarkers();
   }
 
-  Future<void> syncOfflineMarkers() async {
-    final unsyncedMarkers = await _dbHelper.getUnsyncedMarkers();
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
+  static final Map<String, Future<void>> _syncing = {};
+  Future<void> syncOfflineMarkers() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return Future.value();
+    final existing = _syncing[userId];
+    if (existing != null) return existing;
+    final request = _syncOfflineMarkers(userId);
+    _syncing[userId] = request;
+    return request.whenComplete(() {
+      if (identical(_syncing[userId], request)) _syncing.remove(userId);
+    });
+  }
 
-    final userId = user.id;
-
-    for (final marker in unsyncedMarkers) {
-      final response = await supabase.from('user_markers').upsert({
-        'id': marker['id'],
-        'user_id': userId,
-        'title': marker['title'],
-        'description': marker['description'],
-        'lat': marker['latitude'],
-        'lng': marker['longitude'],
-        'created_at': marker['created_at'] ?? DateTime.now().toIso8601String(),
-      });
-
-      if (response.error != null) {
-        debugPrint('Supabase 동기화 실패: ${response.error!.message}');
-        continue;
+  Future<void> _syncOfflineMarkers(String userId) async {
+    final rows = await _dbHelper.getUnsyncedMarkers(userId);
+    for (final row in rows) {
+      if (supabase.auth.currentUser?.id != userId) return;
+      try {
+        await supabase.rpc('create_user_marker_atomic', params: {
+          'p_id': row['id'],
+          'p_title': row['title'],
+          'p_snippet': row['description'] ?? '',
+          'p_lat': row['latitude'],
+          'p_lng': row['longitude'],
+          'p_keyword': '기타',
+          'p_image_path': '',
+          'p_address': '',
+          'p_list_id': null,
+        }).timeout(const Duration(seconds: 15));
+        await _dbHelper.updateMarkerSyncStatus(row['id'] as String, userId);
+      } catch (_) {
+        // Keep the original row for an idempotent retry. Never mark failed writes synced.
+        debugPrint('오프라인 장소 동기화 보류');
       }
-
-      // 동기화 상태 로컬 DB에 반영
-      await _dbHelper.updateMarkerSyncStatus(marker['id']);
     }
   }
 

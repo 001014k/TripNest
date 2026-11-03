@@ -21,11 +21,17 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute("ALTER TABLE markers ADD COLUMN user_id TEXT");
+        }
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE markers(
             id TEXT PRIMARY KEY,
+            user_id TEXT,
             title TEXT,
             description TEXT,
             latitude REAL,
@@ -43,13 +49,15 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<List<Map<String, dynamic>>> getUnsyncedMarkers() async {
+  Future<List<Map<String, dynamic>>> getUnsyncedMarkers(String userId) async {
     final db = await database;
-    return await db.query('markers', where: 'synced = ?', whereArgs: [0]);
+    return await db.query('markers',
+        where: 'synced = ? AND user_id = ?', whereArgs: [0, userId]);
   }
 
-  Future<void> updateMarkerSyncStatus(String id) async {
+  Future<void> updateMarkerSyncStatus(String id, String userId) async {
     final db = await database;
-    await db.update('markers', {'synced': 1}, where: 'id = ?', whereArgs: [id]);
+    await db.update('markers', {'synced': 1},
+        where: 'id = ? AND user_id = ?', whereArgs: [id, userId]);
   }
 }
