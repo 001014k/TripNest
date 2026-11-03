@@ -11,52 +11,25 @@ class SharedLinkService {
     String platform,
     LinkPlacePreview placePreview,
   ) async {
-    final user = _client.auth.currentUser;
+    await saveSharedLinkPlaces(url, platform, [placePreview]);
+  }
 
-    if (user == null) {
-      throw Exception('로그인이 필요합니다');
-    }
-
-    try {
-      final alreadyExists = await doesPlaceExist(
-        url,
-        placePreview,
-      );
-
-      if (alreadyExists) {
-        debugPrint(
-          '⚠️ 이미 저장된 장소입니다: '
-          '${placePreview.title} | ${placePreview.address}',
-        );
-        return;
-      }
-
-      final data = {
-        'user_id': user.id,
-        'url': url,
-        'platform': platform,
-        'created_at': DateTime.now().toIso8601String(),
-        'place_title': placePreview.title,
-        'place_address': placePreview.address,
-        'place_latitude': placePreview.latitude,
-        'place_longitude': placePreview.longitude,
-      };
-
-      final response = await _client.from('shared_links').insert(data).select();
-
-      if (response.isEmpty) {
-        throw Exception('장소 저장에 실패했습니다.');
-      }
-
-      debugPrint(
-        '✅ 장소 저장 성공: ${placePreview.title}',
-      );
-    } catch (e) {
-      debugPrint(
-        '❌ [saveSharedLinkPlace] 오류: $e',
-      );
-      rethrow;
-    }
+  Future<void> saveSharedLinkPlaces(
+      String url, String platform, List<LinkPlacePreview> places) async {
+    if (_client.auth.currentUser == null) throw StateError('로그인이 필요합니다');
+    await _client.rpc('save_shared_link_places_atomic', params: {
+      'p_url': url,
+      'p_platform': platform,
+      'p_places': [
+        for (final place in places)
+          {
+            'title': place.title,
+            'address': place.address,
+            'latitude': place.latitude,
+            'longitude': place.longitude,
+          }
+      ],
+    });
   }
 
   Future<List<SharedLinkModel>> loadSharedLinks() async {

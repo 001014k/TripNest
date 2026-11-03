@@ -1,3 +1,4 @@
+import '../../widgets/onboarding/shared_link_guide_button.dart';
 import '../../services/shared_links/shared_link_platform.dart';
 import '../../widgets/common/app_overlays.dart';
 import '../../widgets/common/reference_design.dart';
@@ -13,7 +14,8 @@ import '../../viewmodels/shared_links/shared_link_viewmodel.dart';
 import '../../design/app_design.dart';
 
 class SharedLinkView extends StatefulWidget {
-  const SharedLinkView({super.key});
+  const SharedLinkView({super.key, this.showGuide = false});
+  final bool showGuide;
 
   @override
   State<SharedLinkView> createState() => _SharedLinkViewState();
@@ -28,11 +30,13 @@ class _SharedLinkViewState extends State<SharedLinkView>
   bool _isProcessingSharedLink = false;
   String _query = '';
   String? _platform;
+  bool _incomingShare = false;
 
   @override
   void initState() {
     super.initState();
     _viewModel = context.read<SharedLinkViewModel>();
+    _incomingShare = _viewModel.hasPendingSharedUrl;
     _initializeAnimations();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -136,7 +140,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
   }) async {
     if (!mounted || _isProcessingSharedLink) return;
 
-    _isProcessingSharedLink = true;
+    setState(() => _isProcessingSharedLink = true);
 
     try {
       final platform = _viewModel.detectPlatformFromUrl(url);
@@ -169,7 +173,9 @@ class _SharedLinkViewState extends State<SharedLinkView>
         '링크를 처리하지 못했습니다.',
       );
     } finally {
-      _isProcessingSharedLink = false;
+      if (mounted) {
+        setState(() { _isProcessingSharedLink = false; _incomingShare = false; });
+      } else { _isProcessingSharedLink = false; }
     }
   }
 
@@ -372,6 +378,13 @@ class _SharedLinkViewState extends State<SharedLinkView>
                     SliverToBoxAdapter(
                       child: _SharedLinkHeader(),
                     ),
+                    SliverToBoxAdapter(child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                      child: Align(alignment: Alignment.centerRight,
+                        child: SharedLinkGuideButton(forceGuide: widget.showGuide,
+                          enabled: !_incomingShare && !_isProcessingSharedLink && !vm.isLoadingLinks,
+                          onPressed: _addLink)),
+                    )),
                     SliverToBoxAdapter(
                         child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -428,36 +441,6 @@ class _SharedLinkViewState extends State<SharedLinkView>
                       ),
                     ],
 
-                    SliverToBoxAdapter(
-                        child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                            child: ReferenceCard(
-                                dashed: true,
-                                child: Row(children: [
-                                  const CircleAvatar(
-                                      radius: 27,
-                                      backgroundColor: AppDesign.lightGray,
-                                      child: Icon(Icons.link,
-                                          size: 30,
-                                          color: AppDesign.primaryText)),
-                                  const SizedBox(width: 12),
-                                  const Expanded(
-                                      child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                        Text('새 링크 가져오기',
-                                            style: AppDesign.headingSmall),
-                                        SizedBox(height: 5),
-                                        Text(
-                                            '인스타그램·Threads·블로그·카페에서 발견한 장소를 링크로 공유하고 저장해보세요.',
-                                            style: AppDesign.bodySmall)
-                                      ])),
-                                  FilledButton(
-                                      onPressed: _addLink,
-                                      child: const Text('링크 추가하기',
-                                          style: TextStyle(fontSize: 11))),
-                                ])))),
                     // 하단 여백
                     const SliverToBoxAdapter(
                       child: SizedBox(height: AppDesign.spacing40),

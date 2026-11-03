@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../services/shared_links/threads_place_extractor_service.dart';
 import '../../services/shared_links/shared_link_platform.dart';
 import '../../services/shared_links/portal_place_extractor_service.dart';
@@ -35,6 +36,49 @@ class SharedLinkViewModel extends ChangeNotifier {
 
   final SharedLinkService _service;
   int _loadRevision = 0;
+  bool _disposed = false;
+  bool _mutating = false;
+  Future<void> _mutationTail = Future<void>.value();
+  final Map<String, Future<void>> _pendingMutations = {};
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  Future<void> _mutate(String key, Future<void> Function() action) {
+    if (_disposed) return Future<void>.value();
+    final pending = _pendingMutations[key];
+    if (pending != null) return pending;
+    final result = _mutationTail.then((_) async {
+      if (_disposed) return;
+      _mutating = true;
+      _loadRevision++;
+      isLoadingLinks = false;
+      try {
+        await action();
+      } finally {
+        _mutating = false;
+        if (!_disposed) notifyListeners();
+      }
+    });
+    _pendingMutations[key] = result;
+    _mutationTail =
+        result.then<void>((_) {}, onError: (Object error, StackTrace stack) {});
+    unawaited(_mutationTail.then((_) => _pendingMutations.remove(key)));
+    return result;
+  }
+
+  Future<void> saveLink(String url, {LinkPlacePreview? placePreview}) =>
+      _mutate('save:$url', () => _saveLink(url, placePreview: placePreview));
+  Future<void> saveMultiplePlaces(
+          String url, List<LinkPlacePreview> previews) =>
+      _mutate('places:$url', () => _saveMultiplePlaces(url, previews));
+  Future<void> deleteLink(String id) =>
+      _mutate('delete:$id', () => _deleteLink(id));
+  Future<void> deleteLinkGroup(String url) =>
+      _mutate('group:$url', () => _deleteLinkGroup(url));
+
   final LinkPlaceExtractorService _placeExtractor =
       const LinkPlaceExtractorService();
   final ApifyService _apifyService = ApifyService();
@@ -125,7 +169,9 @@ class SharedLinkViewModel extends ChangeNotifier {
     try {
       return await ThreadsPlaceExtractorService().extract(url);
     } catch (e) {
-      errorMessage = e is FormatException ? e.message : 'Threads 분석에 실패했습니다. 잠시 후 다시 시도해주세요.';
+      errorMessage = e is FormatException
+          ? e.message
+          : 'Threads 분석에 실패했습니다. 잠시 후 다시 시도해주세요.';
       notifyListeners();
       return [];
     }
@@ -136,7 +182,7 @@ class SharedLinkViewModel extends ChangeNotifier {
       PortalPlaceExtractorService().extract(url, sharedText: sharedText);
 
   // ✅ 공유 링크 저장
-  Future<void> saveLink(String url, {LinkPlacePreview? placePreview}) async {
+  Future<void> _saveLink(String url, {LinkPlacePreview? placePreview}) async {
     debugPrint('🔹 [saveLink] 호출됨: $url');
     errorMessage = null;
 
@@ -153,6 +199,7 @@ class SharedLinkViewModel extends ChangeNotifier {
         return;
       }
 
+      if (_disposed) return;
       final platform = detectPlatformFromUrl(url);
       debugPrint('🧭 [saveLink] 플랫폼 감지됨: $platform');
 
@@ -163,9 +210,11 @@ class SharedLinkViewModel extends ChangeNotifier {
       );
       debugPrint('✅ [saveLink] 링크 저장 성공');
 
+      if (_disposed) return;
       _lastSavedUrl = url;
-      await loadSharedLinks();
+      await _loadSharedLinks(afterMutation: true);
     } catch (e) {
+      if (_disposed) return;
       errorMessage = '링크 저장 실패: $e';
       debugPrint('❌ [saveLink] 오류 발생: $e');
     }
@@ -173,7 +222,7 @@ class SharedLinkViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveMultiplePlaces(
+  Future<void> _saveMultiplePlaces(
     String url,
     List<LinkPlacePreview> previews,
   ) async {
@@ -191,23 +240,20 @@ class SharedLinkViewModel extends ChangeNotifier {
     }
 
     try {
+      if (_disposed) return;
       final platform = detectPlatformFromUrl(url);
 
-      for (final preview in previews) {
-        await _service.saveSharedLinkPlace(
-          url,
-          platform,
-          preview,
-        );
-      }
+      await _service.saveSharedLinkPlaces(url, platform, previews);
 
       debugPrint(
         '✅ [saveMultiplePlaces] '
         '${previews.length}개 장소 처리 완료',
       );
 
-      await loadSharedLinks();
+      if (_disposed) return;
+      await _loadSharedLinks(afterMutation: true);
     } catch (e) {
+      if (_disposed) return;
       errorMessage = '장소 저장 실패: $e';
 
       debugPrint(
@@ -344,7 +390,8 @@ class SharedLinkViewModel extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ [Instagram] 분석 실패: $e');
 
-      errorMessage = e is InstagramAccessException ? e.message : 'Instagram 분석 실패: $e';
+      errorMessage =
+          e is InstagramAccessException ? e.message : 'Instagram 분석 실패: $e';
       notifyListeners();
 
       return const [];
@@ -352,7 +399,10 @@ class SharedLinkViewModel extends ChangeNotifier {
   }
 
   // ✅ 공유 링크 불러오기
-  Future<void> loadSharedLinks() async {
+  Future<void> loadSharedLinks() => _loadSharedLinks();
+
+  Future<void> _loadSharedLinks({bool afterMutation = false}) async {
+    if (_disposed || (_mutating && !afterMutation)) return;
     final revision = ++_loadRevision;
     debugPrint('🔹 [loadSharedLinks] 호출됨');
     errorMessage = null;
@@ -361,14 +411,14 @@ class SharedLinkViewModel extends ChangeNotifier {
 
     try {
       final loaded = await _service.loadSharedLinks();
-      if (revision != _loadRevision) return;
+      if (_disposed || revision != _loadRevision) return;
       sharedLinks = loaded;
       debugPrint('✅ [loadSharedLinks] 불러온 링크 개수: ${sharedLinks.length}');
       for (final link in sharedLinks) {
         debugPrint('   ↳ ${link.platform} | ${link.url}');
       }
     } catch (e) {
-      if (revision != _loadRevision) return;
+      if (_disposed || revision != _loadRevision) return;
       errorMessage = '공유 링크 불러오기 실패: $e';
       debugPrint('❌ [loadSharedLinks] 오류 발생: $e');
     }
@@ -378,9 +428,10 @@ class SharedLinkViewModel extends ChangeNotifier {
   }
 
   // ✅ 공유 링크 삭제
-  Future<void> deleteLink(String id) async {
+  Future<void> _deleteLink(String id) async {
     debugPrint('🔹 [deleteLink] 호출됨: id=$id');
     errorMessage = null;
+    final previousLinks = List<SharedLinkModel>.of(sharedLinks);
     SharedLinkModel? deletedLink;
     for (final link in sharedLinks) {
       if (link.id == id) {
@@ -393,10 +444,14 @@ class SharedLinkViewModel extends ChangeNotifier {
 
     try {
       await _service.deleteSharedLink(id);
+      if (_disposed) return;
+      if (_lastSavedUrl == deletedLink?.url) _lastSavedUrl = null;
       debugPrint('✅ [deleteLink] 링크 삭제 성공');
-      await loadSharedLinks();
+      if (_disposed) return;
+      await _loadSharedLinks(afterMutation: true);
     } catch (e) {
-      if (deletedLink != null) sharedLinks.add(deletedLink);
+      if (_disposed) return;
+      sharedLinks = previousLinks;
       errorMessage = '링크 삭제 실패: $e';
       debugPrint('❌ [deleteLink] 오류 발생: $e');
     }
@@ -405,17 +460,21 @@ class SharedLinkViewModel extends ChangeNotifier {
   }
 
   /// Deletes the source link and all places extracted from it together.
-  Future<void> deleteLinkGroup(String url) async {
+  Future<void> _deleteLinkGroup(String url) async {
     errorMessage = null;
-    final deletedLinks = sharedLinks.where((link) => link.url == url).toList();
+    final previousLinks = List<SharedLinkModel>.of(sharedLinks);
     sharedLinks.removeWhere((link) => link.url == url);
     notifyListeners();
 
     try {
       await _service.deleteSharedLinkGroup(url);
-      await loadSharedLinks();
+      if (_disposed) return;
+      if (_lastSavedUrl == url) _lastSavedUrl = null;
+      if (_disposed) return;
+      await _loadSharedLinks(afterMutation: true);
     } catch (e) {
-      sharedLinks.addAll(deletedLinks);
+      if (_disposed) return;
+      sharedLinks = previousLinks;
       errorMessage = '링크 삭제 실패: $e';
       notifyListeners();
     }
@@ -423,6 +482,9 @@ class SharedLinkViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _loadRevision++;
+    _pendingMutations.clear();
     _realtimeChannel?.unsubscribe();
     super.dispose();
   }

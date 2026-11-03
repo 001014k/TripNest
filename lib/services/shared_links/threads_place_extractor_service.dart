@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../env.dart';
+import 'social_extraction_service.dart';
 import '../../models/shared_links/link_place_preview_model.dart';
 import '../ai/gemini_service.dart';
 import 'link_place_extractor_service.dart';
@@ -9,11 +8,12 @@ import 'shared_link_platform.dart';
 
 /// Public post text only; never includes other users' replies or quoted posts.
 class ThreadsPlaceExtractorService {
-  ThreadsPlaceExtractorService({http.Client? client, String? token})
+  ThreadsPlaceExtractorService(
+      {http.Client? client, SocialExtractionService? extraction})
       : _client = client,
-        _token = token;
+        _extraction = extraction ?? SocialExtractionService();
   final http.Client? _client;
-  final String? _token;
+  final SocialExtractionService _extraction;
 
   static Uri postUri(String url) {
     final uri = Uri.tryParse(url.trim());
@@ -74,69 +74,7 @@ class ThreadsPlaceExtractorService {
 
   Future<List<dynamic>> fetch(String url) async {
     final uri = await resolvePostUri(url);
-    final token = _token ?? Env.apifyApiToken;
-    if (token.isEmpty) throw const FormatException('Apify API 키가 설정되지 않았습니다.');
-    final client = _client ?? http.Client();
-    try {
-      final headers = {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json'
-      };
-      final run = await client
-          .post(
-            Uri.https('api.apify.com', '/v2/acts/memo23~threads-scraper/runs',
-                {'timeout': '120'}),
-            headers: headers,
-            body: jsonEncode({
-              'postUrls': [uri.toString()],
-              'includeReplies': true,
-              'maxItems': 100
-            }),
-          )
-          .timeout(const Duration(seconds: 20));
-      final data = _decode(run)['data'] as Map;
-      final id = data['id'];
-      final dataset = data['defaultDatasetId'];
-      if (id == null || dataset == null) {
-        throw const FormatException('Threads 수집 실행 정보를 가져오지 못했습니다.');
-      }
-      for (var attempt = 0; attempt < 65; attempt++) {
-        final response = await client
-            .get(Uri.https('api.apify.com', '/v2/actor-runs/$id'),
-                headers: headers)
-            .timeout(const Duration(seconds: 15));
-        final status = _decode(response)['data']['status'];
-        if (status == 'SUCCEEDED') {
-          final response = await client
-              .get(
-                  Uri.https('api.apify.com', '/v2/datasets/$dataset/items',
-                      {'clean': 'true', 'limit': '100'}),
-                  headers: headers)
-              .timeout(const Duration(seconds: 20));
-          final rows = _decode(response);
-          if (rows is! List) {
-            throw const FormatException('Threads 수집 결과 형식이 올바르지 않습니다.');
-          }
-          return rows;
-        }
-        if (['FAILED', 'ABORTED', 'TIMED-OUT'].contains(status)) {
-          throw const FormatException(
-              'Threads 글을 가져오지 못했습니다. 공개 게시물인지 확인하고 다시 시도해주세요.');
-        }
-        await Future<void>.delayed(const Duration(seconds: 2));
-      }
-      throw TimeoutException('Threads 분석 시간이 초과되었습니다. 다시 시도해주세요.');
-    } finally {
-      if (_client == null) client.close();
-    }
-  }
-
-  dynamic _decode(http.Response response) {
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw FormatException(
-          'Threads 수집 서비스 요청에 실패했습니다 (${response.statusCode}). 잠시 후 다시 시도해주세요.');
-    }
-    return jsonDecode(utf8.decode(response.bodyBytes));
+    return _extraction.fetch('Threads', uri.toString());
   }
 
   static String authorText(String url, List<dynamic> rows) {
