@@ -1,8 +1,8 @@
+import '../infrastructure/server_api_client.dart';
 import '../../models/weather/weather_forecast.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
-import '../../env.dart';
 
 class WeatherData {
   const WeatherData(
@@ -45,8 +45,8 @@ class WeatherService {
       String? apiKey,
       String? midApiKey,
       DateTime Function()? clock})
-      : _client = client ?? http.Client(),
-        _key = apiKey ?? Env.apiweather,
+      : _client = client ?? ServerApiClient(),
+        _key = apiKey ?? 'server-managed',
         _clock = clock ?? DateTime.now;
   final http.Client _client;
   final String _key;
@@ -307,9 +307,8 @@ class WeatherService {
 
   Future<Map<String, dynamic>> _midRequest(
       String method, String region, DateTime base) async {
-    final key = _key.contains('%')
-        ? Uri.decodeComponent(_key.trim())
-        : _key.trim();
+    final key =
+        _key.contains('%') ? Uri.decodeComponent(_key.trim()) : _key.trim();
     final response = await _client
         .get(Uri.https(
             'apis.data.go.kr', '/1360000/MidFcstInfoService/$method', {

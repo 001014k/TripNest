@@ -1,7 +1,7 @@
+import '../infrastructure/server_api_client.dart';
 import 'dart:convert';
 import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
-import '../../env.dart';
 import '../../models/shared_links/link_place_preview_model.dart';
 import 'package:flutter/foundation.dart';
 import 'apify_service.dart';
@@ -529,12 +529,12 @@ class LinkPlaceExtractorService {
   }
 
   Future<List<_PlaceMatch>> _searchPlaces(String query) async {
-    final response = await http
+    final response = await ServerApiClient()
         .post(
           Uri.https('places.googleapis.com', '/v1/places:searchText'),
           headers: {
             'Content-Type': 'application/json',
-            'X-Goog-Api-Key': Env.googleMapsApiKey,
+            'X-Goog-Api-Key': 'server-managed',
             'X-Goog-FieldMask':
                 'places.displayName,places.formattedAddress,places.location',
           },
@@ -587,12 +587,12 @@ class LinkPlaceExtractorService {
     required String sourceAddress,
   }) async {
     try {
-      final response = await http.get(
+      final response = await ServerApiClient().get(
         Uri.https('maps.googleapis.com', '/maps/api/geocode/json', {
           'address': sourceAddress,
           'language': 'ko',
           'region': 'kr',
-          'key': Env.googleMapsApiKey,
+          'key': 'server-managed',
         }),
       );
       if (response.statusCode != 200) {
@@ -648,12 +648,12 @@ class LinkPlaceExtractorService {
     if (preview.latitude == null || preview.longitude == null) return preview;
 
     try {
-      final response = await http
+      final response = await ServerApiClient()
           .post(
             Uri.https('places.googleapis.com', '/v1/places:searchNearby'),
             headers: {
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': Env.googleMapsApiKey,
+              'X-Goog-Api-Key': 'server-managed',
               'X-Goog-FieldMask':
                   'places.displayName,places.formattedAddress,places.location',
             },

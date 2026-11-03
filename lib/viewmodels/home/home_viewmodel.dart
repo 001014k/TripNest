@@ -1,8 +1,7 @@
+import '../../services/infrastructure/server_api_client.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../env.dart';
 import '../../models/markers/marker_model.dart';
 import '../../models/shared_links/link_preview_data.dart';
 import '../../models/shared_links/shared_link_model.dart'; // SharedLinkModel 임포트
@@ -131,11 +130,11 @@ class HomeDashboardViewModel extends ChangeNotifier {
 
   Future<double?> _getGoogleRating(String query) async {
     try {
-      final searchRes = await http.post(
+      final searchRes = await ServerApiClient().post(
         Uri.https('places.googleapis.com', '/v1/places:searchText'),
         headers: {
           'Content-Type': 'application/json',
-          'X-Goog-Api-Key': Env.googleMapsApiKey,
+          'X-Goog-Api-Key': 'server-managed',
           'X-Goog-FieldMask': 'places.id',
         },
         body: jsonEncode({'textQuery': query}),
@@ -150,10 +149,10 @@ class HomeDashboardViewModel extends ChangeNotifier {
       final placeId = places[0]['id'] as String?;
       if (placeId == null) return null;
 
-      final detailsRes = await http.get(
+      final detailsRes = await ServerApiClient().get(
         Uri.https('places.googleapis.com', '/v1/places/$placeId', {
           'fields': 'rating',
-          'key': Env.googleMapsApiKey,
+          'key': 'server-managed',
         }),
       );
 

@@ -1,7 +1,6 @@
+import '../infrastructure/server_api_client.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import '../../env.dart';
 
 class AddressToPhotoService {
   static final _instance = AddressToPhotoService._();
@@ -16,12 +15,13 @@ class AddressToPhotoService {
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/place/textsearch/json'
       '?query=$encoded'
-      '&key=${Env.googleMapsApiKey}'
+      '&key=${'server-managed'}'
       '&language=ko',
     );
 
     try {
-      final res = await http.get(url);
+      final res =
+          await ServerApiClient().get(url).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
 
       if (data['status'] == 'OK' &&
@@ -30,10 +30,11 @@ class AddressToPhotoService {
         final photos = data['results'][0]['photos'];
         if (photos != null && photos.isNotEmpty) {
           final photoRef = photos[0]['photo_reference'];
-          return 'https://maps.googleapis.com/maps/api/place/photo'
+          return await ServerApiClient.imageUrl(
+              'https://maps.googleapis.com/maps/api/place/photo'
               '?maxwidth=400'
               '&photoreference=$photoRef'
-              '&key=${Env.googleMapsApiKey}';
+              '&key=server-managed');
         }
       }
     } catch (e) {

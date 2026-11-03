@@ -1,8 +1,7 @@
+import '../infrastructure/server_api_client.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:google_generative_ai/google_generative_ai.dart';
-import '../../env.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../models/shared_links/instagram_place_source_model.dart';
 
@@ -29,7 +28,7 @@ class GeminiService {
         debugPrint('🔍 AI requested Google Maps search for: $placeName');
       }
 
-      final String googleMapsApiKey = Env.googleMapsApiKey;
+      final String googleMapsApiKey = 'server-managed';
       if (googleMapsApiKey.isEmpty ||
           googleMapsApiKey == 'your-actual-google-maps-api-key-here') {
         if (kDebugMode) debugPrint('❌ Google Maps API Key is not configured.');
@@ -45,7 +44,7 @@ class GeminiService {
       final uri = Uri.https('places.googleapis.com', '/v1/places:searchText');
 
       try {
-        final response = await http.post(
+        final response = await ServerApiClient().post(
           uri,
           headers: {
             'Content-Type': 'application/json',
@@ -126,7 +125,7 @@ class GeminiService {
   }
 
   GeminiService._internal() {
-    final String apiKey = Env.geminiApiKey;
+    final String apiKey = 'server-managed';
 
     if (apiKey.isEmpty || apiKey == 'your-actual-gemini-api-key-here') {
       throw Exception('env.dart에 유효한 GEMINI_API_KEY를 설정해주세요!');
@@ -135,6 +134,7 @@ class GeminiService {
     _model = GenerativeModel(
       model: 'gemini-2.5-flash',
       apiKey: apiKey,
+      httpClient: ServerApiClient(),
       generationConfig: GenerationConfig(
         maxOutputTokens: 8192,
         temperature: 0.1, // 환각 최소화 및 도구 사용 정확도 극대화를 위해 대폭 낮춤
@@ -230,6 +230,7 @@ class GeminiService {
     _instagramModel = GenerativeModel(
       model: 'gemini-2.5-flash',
       apiKey: apiKey,
+      httpClient: ServerApiClient(),
       generationConfig: GenerationConfig(
         maxOutputTokens: 1024,
         temperature: 0.0,
@@ -241,9 +242,11 @@ class GeminiService {
     _chatSession = _model.startChat();
   }
 
-  Future<List<InstagramPlaceSource>> extractInstagramPlaces(String content) => extractPlacesFromText(content);
+  Future<List<InstagramPlaceSource>> extractInstagramPlaces(String content) =>
+      extractPlacesFromText(content);
 
-  Future<List<InstagramPlaceSource>> extractPlacesFromText(String content) async {
+  Future<List<InstagramPlaceSource>> extractPlacesFromText(
+      String content) async {
     if (content.trim().isEmpty) {
       return const [];
     }

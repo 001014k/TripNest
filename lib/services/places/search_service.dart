@@ -1,13 +1,13 @@
+import '../infrastructure/server_api_client.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 
 // SearchService: Google Places API와 지오코딩 검색
 class SearchService {
   final String apiKey;
 
-  SearchService({required this.apiKey});
+  SearchService({this.apiKey = 'server-managed'});
 
   /// Google Places API 검색
   Future<List<Marker>> searchPlacesWithQuery(String query) async {
@@ -19,15 +19,17 @@ class SearchService {
       "languageCode": "ko",
     });
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-FieldMask':
-            'places.displayName,places.formattedAddress,places.location'
-      },
-      body: requestBody,
-    );
+    final response = await ServerApiClient()
+        .post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-FieldMask':
+                'places.displayName,places.formattedAddress,places.location'
+          },
+          body: requestBody,
+        )
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -56,7 +58,9 @@ class SearchService {
   /// 지오코딩을 이용한 검색
   Future<Marker?> geocodeSearch(String query) async {
     try {
-      final locations = await geocoding.Geocoding().locationFromAddress(query);
+      final locations = await geocoding.Geocoding()
+          .locationFromAddress(query)
+          .timeout(const Duration(seconds: 15));
       if (locations.isNotEmpty) {
         final location = locations.first;
         return Marker(

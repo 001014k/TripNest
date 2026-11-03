@@ -1,3 +1,4 @@
+import '../../services/infrastructure/server_api_client.dart';
 import '../../widgets/markers/marker_delete_dialog.dart';
 import '../../widgets/common/app_photo_hero.dart';
 import '../../navigation/app_page_route.dart';
@@ -9,7 +10,6 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../design/app_design.dart';
-import '../../env.dart';
 import '../../viewmodels/markers/markerdetail_viewmodel.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../map/mapsample_view.dart';
@@ -616,11 +616,26 @@ class _InfoCard extends StatelessWidget {
       ]));
 }
 
-class _MapPreview extends StatelessWidget {
+class _MapPreview extends StatefulWidget {
   const _MapPreview({required this.vm});
 
   final MarkerDetailViewModel vm;
+  @override
+  State<_MapPreview> createState() => _MapPreviewState();
+}
 
+class _MapPreviewState extends State<_MapPreview> {
+  MarkerDetailViewModel get vm => widget.vm;
+  final _images = <String, Future<Uint8List>>{};
+  Future<Uint8List> _mapImage(String url) => _images.putIfAbsent(url, () async {
+        final response = await ServerApiClient()
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 200) {
+          throw StateError('지도 미리보기를 가져오지 못했습니다.');
+        }
+        return response.bodyBytes;
+      });
   @override
   Widget build(BuildContext context) {
     final position = vm.marker.position;
@@ -633,11 +648,16 @@ class _MapPreview extends StatelessWidget {
           child: SizedBox(
               height: 132,
               child: Stack(fit: StackFit.expand, children: [
-                Image.network(staticMapUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const ColoredBox(
-                        color: Color(0xFFF0F2F0),
-                        child: Icon(Icons.map_outlined, color: Colors.grey))),
+                FutureBuilder<Uint8List>(
+                    future: _mapImage(staticMapUrl),
+                    builder: (context, snapshot) => snapshot.hasData
+                        ? Image.memory(snapshot.data!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const ColoredBox(
+                                color: Color(0xFFF0F2F0),
+                                child: Icon(Icons.map_outlined,
+                                    color: Colors.grey)))
+                        : const ColoredBox(color: Color(0xFFF0F2F0))),
                 Center(
                     child: Transform.translate(
                         offset: const Offset(0, -16),
@@ -686,7 +706,7 @@ class _MapPreview extends StatelessWidget {
         'scale': '2',
         'format': 'png',
         'style': 'saturation:-75|lightness:20',
-        'key': Env.googleMapsApiKey,
+        'key': 'server-managed',
       },
     ).toString();
   }
