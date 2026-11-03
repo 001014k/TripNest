@@ -22,5 +22,5 @@ class CachedPhotoUrl extends HiveObject {
         cachedAt = cachedAt ?? DateTime.now();
 
   bool get isValid =>
-      DateTime.now().difference(cachedAt).inHours < 24 && photoUrl.isNotEmpty;
+      DateTime.now().difference(cachedAt).inMinutes < 45 && photoUrl.isNotEmpty;
 }

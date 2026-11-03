@@ -1,3 +1,4 @@
+import '../infrastructure/async_ttl_cache.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../models/community/community_post_model.dart';
@@ -7,7 +8,8 @@ class CommunityNearbyService {
   CommunityNearbyService({Future<LatLng?> Function(String)? geocode})
       : _geocode = geocode ?? const GeocodingService().findCoordinates;
   final Future<LatLng?> Function(String) _geocode;
-  final Map<String, LatLng> _cache = {};
+  final _cache = AsyncTtlCache<String, LatLng?>(
+      ttl: const Duration(hours: 24), isEmpty: (value) => value == null);
 
   Future<Map<String, double>> distances(
       List<CommunityPost> posts, LatLng user) async {
@@ -31,9 +33,8 @@ class CommunityNearbyService {
               ?.trim();
           if (address == null || address.isEmpty) return;
           try {
-            point = _cache[address] ??
-                await _geocode(address).timeout(const Duration(seconds: 10));
-            if (point != null) _cache[address] = point;
+            point = await _cache.get(address,
+                () => _geocode(address).timeout(const Duration(seconds: 10)));
           } catch (_) {
             return;
           }

@@ -1,20 +1,29 @@
+import '../infrastructure/server_api_client.dart';
+import '../infrastructure/async_ttl_cache.dart';
 import 'dart:convert';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
 
-import '../../env.dart';
 import '../../models/places/cached_photo_url.dart';
 
 class AddressPhotoPreviewService {
   const AddressPhotoPreviewService({http.Client? client}) : _client = client;
   final http.Client? _client;
 
+  static final _photos = AsyncTtlCache<String, List<String>>(
+      ttl: const Duration(minutes: 45), isEmpty: (value) => value.isEmpty);
+
+  Future<List<String>> loadPhotos(String address, String? title) => _client ==
+          null
+      ? _photos.get(cacheKey(address, title), () => _loadPhotos(address, title))
+      : _loadPhotos(address, title);
+
   String cacheKey(String address, String? title) {
     final addr = address.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
     final ttl = title?.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_') ??
         'no_title';
-    return '$addr|$ttl';
+    return 'gateway-v1|$addr|$ttl';
   }
 
   Future<String?> load(String address, String? title) async {
@@ -29,15 +38,15 @@ class AddressPhotoPreviewService {
     return photos.first;
   }
 
-  Future<List<String>> loadPhotos(String address, String? title) async {
+  Future<List<String>> _loadPhotos(String address, String? title) async {
     if (address.trim().isEmpty && (title?.trim().isEmpty ?? true)) return [];
     final query =
         title != null && title.isNotEmpty ? '$title, $address' : address;
-    final response = await (_client?.post ?? http.post)(
+    final response = await (_client?.post ?? ServerApiClient().post)(
       Uri.https('places.googleapis.com', '/v1/places:searchText'),
       headers: {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': Env.googleMapsApiKey,
+        'X-Goog-Api-Key': 'server-managed',
         'X-Goog-FieldMask':
             'places.photos,places.displayName,places.id,places.formattedAddress',
       },
@@ -82,13 +91,23 @@ class AddressPhotoPreviewService {
     }
 
     final photos = (bestPlace?['photos'] as List<dynamic>?) ?? [];
-    return photos.whereType<Map>().map((photo) => photo['name'])
-        .whereType<String>().where((name) => name.isNotEmpty).toSet().take(5)
+    final urls = photos
+        .whereType<Map>()
+        .map((photo) => photo['name'])
+        .whereType<String>()
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .take(5)
         .map((name) => 'https://places.googleapis.com/v1/$name/media'
-            '?key=${Env.googleMapsApiKey}&maxWidthPx=600').toList();
+            '?key=${'server-managed'}&maxWidthPx=600')
+        .toList();
+    return _client == null
+        ? Future.wait(urls.map(ServerApiClient.imageUrl))
+        : urls;
   }
 
   Future<void> clear(String address, String? title) async {
+    _photos.invalidate(cacheKey(address, title));
     await Hive.box<CachedPhotoUrl>('photo_urls')
         .delete(cacheKey(address, title));
   }
