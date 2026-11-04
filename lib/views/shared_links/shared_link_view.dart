@@ -142,189 +142,82 @@ class _SharedLinkViewState extends State<SharedLinkView>
 
     setState(() => _isProcessingSharedLink = true);
 
-    try {
-      final platform = _viewModel.detectPlatformFromUrl(url);
-
-      if (platform == 'Instagram' || platform == 'Threads' || SharedLinkPlatform.supportsPlaces(url)) {
-        await _processMultiPlaceUrl(
-          url,
-          sharedText: sharedText,
-        );
-        return;
-      }
-
-      if (SharedLinkPlatform.isExcludedPortal(url)) {
-        await _showExtractionFailedDialog(
-            '지도·검색 결과 대신 장소 후기가 담긴 블로그·카페 글의 링크를 공유해주세요.');
-        return;
-      }
-
-      await _processNormalUrl(
-        url,
-        sharedText: sharedText,
-      );
-    } catch (e, stackTrace) {
-      debugPrint('❌ 링크 처리 실패: $e');
-      debugPrint('$stackTrace');
-
-      if (!mounted) return;
-
-      await _showExtractionFailedDialog(
-        '링크를 처리하지 못했습니다.',
-      );
-    } finally {
-      if (mounted) {
-        setState(() { _isProcessingSharedLink = false; _incomingShare = false; });
-      } else { _isProcessingSharedLink = false; }
-    }
-  }
-
-  Future<void> _processNormalUrl(
-    String url, {
-    String? sharedText,
-  }) async {
-    _showExtractingDialog();
-    var isExtractingDialogVisible = true;
-
-    try {
-      final preview = await _viewModel.extractPlacePreview(
-        url,
-        sharedText: sharedText,
-      );
-
-      if (!mounted) return;
-
-      Navigator.of(
-        context,
-        rootNavigator: true,
-      ).pop();
-      isExtractingDialogVisible = false;
-
-      await _viewModel.saveLink(
-        preview.url,
-        placePreview: preview,
-      );
-
-      if (!mounted) return;
-
-      if (_viewModel.errorMessage != null) {
-        await _showExtractionFailedDialog(
-          _viewModel.errorMessage!,
-        );
-        return;
-      }
-    } catch (_) {
-      if (mounted && isExtractingDialogVisible) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-      rethrow;
-    }
-  }
-
-  Future<void> _processMultiPlaceUrl(
-    String url, {
-    String? sharedText,
-  }) async {
-    _showExtractingDialog();
-    var isExtractingDialogVisible = true;
-
-    try {
-      final List<LinkPlacePreview> previews;
-      if (SharedLinkPlatform.detect(url) == 'Instagram') {
-        debugPrint('[공유 링크] Instagram → Apify');
-        previews = await _viewModel.extractInstagramPlaces(url,
-            sharedText: sharedText);
-      } else if (SharedLinkPlatform.detect(url) == 'Threads') {
-        previews = await _viewModel.extractThreadsPlaces(url);
-      } else if (SharedLinkPlatform.supportsPlaces(url)) {
-        debugPrint('[공유 링크] 공개 후기 → HTTP 본문 추출');
-        previews =
-            await _viewModel.extractPortalPlaces(url, sharedText: sharedText);
-      } else {
-        throw const FormatException('지원하지 않는 후기 링크입니다.');
-      }
-
-      if (!mounted) return;
-
-      if (previews.isEmpty) {
-        Navigator.of(context, rootNavigator: true).pop();
-        isExtractingDialogVisible = false;
-        await _showExtractionFailedDialog(
-          _viewModel.errorMessage ?? '링크에서 여행 장소를 찾지 못했습니다.',
-        );
-        return;
-      }
-
-      await _viewModel.saveMultiplePlaces(
-        url,
-        previews,
-      );
-
-      if (!mounted) return;
-
-      Navigator.of(context, rootNavigator: true).pop();
-      isExtractingDialogVisible = false;
-
-      if (_viewModel.errorMessage != null) {
-        await _showExtractionFailedDialog(
-          _viewModel.errorMessage!,
-        );
-        return;
-      }
-      setState(() {
-        _query = '';
-        _platform = null;
-      });
-    } catch (e, stackTrace) {
-      debugPrint(
-        '❌ 공유 링크 장소 분석 실패: $e',
-      );
-      debugPrint('$stackTrace');
-
-      if (!mounted) return;
-
-      if (isExtractingDialogVisible) {
-        Navigator.of(
-          context,
-          rootNavigator: true,
-        ).pop();
-      }
-
-      await _showExtractionFailedDialog(
-        e is FormatException
-            ? e.message.toString()
-            : '공유 링크에서 여행 장소를 찾지 못했습니다.',
-      );
-    }
-  }
-
-  void _showExtractingDialog() {
-    showDialog<void>(
+    final progress = ValueNotifier<int>(0);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final dialog = DialogRoute<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => PopScope(
-        canPop: false,
-        child: Dialog(
-          child: Padding(
-            padding: const EdgeInsets.all(AppDesign.spacing24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                ),
-                const SizedBox(height: AppDesign.spacing20),
-                const Text('장소 정보를 추출 중입니다', style: AppDesign.headingSmall),
-                const SizedBox(height: AppDesign.spacing8),
-                Text('주소와 미리보기를 준비하고 있어요', style: AppDesign.bodySmall),
-              ],
-            ),
-          ),
-        ),
-      ),
+      builder: (_) => _LinkProgressDialog(progress: progress),
     );
+    unawaited(navigator.push(dialog));
+    String? failure;
+    try {
+      final platform = _viewModel.detectPlatformFromUrl(url);
+      final multiPlace = platform == 'Instagram' ||
+          platform == 'Threads' ||
+          SharedLinkPlatform.supportsPlaces(url);
+      if (!multiPlace && SharedLinkPlatform.isExcludedPortal(url)) {
+        throw const FormatException(
+            '지도·검색 결과 대신 장소 후기가 담긴 블로그·카페 글의 링크를 공유해주세요.');
+      }
+      progress.value = 1;
+      if (multiPlace) {
+        final List<LinkPlacePreview> places;
+        if (platform == 'Instagram') {
+          places = await _viewModel.extractInstagramPlaces(url,
+              sharedText: sharedText);
+        } else if (platform == 'Threads') {
+          places = await _viewModel.extractThreadsPlaces(url);
+        } else {
+          places =
+              await _viewModel.extractPortalPlaces(url, sharedText: sharedText);
+        }
+        if (!mounted) return;
+        if (places.isEmpty) {
+          throw FormatException(
+              _viewModel.errorMessage ?? '링크에서 여행 장소를 찾지 못했습니다.');
+        }
+        progress.value = 2;
+        await _viewModel.saveMultiplePlaces(url, places);
+      } else {
+        final preview =
+            await _viewModel.extractPlacePreview(url, sharedText: sharedText);
+        if (!mounted) return;
+        progress.value = 2;
+        await _viewModel.saveLink(preview.url, placePreview: preview);
+      }
+      if (!mounted) return;
+      failure = _viewModel.errorMessage;
+      if (failure == null) {
+        if (multiPlace) {
+          setState(() {
+            _query = '';
+            _platform = null;
+          });
+        }
+        progress.value = 3;
+        await Future<void>.delayed(const Duration(milliseconds: 480));
+      }
+    } catch (error, stackTrace) {
+      debugPrint('링크 처리 실패: $error\n$stackTrace');
+      failure = error is FormatException ? error.message : '링크를 처리하지 못했습니다.';
+    } finally {
+      if (dialog.isActive) navigator.removeRoute(dialog);
+      await dialog.completed;
+      progress.dispose();
+      if (mounted) {
+        try {
+          if (failure != null) await _showExtractionFailedDialog(failure);
+        } finally {
+          if (mounted) {
+            setState(() {
+              _isProcessingSharedLink = false;
+              _incomingShare = false;
+            });
+          }
+        }
+      }
+    }
   }
 
   Future<void> _showExtractionFailedDialog(String message) {
@@ -1125,4 +1018,98 @@ String _savedAge(DateTime date) {
   if (difference.inDays < 1) return '${difference.inHours}시간 전 저장함';
   if (difference.inDays == 1) return '어제 저장함';
   return '${date.month}월 ${date.day}일 저장함';
+}
+
+class _LinkProgressDialog extends StatelessWidget {
+  const _LinkProgressDialog({required this.progress});
+  final ValueNotifier<int> progress;
+
+  static const labels = ['링크 확인', '장소 추출', '저장'];
+  static const messages = [
+    '공유된 링크를 확인하고 있어요',
+    '링크 속 장소를 찾고 있어요',
+    '링크 정보를 저장하고 있어요',
+    '공유 링크를 저장했어요',
+  ];
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: AppDesign.homeSurface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(22),
+            child: ValueListenableBuilder<int>(
+              valueListenable: progress,
+              builder: (context, count, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                            color: const Color(0xfff1f1f3),
+                            borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.link_rounded,
+                            color: AppDesign.homeForeground)),
+                    const SizedBox(width: 10),
+                    const Text('공유 링크 저장',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppDesign.homeForeground)),
+                  ]),
+                  const SizedBox(height: 16),
+                  Semantics(
+                      liveRegion: true,
+                      child: Text(messages[count],
+                          style: const TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                              color: AppDesign.homeForeground))),
+                  const SizedBox(height: 18),
+                  Row(children: [
+                    const Expanded(child: Text('진행 상황')),
+                    Text('$count/3단계 완료',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ]),
+                  const SizedBox(height: 8),
+                  TweenAnimationBuilder<double>(
+                      tween:
+                          Tween<double>(begin: 0, end: count / labels.length),
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 220),
+                      builder: (_, value, __) => LinearProgressIndicator(
+                          value: value,
+                          minHeight: 10,
+                          borderRadius: BorderRadius.circular(12),
+                          color: AppDesign.homeForeground,
+                          backgroundColor: AppDesign.homeSurfaceBorder,
+                          semanticsLabel: '공유 링크 저장 진행 상황',
+                          semanticsValue: '$count/3단계 완료')),
+                  const SizedBox(height: 12),
+                  Wrap(spacing: 12, runSpacing: 6, children: [
+                    for (var i = 0; i < labels.length; i++)
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(
+                            i < count
+                                ? Icons.check_circle_rounded
+                                : Icons.radio_button_unchecked,
+                            size: 17,
+                            color: AppDesign.homeForeground),
+                        const SizedBox(width: 4),
+                        Text(labels[i], style: const TextStyle(fontSize: 12)),
+                      ]),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 }
