@@ -151,6 +151,8 @@ class _SharedLinkViewState extends State<SharedLinkView>
     );
     unawaited(navigator.push(dialog));
     String? failure;
+    SharedLinkModel? savedLink;
+    var savedUrl = url;
     try {
       final platform = _viewModel.detectPlatformFromUrl(url);
       final multiPlace = platform == 'Instagram' ||
@@ -184,11 +186,24 @@ class _SharedLinkViewState extends State<SharedLinkView>
             await _viewModel.extractPlacePreview(url, sharedText: sharedText);
         if (!mounted) return;
         progress.value = 2;
+        savedUrl = preview.url;
         await _viewModel.saveLink(preview.url, placePreview: preview);
       }
       if (!mounted) return;
       failure = _viewModel.errorMessage;
       if (failure == null) {
+        // Duplicate links can skip insertion, so refresh if the saved link
+        // has not reached the local list yet.
+        if (!_viewModel.sharedLinks.any((link) => link.url == savedUrl)) {
+          await _viewModel.loadSharedLinks();
+          if (!mounted) return;
+        }
+        for (final link in _viewModel.sharedLinks) {
+          if (link.url == savedUrl) {
+            savedLink = link;
+            break;
+          }
+        }
         if (multiPlace) {
           setState(() {
             _query = '';
@@ -217,6 +232,17 @@ class _SharedLinkViewState extends State<SharedLinkView>
           }
         }
       }
+    }
+    if (mounted && failure == null && savedLink != null) {
+      unawaited(Navigator.pushNamed(
+        context,
+        '/shared_link_detail',
+        arguments: savedLink,
+      ));
+    } else if (mounted && failure == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('링크 저장 처리는 완료했지만 상세 정보를 불러오지 못했어요. 목록을 새로고침해주세요.'),
+      ));
     }
   }
 
