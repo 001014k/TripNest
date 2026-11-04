@@ -1,3 +1,4 @@
+import '../../widgets/places/place_star_rating.dart';
 import '../../navigation/app_page_route.dart';
 import '../../widgets/common/app_overlays.dart';
 import '../../widgets/common/reference_design.dart';
@@ -239,7 +240,8 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
         return;
       }
       final result = await Navigator.of(context).push<Map<String, dynamic>>(
-        AppPageRoute(motion: AppMotion.editor,
+        AppPageRoute(
+          motion: AppMotion.editor,
           builder: (_) => MarkerCreationScreen(
             initialLatLng: position,
             initialTitle: link.placeTitle,
@@ -478,33 +480,15 @@ class _PlaceRatingBadge extends StatelessWidget {
   final PlaceRating? rating;
 
   @override
-  Widget build(BuildContext context) {
-    if (rating == null) return const SizedBox.shrink();
-
-    final countLabel = rating!.count == null ? '' : ' (${rating!.count})';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppDesign.secondaryBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star_rounded,
-              color: AppDesign.travelOrange, size: 16),
-          const SizedBox(width: 2),
-          Text(
-            '${rating!.score.toStringAsFixed(1)}$countLabel',
-            style: AppDesign.caption.copyWith(
-              color: AppDesign.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => PlaceStarRating(
+        rating: rating?.score,
+        reviewCount: rating?.count,
+        starSize: 14,
+        textStyle: AppDesign.caption.copyWith(
+          color: AppDesign.secondaryText,
+          fontWeight: FontWeight.w600,
+        ),
+      );
 }
 
 class _MissingPlaceCard extends StatelessWidget {
