@@ -1,3 +1,4 @@
+import '../../widgets/home/home_place_metadata.dart';
 import '../../widgets/home/home_skeleton.dart';
 import '../../widgets/common/reference_design.dart' show ReferencePlatform;
 import '../../widgets/lists/travel_list_card.dart';
@@ -137,7 +138,8 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const TripNestHeader(trailing: TripNestSocialActions()),
+                          const TripNestHeader(
+                              trailing: TripNestSocialActions()),
                           const SizedBox(height: 20),
                           const Text('오늘의 여행', style: AppDesign.headingXL),
                           const SizedBox(height: 6),
@@ -451,7 +453,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
     }
 
     return SizedBox(
-      height: 88.h + 16.w + MediaQuery.textScalerOf(context).scale(80),
+      height: 88.h + 16.w + MediaQuery.textScalerOf(context).scale(100),
       child: ListView.separated(
         padding: EdgeInsets.symmetric(horizontal: 20.w),
         scrollDirection: Axis.horizontal,
@@ -704,15 +706,7 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
         ? '${marker.title} ${marker.address}'
         : marker.address;
     final rating = context.watch<HomeDashboardViewModel>().getRating(query);
-    return Wrap(spacing: 5, runSpacing: 4, children: [
-      Text(marker.keyword,
-          style: AppDesign.caption
-              .copyWith(fontSize: 10, color: AppDesign.secondaryText)),
-      if (rating != null && rating > 0)
-        Text('★ ${rating.toStringAsFixed(1)}',
-            style: AppDesign.caption
-                .copyWith(fontSize: 10, color: AppDesign.secondaryText)),
-    ]);
+    return HomePlaceMetadata(keyword: marker.keyword, rating: rating);
   }
 
   void _navigateToMarkerDetail(MarkerModel markerModel) {
