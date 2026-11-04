@@ -265,6 +265,16 @@ class _SharedLinkViewState extends State<SharedLinkView>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Consumer<SharedLinkViewModel>(
+        builder: (context, vm, child) => SharedLinkGuideButton(
+          floating: true,
+          forceGuide: widget.showGuide,
+          enabled:
+              !_incomingShare && !_isProcessingSharedLink && !vm.isLoadingLinks,
+          onPressed: _addLink,
+        ),
+      ),
       bottomNavigationBar:
           const TripNestNavigation(currentRoute: '/shared_link'),
       body: Container(
@@ -293,17 +303,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
                 child: CustomScrollView(
                   physics: const BouncingScrollPhysics(),
                   slivers: [
-                    // 프리미엄 헤더
-                    SliverToBoxAdapter(
-                      child: _SharedLinkHeader(),
-                    ),
-                    SliverToBoxAdapter(child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: Align(alignment: Alignment.centerRight,
-                        child: SharedLinkGuideButton(forceGuide: widget.showGuide,
-                          enabled: !_incomingShare && !_isProcessingSharedLink && !vm.isLoadingLinks,
-                          onPressed: _addLink)),
-                    )),
+                    const SliverToBoxAdapter(child: _SharedLinkHeader()),
                     SliverToBoxAdapter(
                         child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -362,7 +362,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
 
                     // 하단 여백
                     const SliverToBoxAdapter(
-                      child: SizedBox(height: AppDesign.spacing40),
+                      child: SizedBox(height: 96),
                     ),
                   ],
                 ),
@@ -728,6 +728,8 @@ class _InstagramPlaceSelectionPageState
 }
 
 class _SharedLinkHeader extends StatelessWidget {
+  const _SharedLinkHeader();
+
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),

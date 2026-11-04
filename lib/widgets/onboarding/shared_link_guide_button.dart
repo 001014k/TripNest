@@ -8,9 +8,11 @@ class SharedLinkGuideButton extends StatefulWidget {
       {super.key,
       required this.onPressed,
       this.forceGuide = false,
-      this.enabled = true});
+      this.enabled = true,
+      this.floating = false});
   final VoidCallback onPressed;
   final bool forceGuide, enabled;
+  final bool floating;
   @override
   State<SharedLinkGuideButton> createState() => _SharedLinkGuideButtonState();
 }
@@ -66,7 +68,10 @@ class _SharedLinkGuideButtonState extends State<SharedLinkGuideButton> {
             ? Duration.zero
             : const Duration(milliseconds: 180),
         pageBuilder: (dialogContext, animation, secondaryAnimation) =>
-            _SharedLinkCoach(rect: rect, replay: widget.forceGuide));
+            _SharedLinkCoach(
+                rect: rect,
+                replay: widget.forceGuide,
+                floating: widget.floating));
     try {
       await service.markSeen(OnboardingService.sharedLinkKey);
     } catch (_) {/* Retry on a later visit. */}
@@ -80,15 +85,33 @@ class _SharedLinkGuideButtonState extends State<SharedLinkGuideButton> {
   }
 
   @override
-  Widget build(BuildContext context) => FilledButton.icon(
-      key: _anchor,
-      onPressed: widget.enabled ? widget.onPressed : null,
-      icon: const Icon(Icons.add, size: 18),
-      label: const Text('링크 추가하기'));
+  Widget build(BuildContext context) => widget.floating
+      ? FloatingActionButton(
+          key: _anchor,
+          heroTag: 'shared-link-add',
+          tooltip: '링크 추가하기',
+          elevation: 3,
+          shape: const CircleBorder(),
+          onPressed: widget.enabled ? widget.onPressed : null,
+          backgroundColor: widget.enabled
+              ? Colors.white
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
+          foregroundColor: widget.enabled
+              ? const Color(0xFF202020)
+              : Theme.of(context).disabledColor,
+          child: const Icon(Icons.add, size: 27),
+        )
+      : FilledButton.icon(
+          key: _anchor,
+          onPressed: widget.enabled ? widget.onPressed : null,
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('링크 추가하기'));
 }
 
 class _SharedLinkCoach extends StatefulWidget {
-  const _SharedLinkCoach({required this.rect, this.replay = false});
+  const _SharedLinkCoach(
+      {required this.rect, this.replay = false, this.floating = false});
+  final bool floating;
   final bool replay;
   final Rect rect;
   @override
@@ -102,8 +125,11 @@ class _SharedLinkCoachState extends State<_SharedLinkCoach> {
       type: MaterialType.transparency,
       child: LayoutBuilder(builder: (context, constraints) {
         final rect = widget.rect.inflate(6);
-        final top = math.max(MediaQuery.paddingOf(context).top + 12,
-            math.min(rect.bottom + 18, constraints.maxHeight * .45));
+        final above = rect.center.dy > constraints.maxHeight / 2;
+        final top = above
+            ? MediaQuery.paddingOf(context).top + 12
+            : math.max(MediaQuery.paddingOf(context).top + 12,
+                math.min(rect.bottom + 18, constraints.maxHeight * .45));
         return Stack(children: [
           Positioned.fill(
               child: GestureDetector(
@@ -118,14 +144,21 @@ class _SharedLinkCoachState extends State<_SharedLinkCoach> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16)),
-                  child: const Text('+  링크 추가하기',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF222222))))),
+                      shape: widget.floating
+                          ? BoxShape.circle
+                          : BoxShape.rectangle,
+                      borderRadius:
+                          widget.floating ? null : BorderRadius.circular(16)),
+                  child: widget.floating
+                      ? const Icon(Icons.add,
+                          size: 27, color: Color(0xFF202020))
+                      : const Text('+  링크 추가하기',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF222222))))),
           Positioned(
               left: rect.center.dx.clamp(36.0, constraints.maxWidth - 36) - 7,
-              top: top - 7,
+              top: above ? rect.top - 25 : top - 7,
               child: Transform.rotate(
                   angle: math.pi / 4,
                   child:
@@ -134,9 +167,12 @@ class _SharedLinkCoachState extends State<_SharedLinkCoach> {
               left: 20,
               right: 20,
               top: top,
-              bottom: MediaQuery.paddingOf(context).bottom + 20,
+              bottom: above
+                  ? constraints.maxHeight - rect.top + 18
+                  : MediaQuery.paddingOf(context).bottom + 20,
               child: Align(
-                  alignment: Alignment.topCenter,
+                  alignment:
+                      above ? Alignment.bottomCenter : Alignment.topCenter,
                   child: SingleChildScrollView(
                       child: Container(
                           padding: const EdgeInsets.all(22),
