@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../design/app_design.dart';
 
-/// Standard compact sheet with a fixed header and independently scrolling body.
+/// 고정 헤더와 독립적으로 스크롤되는 본문을 갖춘 공통 소형 시트입니다.
 Future<T?> showAppSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -53,7 +53,7 @@ class AppSheet extends StatelessWidget {
                       children: [
                     Text(title, style: AppDesign.headingMedium),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 8),
                       Text(subtitle!, style: AppDesign.bodySmall),
                     ],
                   ])),
@@ -171,17 +171,19 @@ class AppConfirmDialog extends StatelessWidget {
                 AppDesign.bodyMedium.copyWith(color: AppDesign.secondaryText)),
         actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소')),
-          FilledButton(
-              style: FilledButton.styleFrom(
-                  backgroundColor:
-                      destructive ? AppDesign.travelStamp : AppDesign.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(88, 44)),
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(confirmLabel)),
+          AppDialogActions(
+            cancel: TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('취소')),
+            confirm: FilledButton(
+                style: FilledButton.styleFrom(
+                    backgroundColor:
+                        destructive ? AppDesign.travelStamp : AppDesign.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(88, 48)),
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(confirmLabel)),
+          ),
         ],
       );
 }
@@ -270,9 +272,40 @@ class _AppTextInputDialogState extends State<AppTextInputDialog> {
                 ])),
         actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('취소')),
-          FilledButton(onPressed: _submit, child: Text(widget.submitLabel)),
+          AppDialogActions(
+            cancel: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('취소')),
+            confirm: FilledButton(
+                onPressed: _submit, child: Text(widget.submitLabel)),
+          ),
         ],
+      );
+}
+
+/// 좁은 대화상자에서도 문구를 과도하게 줄이지 않고 버튼을 사용할 수 있게 합니다.
+class AppDialogActions extends StatelessWidget {
+  const AppDialogActions(
+      {super.key, required this.cancel, required this.confirm});
+  final Widget cancel;
+  final Widget confirm;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: double.infinity,
+        child: LayoutBuilder(builder: (context, constraints) {
+          if (constraints.maxWidth < 260 ||
+              MediaQuery.textScalerOf(context).scale(1) > 1.2) {
+            return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [confirm, const SizedBox(height: 8), cancel]);
+          }
+          return Row(children: [
+            Expanded(child: cancel),
+            const SizedBox(width: 12),
+            Expanded(child: confirm)
+          ]);
+        }),
       );
 }
