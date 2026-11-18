@@ -214,7 +214,7 @@ class _AccountRow extends StatelessWidget {
   }
 }
 
-/// Four-color G without the dark circular background of the sign-in asset.
+/// 로그인 이미지의 어두운 원형 배경 없이 네 가지 색상의 G를 표시합니다.
 class _GoogleMarkPainter extends CustomPainter {
   const _GoogleMarkPainter();
   @override
