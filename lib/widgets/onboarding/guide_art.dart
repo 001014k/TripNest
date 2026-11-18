@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Lightweight illustration that works offline and scales with the layout.
+/// 오프라인에서도 표시되며 레이아웃에 맞춰 크기가 변하는 가벼운 삽화입니다.
 class GuideArt extends StatelessWidget {
   const GuideArt({super.key, this.page = 0, this.compact = false});
   final int page;
