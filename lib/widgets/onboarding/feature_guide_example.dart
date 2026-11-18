@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/onboarding/feature_guide.dart';
 
-/// Local-only demo: intentionally has no providers, services, API or permissions.
+/// 로컬 전용 예시로, 프로바이더·서비스·API 호출이나 권한 요청을 사용하지 않습니다.
 class FeatureGuideExample extends StatefulWidget {
   const FeatureGuideExample(
       {super.key, required this.guide, this.last = true, this.canTry = false});
