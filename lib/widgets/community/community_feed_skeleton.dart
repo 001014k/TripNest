@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Mirrors the list and grid layouts while a selected feed is loading.
+/// 선택한 피드를 불러오는 동안 목록 및 격자 배치와 같은 임시 화면을 표시합니다.
 class CommunityFeedSkeleton extends StatefulWidget {
   const CommunityFeedSkeleton({super.key, required this.tab});
   final int tab;
