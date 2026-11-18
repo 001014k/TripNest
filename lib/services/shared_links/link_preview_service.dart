@@ -10,7 +10,7 @@ class LinkPreviewService {
 
   Future<LinkPreviewData> load(String url) async {
     final originalUri = Uri.parse(url);
-    // Desktop Naver blogs expose a frame shell, not the post metadata.
+    // 데스크톱 네이버 블로그는 본문 메타데이터 대신 프레임을 담은 페이지를 제공합니다.
     final sourceUri = originalUri.host.toLowerCase() == 'blog.naver.com'
         ? originalUri.replace(host: 'm.blog.naver.com')
         : originalUri;
