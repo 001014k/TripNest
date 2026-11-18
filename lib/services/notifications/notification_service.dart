@@ -63,7 +63,7 @@ class NotificationService {
         })),
         onError: (Object error) => debugPrint('푸시 토큰 갱신 실패: $error'),
       );
-      // APNs registration can finish after notification permission is granted.
+      // 알림 권한이 허용된 뒤에도 APNs 등록 완료까지 시간이 걸릴 수 있습니다.
       if (defaultTargetPlatform == TargetPlatform.iOS) {
         var ready = false;
         for (var attempt = 0; attempt < 10; attempt++) {
@@ -93,7 +93,7 @@ class NotificationService {
 
     try {
       // 기존 토큰 삭제 (강제 갱신)
-      // Preserve tokens registered on the user’s other devices.
+      // 사용자의 다른 기기에 등록된 토큰은 유지합니다.
 
       // 새 토큰 저장
       await _supabase.rpc(
@@ -170,7 +170,7 @@ class NotificationService {
       await _supabase.functions
           .invoke('send-push-notification', body: {'notification_ids': ids});
     } catch (error) {
-      // A notification failure must not undo the already completed user action.
+      // 알림 전송 실패로 이미 완료된 사용자 작업을 취소하지 않습니다.
       debugPrint('알림 전송 실패 ($function): $error');
     }
   }
