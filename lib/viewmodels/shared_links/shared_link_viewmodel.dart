@@ -459,7 +459,7 @@ class SharedLinkViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Deletes the source link and all places extracted from it together.
+  /// 원본 링크와 해당 링크에서 추출된 모든 장소를 함께 삭제합니다.
   Future<void> _deleteLinkGroup(String url) async {
     errorMessage = null;
     final previousLinks = List<SharedLinkModel>.of(sharedLinks);
