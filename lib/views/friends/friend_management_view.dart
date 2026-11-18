@@ -112,7 +112,7 @@ class _FriendManagementViewState extends State<FriendManagementView> {
     }
     final starred = friends.where((f) => favorites.contains(f['id'])).toList();
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: socialAppBar('친구 관리', actions: [
         IconButton(
             tooltip: '친구 추가',
@@ -361,7 +361,7 @@ class _FriendAddViewState extends State<FriendAddView> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: socialAppBar('친구 추가하기'),
       body: SafeArea(
           top: false,
