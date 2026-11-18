@@ -121,7 +121,7 @@ class MarkerIconService {
     final dark = selected ?? key.contains('cafe');
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    // Render at 3x for crisp silhouettes on high-density mobile screens.
+    // 고밀도 모바일 화면에서도 윤곽이 선명하도록 3배 크기로 렌더링합니다.
     canvas.scale(3);
     final pin = Path()
       ..moveTo(24, 45)
