@@ -59,7 +59,7 @@ class WeatherService {
 
   void dispose() => _client.close();
 
-  /// KMA's 5 km Lambert conformal grid (Seoul city hall = 60,127).
+  /// 기상청의 5km 람베르트 정각 격자입니다(서울시청 = 60,127).
   static (int, int) grid(double latitude, double longitude) {
     const rad = math.pi / 180;
     const re = 6371.00877 / 5;
@@ -176,7 +176,7 @@ class WeatherService {
         now.difference(cached.$1) < const Duration(minutes: 20)) {
       return cached.$2;
     }
-    // Mid-range temperature forecasts are issued for representative cities.
+    // 중기 기온 예보는 대표 도시를 기준으로 발표됩니다.
     const regions = [
       ('서울', 37.5665, 126.978, '11B00000', '11B10101'),
       ('인천', 37.4563, 126.7052, '11B00000', '11B20201'),
@@ -343,7 +343,7 @@ class WeatherService {
   Future<List<Map<String, dynamic>>> _request(
       String method, DateTime base, (int, int) point) async {
     if (_key.trim().isEmpty) throw const WeatherException('날씨 API 설정을 확인해주세요.');
-    // Accept either the encoded or decoded service key supplied by data.go.kr.
+    // 공공데이터포털에서 제공한 인코딩 또는 디코딩된 서비스 키를 모두 허용합니다.
     final key =
         _key.contains('%') ? Uri.decodeComponent(_key.trim()) : _key.trim();
     final uri = Uri.https(
