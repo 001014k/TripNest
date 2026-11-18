@@ -1,4 +1,4 @@
-/// Google Places uses Sunday=0 and separate hour/minute fields.
+/// Google Places는 일요일을 0으로 표시하고 시·분 필드를 구분합니다.
 class PlaceHours {
   static const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
   static const english = [
