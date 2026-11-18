@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Five stars filled proportionally to the score, with an accessible label.
+/// 점수에 비례해 별 다섯 개를 채우고 접근성 설명을 제공합니다.
 class PlaceStarRating extends StatelessWidget {
   const PlaceStarRating({
     super.key,
