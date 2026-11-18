@@ -37,7 +37,7 @@ class FriendManagementViewModel extends ChangeNotifier {
           callback: (_) => refreshPendingRequestCount())
         .subscribe();
     unawaited(refreshPendingRequestCount());
-    // Also refresh when realtime is unavailable for this table.
+    // 이 테이블에서 실시간 구독을 사용할 수 없는 경우에도 갱신합니다.
     _requestPoll = Timer.periodic(const Duration(seconds: 30),
         (_) => refreshPendingRequestCount());
   }
