@@ -122,7 +122,7 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
     _viewModel.setEmail(_emailController.text.trim());
     _viewModel.setPassword(_passwordController.text);
     final error = await _viewModel.login();
-    // The shared auth listener handles both email and social login navigation.
+    // 공통 인증 리스너에서 이메일 및 소셜 로그인 후 화면 이동을 모두 처리합니다.
     if (error != null && mounted && !_navigated) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error)));
