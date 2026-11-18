@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../common/reference_design.dart';
 
-/// The travel card belongs to the map's list picker, not the resting map.
+/// 여행 카드는 기본 지도 화면이 아닌 지도 내 리스트 선택기에 표시합니다.
 class MapTripListSheet extends StatelessWidget {
   const MapTripListSheet(
       {super.key,
@@ -27,11 +27,16 @@ class MapTripListSheet extends StatelessWidget {
                     color: const Color(0xFFCECED0),
                     borderRadius: BorderRadius.circular(4))),
             const SizedBox(height: 18),
-            const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('여행 리스트 선택',
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
+            Row(children: [
+              const Expanded(
+                  child: Text('여행 리스트 선택',
+                      style: TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.w600))),
+              IconButton(
+                  tooltip: '닫기',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, size: 21)),
+            ]),
             const SizedBox(height: 14),
             ConstrainedBox(
                 constraints: BoxConstraints(
@@ -39,18 +44,20 @@ class MapTripListSheet extends StatelessWidget {
                 child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: lists.length,
-                    separatorBuilder: (_, __) =>
-                        const Divider(height: 25, color: Color(0xFFF0F0F2)),
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final list = lists[index];
                       final id = list['id'] as String;
                       final places = (list['list_bookmarks'] as List?) ?? [];
                       final members = (list['list_members'] as List?) ?? [];
-                      final participantCount = 1 + members
-                          .whereType<Map>()
-                          .map((member) => member['user_id'])
-                          .where((id) => id != null && id != list['user_id'])
-                          .toSet().length;
+                      final participantCount = 1 +
+                          members
+                              .whereType<Map>()
+                              .map((member) => member['user_id'])
+                              .where(
+                                  (id) => id != null && id != list['user_id'])
+                              .toSet()
+                              .length;
                       final title = places.isEmpty
                           ? ''
                           : places.first['title']?.toString() ?? '';
