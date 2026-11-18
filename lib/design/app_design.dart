@@ -111,8 +111,8 @@ class AppDesign {
   // =============================================================
 
   static const TextStyle headingXL = TextStyle(
-    fontSize: 32,
-    fontWeight: FontWeight.w800,
+    fontSize: 30,
+    fontWeight: FontWeight.w700,
     color: primaryText,
     letterSpacing: -1.0,
     height: 1.2,
@@ -127,8 +127,8 @@ class AppDesign {
   );
 
   static const TextStyle headingMedium = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.w700,
+    fontSize: 22,
+    fontWeight: FontWeight.w600,
     color: primaryText,
     letterSpacing: -0.3,
   );
@@ -155,7 +155,7 @@ class AppDesign {
   );
 
   static const TextStyle bodySmall = TextStyle(
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: secondaryText,
     height: 1.4,
@@ -368,6 +368,38 @@ class AppDesign {
         displayColor: primaryText,
       ),
     ).copyWith(
+      cardTheme: CardThemeData(
+          color: cardBg,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: borderColor))),
+      listTileTheme: const ListTileThemeData(
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          minVerticalPadding: 12,
+          iconColor: primaryText),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: cardBg,
+          foregroundColor: primaryText,
+          elevation: 3,
+          shape: CircleBorder()),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+              foregroundColor: primaryText,
+              minimumSize: const Size(48, 48),
+              side: const BorderSide(color: borderColor),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)))),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+              backgroundColor: primary,
+              foregroundColor: whiteText,
+              minimumSize: const Size(48, 48),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)))),
       appBarTheme: const AppBarTheme(
         backgroundColor: primaryBg,
         foregroundColor: primaryText,
@@ -434,7 +466,7 @@ class AppDesign {
       textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
         foregroundColor: primaryText,
-        minimumSize: const Size(48, 44),
+        minimumSize: const Size(48, 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       )),
       inputDecorationTheme: InputDecorationThemeData(
