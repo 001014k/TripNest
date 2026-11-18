@@ -55,7 +55,7 @@ class SharedLinkDetailViewModel extends ChangeNotifier {
       preview = await const LinkPreviewService().load(link.url);
       _notify();
     } catch (_) {
-      // The saved place list is still usable without the source preview.
+      // 원본 미리보기가 없어도 저장된 장소 목록은 사용할 수 있습니다.
     }
   }
 
@@ -94,7 +94,7 @@ class SharedLinkDetailViewModel extends ChangeNotifier {
         );
         _notify();
       } catch (_) {
-        // Ratings are supplemental to the saved place details.
+        // 평점은 저장된 장소 상세 정보에 덧붙이는 보조 정보입니다.
       }
     }));
   }
