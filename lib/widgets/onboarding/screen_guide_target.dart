@@ -15,8 +15,8 @@ import '../../services/onboarding/onboarding_service.dart';
 
 export '../../models/onboarding/feature_guide.dart';
 
-/// Real controls are highlighted; separate local examples remain available
-/// when the user has no data or the target cannot be loaded.
+/// 실제 조작 요소를 강조하고 별도의 로컬 예시도 제공합니다.
+/// 사용자 데이터가 없거나 대상을 불러올 수 없어도 예시를 사용할 수 있습니다.
 class ScreenGuide {
   static final _targets = <_ScreenGuideTargetState>{};
   static bool _running = false;
@@ -63,12 +63,12 @@ class ScreenGuide {
         } else {
           unawaited(navigator.pushNamed(route));
         }
-        // Capture the destination after navigation, not the page that launched
-        // the guide. A missing target must never open an example on another page.
+        // 안내를 시작한 화면이 아니라 이동이 끝난 목적지 화면을 기준으로 잡습니다.
+        // 대상이 없다고 해서 다른 화면에 예시를 표시해서는 안 됩니다.
         Route<dynamic>? destination;
         navigator.popUntil((candidate) {
           destination = candidate;
-          return true; // Inspect the top route without popping anything.
+          return true; // 경로를 닫지 않고 최상단 경로를 확인합니다.
         });
         final tabs = navigator.context.read<AppTabController?>();
         final expectedTab = tabs == null
@@ -81,7 +81,7 @@ class ScreenGuide {
             destination?.isCurrent == true &&
             tabs?.current == expectedTab;
         _ScreenGuideTargetState? target;
-        // Wait for navigation, async data and lazy list items to be mounted.
+        // 화면 이동과 비동기 데이터 로딩, 지연 생성 목록 항목의 배치가 끝날 때까지 기다립니다.
         for (var attempt = 0; attempt < 30; attempt++) {
           await Future<void>.delayed(const Duration(milliseconds: 150));
           if (!destinationIsCurrent()) return;
@@ -187,7 +187,7 @@ class _ScreenGuideTargetState extends State<ScreenGuideTarget> {
         await OnboardingService().markSeen(guide.storageKey);
       }
     } catch (_) {
-      // The feature itself stays usable if preferences are unavailable.
+      // 환경설정을 불러올 수 없어도 기능 자체는 사용할 수 있게 합니다.
     } finally {
       ScreenGuide._running = false;
     }
