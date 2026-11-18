@@ -158,23 +158,23 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('여행 이야기', style: AppDesign.headingXL),
-                  const SizedBox(height: 6),
-                  ScreenGuideTarget(
-                      guide: FeatureGuide.temporaryMarker,
-                      priority: -1,
-                      description:
-                          '장소가 포함된 게시물을 열고 주소 카드를 눌러보세요. 지도에 임시 마커가 표시되고 하단창을 닫으면 사라져요. 저장된 마커는 유지돼요.',
-                      child: ScreenGuideTarget(
-                          guide: FeatureGuide.storySave,
-                          priority: -1,
-                          description:
-                              '장소가 포함된 게시물의 북마크 버튼으로 내 지도에 저장할 수 있어요. 게시물이 보이지 않으면 최근 탭에서 다시 확인해주세요.',
-                          child: const Text('여행자들이 발견한 장소를 만나보세요',
-                              style: AppDesign.bodySmall))),
-                ]),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('여행 이야기', style: AppDesign.headingXL),
+                    const SizedBox(height: 6),
+                    ScreenGuideTarget(
+                        guide: FeatureGuide.temporaryMarker,
+                        priority: -1,
+                        description:
+                            '장소가 포함된 게시물을 열고 주소 카드를 눌러보세요. 지도에 임시 마커가 표시되고 하단창을 닫으면 사라져요. 저장된 마커는 유지돼요.',
+                        child: ScreenGuideTarget(
+                            guide: FeatureGuide.storySave,
+                            priority: -1,
+                            description:
+                                '장소가 포함된 게시물의 북마크 버튼으로 내 지도에 저장할 수 있어요. 게시물이 보이지 않으면 최근 탭에서 다시 확인해주세요.',
+                            child: const Text('여행자들이 발견한 장소를 만나보세요',
+                                style: AppDesign.bodySmall))),
+                  ]),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -278,7 +278,7 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
                                           textAlign: TextAlign.center,
                                           style: AppDesign.bodySmall)))),
                         SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
                             sliver: _tab == 1
                                 ? SliverGrid(
                                     delegate: SliverChildBuilderDelegate(
@@ -522,7 +522,7 @@ class _PostCard extends StatelessWidget {
       child: InkWell(
         onTap: () => _open(context),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 4),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -765,8 +765,8 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
           decoration: BoxDecoration(
             color: AppDesign.cardBg,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: AppDesign.elevatedShadow,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: AppDesign.softShadow,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -787,8 +787,8 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
                   const Expanded(
                       child: Text('장소 공유하기',
                           style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: -.8))),
                   IconButton.filledTonal(
                       tooltip: '닫기',
