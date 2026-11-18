@@ -2,7 +2,7 @@ import 'package:uuid/uuid.dart';
 import '../markers/marker_model.dart';
 import '../schedule/schedule_model.dart';
 
-/// Allocates the selected interval in list order, preserving every place ID.
+/// 모든 장소 ID를 유지하면서 선택한 시간 구간을 리스트 순서대로 배분합니다.
 List<ScheduleModel> buildListSchedules({
   required List<MarkerModel> places,
   required String userId,
