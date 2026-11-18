@@ -1,3 +1,4 @@
+import '../../widgets/places/lazy_place_photo.dart';
 import '../../services/infrastructure/server_api_client.dart';
 import '../../widgets/markers/marker_delete_dialog.dart';
 import '../../widgets/common/app_photo_hero.dart';
@@ -112,7 +113,7 @@ class _MarkerDetailViewState extends State<MarkerDetailView> {
                               controller: _pageController,
                               currentPage: _currentPage))),
                   SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                       sliver: SliverList.list(children: [
                         Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,8 +125,8 @@ class _MarkerDetailViewState extends State<MarkerDetailView> {
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: -0.8))),
                               Container(
-                                  width: 42,
-                                  height: 42,
+                                  width: 48,
+                                  height: 48,
                                   decoration: BoxDecoration(
                                       color: Colors.white,
                                       shape: BoxShape.circle,
@@ -415,7 +416,8 @@ class _ReferencePlaceHeroState extends State<_ReferencePlaceHero> {
   }
 
   void _load() {
-    final key = '${widget.vm.title}|${widget.vm.address}';
+    final key =
+        '${widget.vm.title}|${widget.vm.address}|${widget.vm.photoRevision}';
     if (_key == key) return;
     _key = key;
     _photos = widget.vm.fetchPhotos(widget.vm.address ?? '', widget.vm.title);
@@ -440,10 +442,10 @@ class _ReferencePlaceHeroState extends State<_ReferencePlaceHero> {
                       PageView.builder(
                           controller: widget.controller,
                           itemCount: photos.length,
-                          itemBuilder: (_, index) => Image.network(
-                              photos[index],
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const ColoredBox(
+                          itemBuilder: (_, index) => LazyPlacePhoto(
+                              reference: photos[index],
+                              active: index == widget.currentPage,
+                              placeholder: const ColoredBox(
                                   color: AppDesign.lightGray,
                                   child: Icon(Icons.photo_outlined)))),
                     if (photos.isNotEmpty)
