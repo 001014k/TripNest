@@ -1,3 +1,4 @@
+import '../../widgets/common/soft_glass_surface.dart';
 import '../../widgets/onboarding/screen_guide_target.dart';
 import '../../widgets/map/map_loading_placeholder.dart';
 import '../../widgets/map/route_order_sheet.dart';
@@ -25,8 +26,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import '../planner/chat_recommendation_view.dart';
 
-/// A focused map opened from a detail page owns its controller so that closing
-/// it does not detach the retained map tab's controller or callbacks.
+/// 상세 화면에서 연 장소 중심 지도는 자체 컨트롤러를 사용합니다.
+/// 이 지도를 닫아도 유지 중인 지도 탭의 컨트롤러나 콜백이 해제되지 않습니다.
 class MapPreviewView extends StatelessWidget {
   const MapPreviewView(
       {super.key, this.initialMarkerId, this.initialListId, this.initialPlace});
@@ -132,7 +133,7 @@ class _MapSampleViewState extends State<MapSampleView> {
               backgroundColor: Colors.white,
               shape: const RoundedRectangleBorder(
                   borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(26))),
+                      BorderRadius.vertical(top: Radius.circular(24))),
               builder: (sheet) => SelectedLocationSheet(
                 marker: marker,
                 metadata: _viewModel.searchPlaceMetadata[marker.markerId.value],
@@ -420,9 +421,10 @@ class _MapSampleViewState extends State<MapSampleView> {
     final selected = await showModalBottomSheet<Set<String>>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => MapKeywordSheet(
           keywords: vm.keywordIcons, selected: vm.activeKeywords),
     );
@@ -462,9 +464,10 @@ class _MapSampleViewState extends State<MapSampleView> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) => MapTripListSheet(
         lists: userLists,
         selectedListId: viewModel.selectedListId,
@@ -636,8 +639,8 @@ class _MapSampleViewState extends State<MapSampleView> {
                     await Future.delayed(const Duration(milliseconds: 300));
                   }
 
-                  // Wait for saved-marker callbacks before opening a focused place.
-                  // A post-frame callback here may never run without another frame.
+                  // 저장된 마커의 콜백 준비가 끝난 뒤 해당 장소를 엽니다.
+                  // 여기서 프레임 후 콜백을 사용하면 다음 프레임이 없어 실행되지 않을 수 있습니다.
                   await _markerCallbacksReady.future;
                   if (!mounted) return;
                   await viewModel.applyMarkersToCluster(controller);
@@ -747,17 +750,8 @@ class _MapSampleViewState extends State<MapSampleView> {
               padding: EdgeInsets.fromLTRB(
                   16, MediaQuery.paddingOf(context).top + 8, 16, 0),
               child: Column(children: [
-                Container(
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: const Color(0xFFE5E5E7)),
-                      boxShadow: const [
-                        BoxShadow(
-                            color: Color(0x06000000),
-                            blurRadius: 18,
-                            offset: Offset(0, 4))
-                      ]),
+                SoftGlassSurface(
+                  radius: 24,
                   child: Row(children: [
                     IconButton(
                         tooltip: '장소 검색',
@@ -770,7 +764,7 @@ class _MapSampleViewState extends State<MapSampleView> {
                       decoration: const InputDecoration(
                           hintText: '어디로 떠날까요?',
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: Colors.transparent,
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
