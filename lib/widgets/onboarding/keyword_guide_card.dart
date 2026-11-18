@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// The keyword coach uses the real filter target, with an illustrative selection.
+/// 키워드 안내는 실제 필터 요소에 선택 예시를 표시합니다.
 class KeywordGuideCard extends StatelessWidget {
   const KeywordGuideCard(
       {super.key,
