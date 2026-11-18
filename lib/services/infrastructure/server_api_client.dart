@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../env.dart';
 
-/// Preserves HTTP/SSE semantics while keeping third-party credentials on the server.
+/// 외부 서비스 인증 정보는 서버에 보관하면서 HTTP/SSE의 통신 동작을 유지합니다.
 class ServerApiClient extends http.BaseClient {
   ServerApiClient(
       {http.Client? transport,
