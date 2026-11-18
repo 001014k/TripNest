@@ -249,9 +249,9 @@ class MapSampleViewModel extends ChangeNotifier {
     const maxRetry = 5;
     while (retry < maxRetry) {
       try {
-        await controller!.getVisibleRegion(); // Check if channel is ready
+        await controller!.getVisibleRegion(); // 채널이 준비되었는지 확인합니다.
         clusterManager!.updateMap();
-        notifyListeners(); // Notify UI to rebuild with new markers
+        notifyListeners(); // 새 마커로 화면을 다시 구성하도록 UI에 알립니다.
         debugPrint('Force cluster update successful.');
         break;
       } catch (e) {
