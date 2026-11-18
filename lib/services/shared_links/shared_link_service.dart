@@ -47,8 +47,8 @@ class SharedLinkService {
     return list;
   }
 
-  /// Returns every place extracted from one shared source URL.
-  /// A source post can contain more than one place, with one row per place.
+  /// 하나의 공유 원본 URL에서 추출된 모든 장소를 반환합니다.
+  /// 원본 게시물 하나에 여러 장소가 있을 수 있으며 장소별로 한 행씩 저장합니다.
   Future<List<SharedLinkModel>> loadSharedLinkPlaces(String url) async {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('로그인이 필요합니다');
