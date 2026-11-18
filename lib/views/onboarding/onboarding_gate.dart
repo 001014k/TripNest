@@ -24,7 +24,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
       seen = await OnboardingService().hasSeen(OnboardingService.introKey);
     } catch (_) {
       seen = true;
-    } // Preference errors must never block app entry.
+    } // 환경설정 오류가 앱 진입을 막지 않도록 합니다.
     if (mounted) {
       setState(() => _seen = seen || (widget.shouldDefer?.call() ?? false));
     }
