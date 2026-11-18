@@ -1,3 +1,4 @@
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart'; // 위치 정보 사용 시 필요
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,18 +6,39 @@ import '../../services/ai/gemini_service.dart';
 import '../../services/places/places_service.dart';
 
 class ChatRecommendationViewModel extends ChangeNotifier {
-  final GeminiService _geminiService = GeminiService();
+  final GeminiService _geminiService;
+
+  bool _disposed = false;
+  String _usageMenu = 'freeform';
+  int _requestVersion = 0;
+  List<Map<String, dynamic>> get usageHistory => _geminiService.usageHistory;
+
+  void _resetAiSession() {
+    _requestVersion++;
+    isLoading = false;
+    _usageMenu = 'freeform';
+    _geminiService.resetChat();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _resetAiSession();
+    super.dispose();
+  }
 
   // 채팅 내역 및 상태 초기화
   void resetChat() {
+    _resetAiSession();
+    _placesByMessage.clear();
     messages.clear(); // 대화 내역 삭제
     pendingPlaces.clear(); // 추천 대기 장소 삭제
     currentMode = ''; // 선택된 모드 초기화
-    _geminiService.resetChat(); // Gemini 세션 초기화 (gemini_service에 정의됨)
     notifyListeners(); // UI 갱신 (Stage 1으로 복귀)
   }
 
-  ChatRecommendationViewModel();
+  ChatRecommendationViewModel({GeminiService? geminiService})
+      : _geminiService = geminiService ?? GeminiService();
 
   List<Map<String, String>> messages = [];
   bool isLoading = false;
@@ -24,6 +46,13 @@ class ChatRecommendationViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> pendingPlaces = []; // 아직 저장 안 한 추천 장소들
   List<Map<String, dynamic>> recentRecommendations = [];
   String _lastUserQuery = "";
+  final Map<Map<String, String>, List<Map<String, dynamic>>> _placesByMessage =
+      Map.identity();
+
+  List<Map<String, dynamic>> placesForMessage(int index) =>
+      index >= 0 && index < messages.length
+          ? List.unmodifiable(_placesByMessage[messages[index]] ?? [])
+          : const [];
 
   // 히스토리 길이 제한 (최근 12턴 = 24 메시지)
   static const int _maxHistoryLength = 24;
@@ -41,6 +70,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
           .order('created_at', ascending: false)
           .limit(5);
 
+      if (_disposed) return;
       recentRecommendations = List<Map<String, dynamic>>.from(response);
       notifyListeners(); // UI에 데이터 로드 알림
     } catch (e) {
@@ -50,7 +80,10 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
   // 특정 과거 이력을 클릭했을 때 화면에 즉시 뿌려주는 메서드
   void loadRecentRecommendation(Map<String, dynamic> record) {
+    _resetAiSession();
+    _usageMenu = 'history';
     // 1. 화면 초기화 (Stage 1 -> Stage 2 전환 준비)
+    _placesByMessage.clear();
     messages.clear();
     pendingPlaces.clear();
 
@@ -63,22 +96,28 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     messages.add({'role': 'user', 'text': title});
 
     // AI가 했던 답변 형식으로 다시 구성 (또는 저장된 요약문이 있다면 그것을 사용)
-    String restoredResponse = "'$title'에 대한 이전 추천 결과입니다.\n\n";
+    String restoredResponse = savedPlaces.isEmpty ? '저장된 추천 장소가 없습니다.' : '';
     for (var place in savedPlaces) {
       restoredResponse += "📍 ${place['title']}\n${place['snippet'] ?? ''}\n\n";
     }
 
     messages.add({'role': 'bot', 'text': restoredResponse});
+    _geminiService.resetChat(history: [
+      Content.text(title),
+      Content.model([TextPart(restoredResponse)]),
+    ]);
 
     // 4. 지도 마커 데이터 즉시 복구 (이게 핵심!)
     // 이미 verifiedPlacesWithCoords 형태로 저장되어 있으므로 다시 API 호출할 필요 없음
     pendingPlaces = List<Map<String, dynamic>>.from(savedPlaces);
+    _placesByMessage[messages.last] = List.of(pendingPlaces);
 
     // 5. UI 갱신 (vm.messages.isEmpty가 false가 되어 채팅창 Stage로 자동 전환됨)
     notifyListeners();
   }
 
-  Future<List<Map<String, dynamic>>> fetchRecentRecommendations() async {
+  Future<List<Map<String, dynamic>>> fetchRecentRecommendations(
+      {int offset = 0}) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return [];
 
@@ -87,12 +126,13 @@ class ChatRecommendationViewModel extends ChangeNotifier {
         .select()
         .eq('user_id', user.id)
         .order('created_at', ascending: false)
-        .limit(5);
+        .range(offset, offset + 19);
 
     return List<Map<String, dynamic>>.from(response);
   }
 
   Future<void> _handleAiResponse(String fullResponse) async {
+    final requestVersion = _requestVersion;
     if (kDebugMode) {
       print("--- AI's Full Response ---");
       print(fullResponse);
@@ -100,7 +140,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     }
 
     // 1. AI 응답에서 장소 데이터 파싱
-    final parsedPlacesData = _parsePlaceDetailsFromResponse(fullResponse);
+    final parsedPlacesData = parsePlaceDetailsFromResponse(fullResponse);
     if (parsedPlacesData.isEmpty) {
       if (kDebugMode) print('⚠️ 파싱된 장소 데이터가 없습니다.');
       return;
@@ -114,6 +154,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       final placeTitle = parsedPlace['title'] as String;
       final placeDetailsList =
           await placesService.searchPlacesByKeyword(placeTitle);
+      if (requestVersion != _requestVersion) return;
 
       if (placeDetailsList.isNotEmpty) {
         final placeDetails = placeDetailsList.first;
@@ -132,8 +173,11 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       }
     }
 
+    if (requestVersion != _requestVersion) return;
+
     // 3. 뷰모델 상태 업데이트 (UI 표시용)
     pendingPlaces = verifiedPlacesWithCoords;
+    _placesByMessage[messages.last] = List.of(pendingPlaces);
     notifyListeners();
 
     // 4. DB 저장 (lastUserMessage 대신 _lastUserQuery 사용)
@@ -142,7 +186,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     }
   }
 
-  List<Map<String, dynamic>> _parsePlaceDetailsFromResponse(String text) {
+  @visibleForTesting
+  List<Map<String, dynamic>> parsePlaceDetailsFromResponse(String text) {
     final List<Map<String, dynamic>> places = [];
     final lines = text
         .split('\n')
@@ -174,7 +219,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
         places.add({
           'title': name,
           'address': address,
-          'snippet': snippet.isNotEmpty ? snippet : '인스타 감성 장소',
+          'snippet': snippet.isNotEmpty ? snippet : '추천 장소',
         });
         if (kDebugMode) {
           print('검증 모드 파싱 성공: $name → $address');
@@ -265,43 +310,21 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
   void markPlaceSaved(Map<String, dynamic> place) {
     pendingPlaces.remove(place);
+    for (final places in _placesByMessage.values) {
+      places.remove(place);
+    }
     notifyListeners();
   }
 
-  void startNewSession(String mode) {
+  void startNewSession(String mode, {String menu = 'freeform'}) {
+    _resetAiSession();
+    _usageMenu = menu;
+    _placesByMessage.clear();
     messages.clear();
     pendingPlaces.clear();
     currentMode = mode;
 
-    String welcomeMsg;
-
-    if (mode == 'place') {
-      welcomeMsg = '''
-숨겨진 순간을 위한 여정
-
-당신만을 위한 장소가 기다리고 있습니다.  
-관광지가 아닌, 진정한 의미의 공간들만.
-
-어떤 분위기를 원하시겠습니까?
-
-예시  
-• 서울 한남동 미니멀 루프탑  
-• 제주 애월 프라이빗 오션뷰 무인 카페  
-• 강원도 평창 고요한 글램핑 테라스
-''';
-    } else {
-      welcomeMsg = '''
-당신만의 여정이 시작되는 곳
-
-여행의 목적지와 시간, 그리고 원하는 분위기를 알려주세요.  
-가장 세심하게, 가장 특별하게 설계해 드리겠습니다.
-
-예시  
-• 강릉 2박 3일, 고독한 힐링  
-• 제주 4일, 프라이빗 풀빌라 중심  
-• 서울 근교 1박 2일, 조용한 럭셔리 데이트
-''';
-    }
+    const welcomeMsg = '선택한 조건에 맞춰 여행을 추천해드릴게요. 추가로 원하는 조건은 채팅으로 알려주세요.';
 
     messages.add({'role': 'bot', 'text': welcomeMsg});
     notifyListeners();
@@ -327,7 +350,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
   Future<void> sendMessage(String userInput,
       {bool isNearbySearch = false}) async {
-    if (userInput.trim().isEmpty) return;
+    if (userInput.trim().isEmpty || isLoading) return;
+    final requestVersion = _requestVersion;
 
     // 사용자 질문 저장 (DB 타이틀용)
     _lastUserQuery = userInput;
@@ -350,6 +374,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
         finalInput = "$location 인근의 장소를 추천해줘: $userInput";
       }
 
+      if (requestVersion != _requestVersion) return;
+
       // 3. 봇의 빈 메시지 추가
       final botMessageIndex = messages.length;
       messages.add({'role': 'bot', 'text': ''});
@@ -358,22 +384,29 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
       // 4. 스트림 구독 및 실시간 업데이트
       String fullResponse = "";
-      final stream = _geminiService.sendMessageStream(finalInput);
+      final stream =
+          _geminiService.sendMessageStream(finalInput, menu: _usageMenu);
 
       await for (final chunk in stream) {
+        if (requestVersion != _requestVersion) return;
         fullResponse += chunk;
         messages[botMessageIndex]['text'] = fullResponse;
         notifyListeners();
       }
 
+      if (requestVersion != _requestVersion) return;
+
       // 5. 답변 완료 후 추천 장소 추출 및 DB 저장
       pendingPlaces.clear();
       await _handleAiResponse(fullResponse);
     } catch (e) {
+      if (requestVersion != _requestVersion) return;
       messages.add({'role': 'bot', 'text': '죄송합니다. 오류가 발생했습니다. ($e)'});
     } finally {
-      isLoading = false;
-      notifyListeners();
+      if (requestVersion == _requestVersion) {
+        isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -381,7 +414,13 @@ class ChatRecommendationViewModel extends ChangeNotifier {
   void _trimHistory() {
     if (messages.length > _maxHistoryLength) {
       messages.removeRange(0, messages.length - _maxHistoryLength);
+      _placesByMessage.removeWhere((message, _) => !messages.contains(message));
     }
+  }
+
+  Future<String?> getPlannerLocation() async {
+    final location = await _getCurrentLocationContext();
+    return location.startsWith('현재 위치:') ? location : null;
   }
 
   Future<String> _getCurrentLocationContext() async {
@@ -409,7 +448,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
         ),
       );
 
-      return "현재 위치: 위도 ${position.latitude.toStringAsFixed(6)}, 경도 ${position.longitude.toStringAsFixed(6)} (서울 기준 약 ${position.latitude.toStringAsFixed(2)}°N, ${position.longitude.toStringAsFixed(2)}°E)";
+      return "현재 위치: 위도 ${position.latitude.toStringAsFixed(6)}, 경도 ${position.longitude.toStringAsFixed(6)}";
     } catch (e) {
       if (kDebugMode) print('위치 정보 획득 실패: $e');
       return '사용자 현재 위치 (정보를 가져올 수 없음)';
@@ -417,6 +456,8 @@ class ChatRecommendationViewModel extends ChangeNotifier {
   }
 
   void reset() {
+    _resetAiSession();
+    _placesByMessage.clear();
     messages.clear();
     pendingPlaces.clear();
     currentMode = '';
