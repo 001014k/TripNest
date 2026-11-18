@@ -1,3 +1,5 @@
+import 'dart:async';
+import '../../services/places/place_lookup_repository.dart';
 import '../../services/places/place_hours.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -70,8 +72,8 @@ class MarkerDetailViewModel extends ChangeNotifier {
   String? get memo {
     final text = _memo?.trim();
     if (text == null || text.isEmpty) return null;
-    // Search results may have saved their address as the marker snippet.
-    // Keep real notes, but do not repeat the address as a description.
+    // 검색 결과의 주소가 마커 설명에 저장되어 있을 수 있습니다.
+    // 실제 메모는 유지하되 주소를 설명으로 반복 표시하지 않습니다.
     String normalized(String value) =>
         value.replaceAll(RegExp(r'\s+'), '').toLowerCase();
     if (_address != null && normalized(text) == normalized(_address!)) {
@@ -101,8 +103,8 @@ class MarkerDetailViewModel extends ChangeNotifier {
   bool isBookmarked = false;
   List<Marker> bookmarkedMarkers = [];
   List<String> imageUrls = [];
-  String? _photosQuery;
-  Future<List<String>>? _photosFuture;
+  Completer<List<String>> _photoResult = Completer<List<String>>();
+  int photoRevision = 0;
 
   // 리뷰 플랫폼 리스트 반환 (길찾기와 분리)
   List<Map<String, String>> get reviewLinks {
@@ -137,23 +139,8 @@ class MarkerDetailViewModel extends ChangeNotifier {
     ];
   }
 
-  Future<List<String>> fetchPhotos(String address, String? title) {
-    final query =
-        (title != null && title.isNotEmpty) ? '$title $address' : address;
-    if (_photosQuery == query && _photosFuture != null) {
-      return _photosFuture!;
-    }
-    _photosQuery = query;
-    return _photosFuture = _requestPhotos(query);
-  }
-
-  Future<List<String>> _requestPhotos(String query) async {
-    try {
-      return await _placesService.searchPhotoUrls(query);
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<String>> fetchPhotos(String address, String? title) =>
+      _photoResult.future;
 
   // 서파베이스에 저장된 데이터 불러옴 + Google Places API로 실시간 정보 보강
   Future<void> fetchUserMarkerDetail(String markerId) async {
@@ -170,7 +157,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
       debugPrint('저장된 장소 정보 조회 실패');
     }
     notifyListeners();
-    // Related information must not wait for GPS or list membership requests.
+    // 관련 정보 조회가 GPS나 소속 리스트 조회를 기다리지 않도록 합니다.
     await _fetchGooglePlaceDetails(_address ?? '', title);
     if (_disposed) return;
     await _loadSavedLists(markerId);
@@ -207,15 +194,24 @@ class MarkerDetailViewModel extends ChangeNotifier {
         .where((s) => s.trim().isNotEmpty && s != '제목 없음')
         .join(' ');
     if (query.isEmpty) {
+      if (!_photoResult.isCompleted) _photoResult.complete([]);
       placeDetailsError = '장소 이름이 없어 관련 정보를 조회할 수 없습니다.';
       notifyListeners();
       return;
+    }
+    if (isLoadingPlaceDetails) return;
+    if (_photoResult.isCompleted) {
+      _photoResult = Completer<List<String>>();
+      photoRevision++;
     }
     isLoadingPlaceDetails = true;
     placeDetailsError = null;
     notifyListeners();
     try {
       final details = await _placesService.searchPlaceDetails(query);
+      if (!_photoResult.isCompleted) {
+        _photoResult.complete(PlaceLookupRepository.photoUrls(details));
+      }
       if (details == null) {
         placeDetailsError = '일치하는 장소를 찾지 못했어요.';
         return;
@@ -242,6 +238,7 @@ class MarkerDetailViewModel extends ChangeNotifier {
     } catch (_) {
       placeDetailsError = '장소 정보를 불러오지 못했어요. 다시 시도해주세요.';
     } finally {
+      if (!_photoResult.isCompleted) _photoResult.complete([]);
       isLoadingPlaceDetails = false;
       notifyListeners();
     }
