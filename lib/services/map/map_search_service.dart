@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../infrastructure/async_ttl_cache.dart';
 
-/// Network search and result de-duplication, independent of map UI state.
+/// 지도 UI 상태와 독립적으로 네트워크 검색과 결과 중복 제거를 처리합니다.
 class MapSearchService {
   MapSearchService(
       {http.Client? client,
