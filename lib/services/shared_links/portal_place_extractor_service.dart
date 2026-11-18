@@ -7,7 +7,7 @@ import '../ai/gemini_service.dart';
 import 'link_place_extractor_service.dart';
 import 'shared_link_platform.dart';
 
-/// Reads public review articles. Does not bypass login or bot protection.
+/// 공개 후기 글만 읽으며 로그인이나 봇 차단을 우회하지 않습니다.
 class PortalPlaceExtractorService {
   PortalPlaceExtractorService(
       {http.Client? client,
@@ -41,7 +41,7 @@ class PortalPlaceExtractorService {
         if (!seen.add(uri.toString())) {
           throw const FormatException('공유 링크의 이동 경로를 확인할 수 없습니다.');
         }
-        // Desktop Naver blogs commonly serve an iframe shell instead of the post.
+        // 데스크톱 네이버 블로그는 본문 대신 iframe을 담은 외부 페이지를 반환하는 경우가 많습니다.
         if (uri.host == 'blog.naver.com') {
           uri = uri.replace(host: 'm.blog.naver.com');
         }
@@ -78,7 +78,7 @@ class PortalPlaceExtractorService {
           }
         }
         final doc = html.parse(utf8.decode(bytes, allowMalformed: true));
-        // Public cafe desktop pages may wrap the article in a same-provider frame.
+        // 공개 카페의 데스크톱 페이지는 같은 서비스의 프레임 안에 본문을 담을 수 있습니다.
         final frame = doc.querySelector(
             'iframe#cafe_main, iframe[name="cafe_main"], iframe#down');
         final frameSource = frame?.attributes['src'];
@@ -124,7 +124,7 @@ class PortalPlaceExtractorService {
       final sources = await _extractSources(bounded);
       final results = <String, LinkPlacePreview>{};
       for (final source in sources.take(15)) {
-        // Never save an AI-invented name not present in the source.
+        // 원문에 없는 AI가 만든 장소명은 저장하지 않습니다.
         if (!_normalize(bounded).contains(_normalize(source.name)) ||
             source.name.trim().isEmpty) {
           continue;
