@@ -8,12 +8,14 @@ class AddressPhotoPreview extends StatefulWidget {
   final String? title;
   final double size;
   final Widget? child;
+  final BoxFit fit;
 
   const AddressPhotoPreview({
     required this.address,
     required this.title,
     required this.size,
     this.child,
+    this.fit = BoxFit.cover,
     super.key,
   });
 
@@ -72,7 +74,7 @@ class _AddressPhotoPreviewState extends State<AddressPhotoPreview> {
           imageUrl: _vm.photoUrl!,
           width: double.infinity,
           height: widget.size,
-          fit: BoxFit.cover,
+          fit: widget.fit,
           placeholder: (_, __) => _gradientPlaceholder(),
           errorWidget: (_, __, ___) => _gradientPlaceholder(),
         ),
