@@ -152,7 +152,7 @@ class UserService {
         .maybeSingle();
 
     if (existing == null) {
-      // insert
+      // 새 사용자 추가
       await supabase.from('profiles').insert({
         'id': userId,
         'email': supabase.auth.currentUser?.email,
@@ -160,7 +160,7 @@ class UserService {
         'nickname': nickname.trim(),
       });
     } else {
-      // update
+      // 기존 사용자 정보 갱신
       await supabase
           .from('profiles')
           .update({'nickname': nickname.trim()}).eq('id', userId);
