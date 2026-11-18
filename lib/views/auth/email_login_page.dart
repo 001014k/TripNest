@@ -330,9 +330,9 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
-        gradient: AppDesign.primaryGradient,
+        color: AppDesign.primary,
         borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        boxShadow: AppDesign.glowShadow,
+        boxShadow: AppDesign.softShadow,
       ),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
