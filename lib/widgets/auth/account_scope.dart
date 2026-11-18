@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Recreates account-owned providers and navigation when the identity changes.
-/// Refreshing an access token for the same user preserves the current screen.
+/// 사용자가 바뀌면 계정에 속한 프로바이더와 화면 탐색 상태를 다시 만듭니다.
+/// 같은 사용자의 액세스 토큰 갱신 시 현재 화면을 유지합니다.
 class AccountScope extends StatefulWidget {
   const AccountScope(
       {super.key, required this.builder, this.identities, this.initialUserId});
