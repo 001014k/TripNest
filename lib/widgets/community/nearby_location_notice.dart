@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
-/// Location recovery stays scrollable on smaller screens and with larger text.
+/// 작은 화면이나 큰 글자 설정에서도 위치 복구 안내를 스크롤할 수 있게 합니다.
 class NearbyLocationNotice extends StatelessWidget {
   const NearbyLocationNotice({super.key, required this.onRetry});
   final VoidCallback onRetry;
