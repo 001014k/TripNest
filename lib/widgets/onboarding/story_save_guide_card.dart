@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// Bookmark guidance; actions retain the existing marker creation flow.
+/// 북마크 안내이며, 버튼 동작은 기존 마커 생성 흐름을 유지합니다.
 class StorySaveGuideCard extends StatelessWidget {
   const StorySaveGuideCard(
       {super.key,
@@ -17,8 +17,8 @@ class StorySaveGuideCard extends StatelessWidget {
   Widget build(BuildContext context) =>
       LayoutBuilder(builder: (context, bounds) {
         final safe = MediaQuery.paddingOf(context);
-        // Keep the real bookmark clear. Use the larger side of the target
-        // and scroll the contents instead of moving the card over the button.
+        // 실제 북마크 버튼을 가리지 않도록 대상 주변의 넓은 공간을 사용합니다.
+        // 카드를 버튼 위로 옮기지 않고 내부 내용을 스크롤합니다.
         final safeTop = safe.top + 8;
         final safeBottom = bounds.maxHeight - safe.bottom - 12;
         final above = math.max(0.0, target.top - 16 - safeTop);
