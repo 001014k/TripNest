@@ -1,4 +1,4 @@
-// Shared by the main map and place previews.
+// 메인 지도와 장소 미리보기에서 공통으로 사용합니다.
 const String tripNestMapStyle = '''
   [
     {"elementType":"geometry","stylers":[{"color":"#f2f3f4"}]},
