@@ -62,7 +62,7 @@ Future<bool> createMarkerFromStory(
       message('마커 정보를 확인해주세요.');
       return false;
     }
-    // Recheck after the editor, including a name changed by the user.
+    // 편집 후 사용자가 바꾼 이름까지 포함해 다시 확인합니다.
     final existing = await map.findSavedPlace(source) ??
         await map.findSavedPlace(
             source.copyWith(infoWindowParam: InfoWindow(title: title)));
