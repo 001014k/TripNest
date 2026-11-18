@@ -150,9 +150,9 @@ class _MarkerCreationScreenState extends State<MarkerCreationScreen> {
                 style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF191919),
                     foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(54),
+                    minimumSize: const Size.fromHeight(48),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18))),
+                        borderRadius: BorderRadius.circular(16))),
                 child: Text(_step == 2 ? '저장하기' : '다음',
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.w600))),
