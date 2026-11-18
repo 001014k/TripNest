@@ -30,7 +30,7 @@ class SharedLinkPlatform {
     return '기타';
   }
 
-  /// Public review articles, not search results or map listings.
+  /// 검색 결과나 지도 목록이 아닌 공개 후기 글을 대상으로 합니다.
   static bool supportsPlaces(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null || !['https', 'http'].contains(uri.scheme)) return false;
