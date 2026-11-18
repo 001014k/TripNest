@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// An illustrative unsaved place; actions retain the existing story/map flow.
+/// 저장하지 않은 장소의 예시이며, 기존 이야기·지도 화면 흐름을 유지합니다.
 class UnsavedPlaceGuideCard extends StatelessWidget {
   const UnsavedPlaceGuideCard(
       {super.key,
@@ -18,8 +18,8 @@ class UnsavedPlaceGuideCard extends StatelessWidget {
   Widget build(BuildContext context) =>
       LayoutBuilder(builder: (context, bounds) {
         final safe = MediaQuery.paddingOf(context);
-        // Leave the highlighted control unobstructed and connect the card
-        // to it with an arrow. Long content scrolls inside the available side.
+        // 강조한 조작 요소를 가리지 않고 카드와 화살표로 연결합니다.
+        // 내용이 길면 확보된 공간 안에서 스크롤합니다.
         final safeTop = safe.top + 8;
         final safeBottom = bounds.maxHeight - safe.bottom - 12;
         const gap = 40.0;
