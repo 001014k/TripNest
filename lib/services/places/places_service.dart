@@ -1,82 +1,29 @@
 import '../infrastructure/server_api_client.dart';
-import '../infrastructure/async_ttl_cache.dart';
+import 'place_lookup_repository.dart';
+export 'place_lookup_repository.dart' show PlacesLookupException;
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class PlacesService {
-  PlacesService({http.Client? client, String? apiKey})
+  PlacesService(
+      {http.Client? client, String? apiKey, PlaceLookupRepository? repository})
       : _client = client ?? ServerApiClient(),
-        _useGateway = client == null,
-        apiKey = apiKey ?? 'server-managed';
+        apiKey = apiKey ?? 'server-managed',
+        _repository = repository ??
+            (client == null && apiKey == null
+                ? PlaceLookupRepository.shared
+                : PlaceLookupRepository(
+                    client: client, apiKey: apiKey ?? 'server-managed'));
   final http.Client _client;
-  final bool _useGateway;
   final String apiKey;
-  final _details = AsyncTtlCache<String, Map<String, dynamic>?>(
-      ttl: const Duration(minutes: 10), isEmpty: (value) => value == null);
+  final PlaceLookupRepository _repository;
   Future<Map<String, dynamic>?> searchPlaceDetails(String query) =>
-      _details.get(query.trim(), () => _searchPlaceDetails(query.trim()));
+      _repository.lookup(query, PlaceLookupRepository.detailFields);
 
-  Future<List<String>> searchPhotoUrls(String query) async {
-    if (query.isEmpty) return [];
-    final response = await _client
-        .post(
-          Uri.https('places.googleapis.com', '/v1/places:searchText'),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': apiKey,
-            'X-Goog-FieldMask': 'places.id,places.photos',
-          },
-          body: jsonEncode({'textQuery': query, 'languageCode': 'ko'}),
-        )
-        .timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200) return [];
-    final places = jsonDecode(response.body)['places'] as List<dynamic>?;
-    if (places == null || places.isEmpty) return [];
-    final urls = (places.first['photos'] as List? ?? const [])
-        .take(6)
-        .map(
-            (photo) => 'https://places.googleapis.com/v1/${photo['name']}/media'
-                '?key=$apiKey&maxWidthPx=800')
-        .toList();
-    return _useGateway ? Future.wait(urls.map(ServerApiClient.imageUrl)) : urls;
-  }
-
-  Future<Map<String, dynamic>?> _searchPlaceDetails(String query) async {
-    final search = await _client
-        .post(
-          Uri.https('places.googleapis.com', '/v1/places:searchText'),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': apiKey,
-            'X-Goog-FieldMask':
-                'places.id,places.displayName,places.formattedAddress',
-          },
-          body: jsonEncode({'textQuery': query, 'languageCode': 'ko'}),
-        )
-        .timeout(const Duration(seconds: 15));
-    if (search.statusCode != 200) {
-      throw PlacesLookupException(search.statusCode);
-    }
-    final places = jsonDecode(search.body)['places'] as List<dynamic>?;
-    if (places == null || places.isEmpty) return null;
-    final placeId = places.first['id'] as String?;
-    if (placeId == null) return null;
-    final details = await _client
-        .get(
-          Uri.https('places.googleapis.com', '/v1/places/$placeId', {
-            'fields':
-                'currentOpeningHours,regularOpeningHours,rating,userRatingCount,internationalPhoneNumber,nationalPhoneNumber,formattedAddress,googleMapsUri',
-            'languageCode': 'ko',
-            'key': apiKey,
-          }),
-        )
-        .timeout(const Duration(seconds: 15));
-    if (details.statusCode != 200) {
-      throw PlacesLookupException(details.statusCode);
-    }
-    return jsonDecode(details.body) as Map<String, dynamic>;
-  }
+  Future<List<String>> searchPhotoUrls(String query) async =>
+      PlaceLookupRepository.photoUrls(
+          await _repository.lookup(query, PlaceLookupRepository.photoFields));
 
   Future<List<Map<String, dynamic>>> searchPlacesByKeyword(
       String keyword) async {
@@ -94,7 +41,7 @@ class PlacesService {
           body: jsonEncode({
             'textQuery': keyword,
             'languageCode': 'ko',
-            'maxResultCount': 5, // Get up to 5 results for each keyword
+            'maxResultCount': 5, // 키워드별로 최대 5개 결과를 가져옵니다.
           }),
         )
         .timeout(const Duration(seconds: 15));
@@ -109,11 +56,4 @@ class PlacesService {
     }
     return [];
   }
-}
-
-class PlacesLookupException implements Exception {
-  const PlacesLookupException(this.statusCode);
-  final int statusCode;
-  @override
-  String toString() => '장소 정보 조회 실패 (HTTP $statusCode)';
 }
