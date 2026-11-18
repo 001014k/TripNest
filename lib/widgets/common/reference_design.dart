@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../places/address_photo_preview.dart';
 
-/// Measurements are logical pixels, relative to the 390px reference viewport.
+/// 크기는 너비 390px의 기준 화면에 맞춘 논리 픽셀 단위입니다.
 class ReferenceCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -10,7 +10,7 @@ class ReferenceCard extends StatelessWidget {
       {super.key,
       required this.child,
       this.dashed = false,
-      this.padding = const EdgeInsets.all(12)});
+      this.padding = const EdgeInsets.all(16)});
   @override
   Widget build(BuildContext context) => CustomPaint(
       foregroundPainter: dashed ? _ReferenceDashedBorder() : null,
@@ -121,7 +121,8 @@ class ReferencePeople extends StatelessWidget {
   final int count;
   const ReferencePeople({super.key, required this.count});
   @override
-  Widget build(BuildContext context) => Row(children: [
+  Widget build(BuildContext context) =>
+      Row(mainAxisSize: MainAxisSize.min, children: [
         if (count > 0) ...[
           SizedBox(
               width: (count.clamp(1, 3) - 1) * 16 + 24,
@@ -367,9 +368,9 @@ class ReferencePlatform extends StatelessWidget {
                           ? Icons.camera_alt_outlined
                           : threads
                               ? Icons.alternate_email_rounded
-                          : youtube
-                              ? Icons.play_arrow_rounded
-                              : Icons.link,
+                              : youtube
+                                  ? Icons.play_arrow_rounded
+                                  : Icons.link,
                       size: 14,
                       color: Colors.white))),
       const SizedBox(width: 6),
