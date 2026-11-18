@@ -61,6 +61,17 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: ScreenGuideTarget(
+          guide: FeatureGuide.collaboration,
+          priority: -1,
+          description:
+              '먼저 여행 리스트를 만들어주세요. 리스트 관리에서 친구를 초대하고 게스트·편집자 역할을 설정할 수 있어요.',
+          onTry: () => _showCreateListDialog(context),
+          child: FloatingActionButton(
+              heroTag: 'create-travel-list',
+              tooltip: '리스트 만들기',
+              onPressed: () => _showCreateListDialog(context),
+              child: const Icon(Icons.add, size: 27))),
       bottomNavigationBar: const TripNestNavigation(currentRoute: '/list'),
       body: Container(
         decoration: const BoxDecoration(gradient: AppDesign.backgroundGradient),
@@ -134,15 +145,6 @@ class _ListPageState extends State<ListPage> with TickerProviderStateMixin {
                         fontSize: 25,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.8))),
-            ScreenGuideTarget(
-                guide: FeatureGuide.collaboration,
-                priority: -1,
-                description:
-                    '먼저 여행 리스트를 만들어주세요. 리스트 관리에서 친구를 초대하고 게스트·편집자 역할을 설정할 수 있어요.',
-                onTry: () => _showCreateListDialog(context),
-                child: _headerAction(Icons.add, '리스트 만들기',
-                    () => _showCreateListDialog(context))),
-            const SizedBox(width: 8),
             _headerAction(Icons.search, '리스트 검색',
                 () => setState(() => _searchVisible = !_searchVisible)),
           ]),
