@@ -58,7 +58,7 @@ class MarkerService {
       'p_address': address,
       'p_list_id': listId,
     });
-    // Notifications are best-effort after the database commit.
+    // 데이터베이스 저장이 완료된 뒤 알림 전송을 시도합니다.
     if (listId != null) {
       try {
         if (_notifyAdded != null) {
@@ -122,7 +122,7 @@ class MarkerService {
         }).timeout(const Duration(seconds: 15));
         await _dbHelper.updateMarkerSyncStatus(row['id'] as String, userId);
       } catch (_) {
-        // Keep the original row for an idempotent retry. Never mark failed writes synced.
+        // 재시도해도 중복 처리되지 않도록 원본 행을 유지하며, 저장 실패를 동기화 완료로 표시하지 않습니다.
         debugPrint('오프라인 장소 동기화 보류');
       }
     }
