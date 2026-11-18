@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// Nearby preview is illustrative; permissions are requested only by the feature.
+/// 주변 장소 미리보기는 예시이며, 권한은 실제 기능을 사용할 때만 요청합니다.
 class NearbyGuideCard extends StatelessWidget {
   const NearbyGuideCard(
       {super.key,
@@ -17,8 +17,8 @@ class NearbyGuideCard extends StatelessWidget {
   Widget build(BuildContext context) =>
       LayoutBuilder(builder: (context, bounds) {
         final safe = MediaQuery.paddingOf(context);
-        // Reserve enough room for the complete card, including its footer.
-        // A mid-screen anchor must not squeeze the card into a short viewport.
+        // 하단 영역을 포함한 카드 전체가 들어갈 공간을 확보합니다.
+        // 화면 중간의 기준점 때문에 카드가 너무 좁은 세로 공간에 갇히지 않도록 합니다.
         final requiredHeight = 550.0 +
             math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14) * 12;
         final bottom = safe.bottom + 12;
