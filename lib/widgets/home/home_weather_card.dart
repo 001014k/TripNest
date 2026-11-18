@@ -23,7 +23,7 @@ class _HomeWeatherCardState extends State<HomeWeatherCard>
     super.initState();
     _model = context.read<HomeWeatherViewModel>();
     WidgetsBinding.instance.addObserver(this);
-    // Defer notifications until the provider tree has finished building.
+    // 프로바이더 트리 구성이 끝난 뒤 변경 알림을 보냅니다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _model.initialize();
     });
@@ -56,19 +56,27 @@ class _HomeWeatherCardState extends State<HomeWeatherCard>
         title: '날씨 지역 선택',
         subtitle: '날씨를 확인할 지역을 선택해주세요.',
         children: [
+          AppSheetOption(
+            title: '현재 위치로 설정',
+            icon: Icons.my_location,
+            onTap: () => Navigator.pop(sheet, ('현재 위치', 0.0, 0.0)),
+          ),
           for (final city in cities)
             AppSheetOption(
               title: city.$1,
               icon: Icons.location_on_outlined,
-              selected: _model.region == city.$1 ||
-                  (_model.region == '서울 · 기본 지역' && city.$1 == '서울'),
+              selected: _model.region == city.$1,
               onTap: () => Navigator.pop(sheet, city),
             )
         ],
       ),
     );
     if (city == null || !mounted) return;
-    await _model.selectRegion(city.$1, city.$2, city.$3);
+    if (city.$1 == '현재 위치') {
+      await _model.useCurrentLocation();
+    } else {
+      await _model.selectRegion(city.$1, city.$2, city.$3);
+    }
   }
 
   @override
@@ -123,7 +131,12 @@ class WeatherCardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = weather;
-    if (loading && data == null) return const HomeSkeleton(height: 120);
+    if (loading && data == null) {
+      // 일반 화면 높이에 맞춥니다: 날씨 행 48px + 하단 영역 44px + 여백.
+      return HomeSkeleton(
+        height: 112 * MediaQuery.textScalerOf(context).scale(1).clamp(1, 2),
+      );
+    }
     final icon = data == null
         ? Icons.cloud_outlined
         : data.precipitation == 3 || data.precipitation == 7
@@ -133,69 +146,50 @@ class WeatherCardContent extends StatelessWidget {
                 : data.sky == 1
                     ? Icons.wb_sunny_rounded
                     : Icons.cloud_rounded;
-    return Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-        decoration: BoxDecoration(
-            color: const Color(0xFFF3F8FC),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFDCE7F2))),
+    return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      InkWell(
-                          onTap: onRegion,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Row(children: [
-                                const Icon(Icons.location_on_outlined,
-                                    size: 20),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                    child: Text(region,
-                                        style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700))),
-                                const Icon(Icons.keyboard_arrow_down, size: 16),
-                              ]))),
-                      if (data != null)
-                        Text(
-                            '${data.condition} · 최고 ${data.high?.round().toString() ?? '–'}° 최저 ${data.low?.round().toString() ?? '–'}°',
-                            style: const TextStyle(
-                                fontSize: 11, color: Color(0xFF7D8390))),
-                      if (data == null)
-                        Text(loading ? '날씨를 불러오는 중이에요' : '날씨 정보 없음',
-                            style: const TextStyle(
-                                fontSize: 12, color: Color(0xFF7D8390))),
-                    ])),
+                Icon(icon, size: 27),
                 const SizedBox(width: 8),
-                if (loading && data == null)
-                  const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                else if (data != null)
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(icon,
-                        size: 32,
-                        color: data.sky == 1 && data.precipitation == 0
-                            ? const Color(0xFFF5BC32)
-                            : const Color(0xFF87ACC7)),
-                    const SizedBox(width: 6),
-                    Text('${data.temperature.round()}°',
-                        style: const TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -1)),
-                  ]),
+                if (data != null)
+                  Text('${data.temperature.round()}°',
+                      style: const TextStyle(
+                          fontSize: 29, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(
+                        data == null
+                            ? '날씨 정보 없음'
+                            : '${data.condition}\n최고 ${data.high?.round() ?? '–'}° · 최저 ${data.low?.round() ?? '–'}°',
+                        style: const TextStyle(fontSize: 13, height: 1.5))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          onPressed: onRegion,
+                          icon:
+                              const Icon(Icons.location_on_outlined, size: 16),
+                          label: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Flexible(
+                                child: Text(region,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis)),
+                            const Icon(Icons.keyboard_arrow_down, size: 16),
+                          ]),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 48),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                        ))),
               ]),
-              const Divider(height: 18, color: Color(0xFFDCE5EF)),
+              const SizedBox(height: 8),
               if (error != null)
                 Row(children: [
                   Expanded(
