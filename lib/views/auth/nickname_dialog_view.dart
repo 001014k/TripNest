@@ -101,9 +101,9 @@ class NicknameSetupPage extends StatelessWidget {
           width: 100,
           height: 100,
           decoration: BoxDecoration(
-            gradient: AppDesign.primaryGradient,
+            color: AppDesign.primary,
             shape: BoxShape.circle,
-            boxShadow: AppDesign.glowShadow,
+            boxShadow: AppDesign.softShadow,
           ),
           child: const Icon(
             Icons.person_outline,
