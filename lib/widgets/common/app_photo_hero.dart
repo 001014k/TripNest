@@ -11,8 +11,8 @@ class AppPhotoHero extends StatelessWidget {
       tag: tag!,
       transitionOnUserGestures: true,
       flightShuttleBuilder: (context, animation, direction, from, to) {
-        // Keep the already-visible thumbnail during flight, rather than flying
-        // a newly loading detail placeholder across the screen.
+        // 화면 전환 애니메이션에는 이미 표시된 썸네일을 사용합니다.
+        // 새로 로딩 중인 상세 화면의 임시 이미지를 대신 이동시키지 않습니다.
         final hero = (direction == HeroFlightDirection.push
             ? from.widget
             : to.widget) as Hero;
