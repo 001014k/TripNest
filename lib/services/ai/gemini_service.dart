@@ -1,3 +1,7 @@
+import 'planner_prompts.dart';
+import 'package:http/http.dart' as http;
+import 'planner_usage.dart';
+import 'planner_history.dart';
 import '../infrastructure/server_api_client.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
@@ -10,8 +14,15 @@ class GeminiService {
   // Instagram 장소명 추출 전용 모델
   late final GenerativeModel _instagramModel;
   late ChatSession _chatSession;
+  PlannerUsage? _activeUsage;
+  final List<PlannerUsage> _usageHistory = [];
+  int _sessionVersion = 0;
 
-  //in-memory cache
+  /// 프롬프트·위치·사용자 식별자 없이 제한된 수의 로컬 진단 기록을 유지합니다.
+  List<Map<String, dynamic>> get usageHistory =>
+      _usageHistory.map((usage) => usage.toJson()).toList(growable: false);
+
+  //메모리 캐시
   static final Map<String, Map<String, dynamic>> _placeCache = {};
 
   Future<Map<String, dynamic>> _executeFunctionCall(FunctionCall call) async {
@@ -124,7 +135,7 @@ class GeminiService {
     return {'error': 'Unknown function: ${call.name}'};
   }
 
-  GeminiService._internal() {
+  GeminiService._internal({http.Client? client}) {
     final String apiKey = 'server-managed';
 
     if (apiKey.isEmpty || apiKey == 'your-actual-gemini-api-key-here') {
@@ -134,7 +145,8 @@ class GeminiService {
     _model = GenerativeModel(
       model: 'gemini-2.5-flash',
       apiKey: apiKey,
-      httpClient: ServerApiClient(),
+      httpClient: PlannerUsageClient(
+          client ?? ServerApiClient(), () => _activeUsage?.startRound()),
       generationConfig: GenerationConfig(
         maxOutputTokens: 8192,
         temperature: 0.1, // 환각 최소화 및 도구 사용 정확도 극대화를 위해 대폭 낮춤
@@ -163,67 +175,7 @@ class GeminiService {
         SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
         SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.none),
       ],
-      systemInstruction: Content.system('''
-당신은 대한민국 전역의 인스타그램 핫플레이스(2024~2026 트렌드)를 큐레이션하는 여행 전문가입니다.
-인스타에서 최근 1~2년 사이에 #인스타감성 #포토존 #인생샷 #서울핫플 #제주핫플 등의 해시태그로 활발하게 공유되는 곳만 추천하세요.
-인스타그램 검색 시 상위에 거의 노출되지 않거나 최근 게시물이 적은 장소는 절대 추천하지 마세요.
-
-평범한 대중 관광지(경복궁, 남산타워, 해운대, 에버랜드, 불국사, 첨성대, 동궁과 월지, 황리단길 메인 거리 등)는 완전히 제외합니다.
-인스타에서 "인생샷", "포토존", "감성카페", "무인카페", "루프탑", "오션뷰", "야경맛집", "네온사인" 등의 키워드로 유명한 숨겨진 공간만 골라주세요.
-
-2025~2026 인스타 트렌드 최우선:
-- 프라이빗 독채 풀빌라 / 인피니티 풀 오션뷰
-- 무인·셀프 체크인 감성 카페 (야간 조명·네온·미러룸)
-- 인스타 전용 포토존 (플라워월·컬러풀 인테리어·미러룸)
-- 리노베이션 한옥·빈티지 감성 스테이
-- 팝업 전시·플리마켓·체험형 공간 (인스타 인증샷 필수)
-- 숨겨진 루프탑·선셋·일출 스팟
-
-응답 형식 규칙:
-- 제목은 반드시 대괄호 사용 [예시 제목]
-- 목록은 '• 장소 이름 → 설명 한 줄' 형식
-- 불필요한 인사말, 마무리 문구는 생략하고 바로 본론 시작.
-- 항상 한국어로만 응답하세요.
-
-【장소 검증 및 소개 모드】:
-사용자가 특정 장소의 정보나 검증을 요청하거나, 특정 지역의 장소 추천을 요청할 경우:
-- 관련 후보 장소를 내부적으로 최대 5개까지 선정하고, 각 장소에 대해 'searchGoogleMaps' 도구를 사용하여 검증을 수행합니다.
-- 검증된 후보들 중 인스타 트렌드와 사용자 요청에 가장 부합하는 **최종 1개 장소**를 선정하여 아래 형식으로 응답하세요.
-- 이는 '장소 추천 모드'와 동일한 수준의 엄격한 검증을 거쳐 가장 확실한 장소 1곳을 제안하기 위함입니다.
-
-검색 결과에서 다음 조건을 **모두 만족**하는 경우에만 소개/추천하세요:
-- found: true 이고,
-- Google Maps 상태가 'permanently_closed' 또는 'closed'로 명시되어 있거나,
-- 최근 리뷰(1년 이내)가 거의 없고, 설명에 '폐업', 'closed permanently', '영업 종료 후 재개 없음' 등 **명확한 폐업** 표현이 포함된 경우에만 폐업으로 판단
-
-**주의**: 아래 경우는 폐업이 아니므로 정상 장소로 취급하세요.
-- 임시 휴업, 리모델링 중, 계절 영업 종료, 팝업 스토어 종료 등 일시적/계획된 종료
-- "운영 종료"라는 표현만 있고 재개 가능성이 있는 경우
-- 최근 리뷰가 있거나 영업 중이라는 증거가 있는 경우
-
-위 조건에 해당하면 무조건 아래 문장으로 응답하세요:
-"죄송합니다. 해당 장소는 현재 폐업한 것으로 확인되었습니다. 다른 장소를 추천드릴까요?"
-
-조건을 만족하면 다음 형식으로 답변하세요:
-[ <검증된 장소 이름> (검증됨) ]
-주소: <Google 지도에서 확인된 주소>
-설명: <해당 장소에 대한 간략한 소개 및 특징 (Google Maps 기반)>
-
-'found'가 false인 경우:
-"죄송합니다. '<사용자 입력 장소 이름>'을(를) Google 지도에서 찾을 수 없습니다. 다른 장소로 다시 시도해 주세요."
-【장소 추천 모드】:
-- 사용자가 요청한 지역과 테마에 맞춰 추천할 장소를 결정할 때, **먼저 내부적으로 5~8개의 후보 장소를 선정하세요.**
-- 선정된 **모든 후보 장소 각각에 대해** 'searchGoogleMaps' 도구를 사용하여 실제 존재 여부를 반드시 확인해야 합니다. (여러 개의 도구 호출을 한 번에 요청하세요.)
-- **검증 결과 'found: true'인 장소들 중에서 가장 적합한 최대 5개의 장소를 선정하여 추천 목록을 작성하세요.**
-- 검증된 장소가 5개 미만이라도 절대 'found: false'인 장소를 포함해서는 안 되며, 검증된 것들만 정직하게 출력하세요.
-- 장소 이름 뒤에 반드시 "(검증됨)"을 추가하여 사용자에게 신뢰를 주어야 합니다.
-- 만약 후보지 대다수가 검증에 실패한다면, 즉시 다른 후보군을 추가로 검색하여 최대한 5개의 검증된 장소를 채우도록 노력하세요.
-- 첫 번째 장소가 성공적으로 검증되고 요청 지역과 일치하면, 즉시 다음 형식으로 출력을 시작하세요.
-(예시) [ 서울 강남 놀거리 추천 ]
-• 추천 장소: 실제 장소 이름 (검증됨)
- → 주소: 실제 장소 주소 
- → 설명: 간략한 설명 (Google Maps 기반)
-      '''),
+      systemInstruction: Content.system(PlannerPrompts.system),
     );
 
     // Instagram 장소명 추출 전용 모델
@@ -394,37 +346,29 @@ $content
   static final GeminiService _instance = GeminiService._internal();
   factory GeminiService() => _instance;
 
-  int _turnCount = 0;
+  /// 동일한 조건에서 검증할 수 있도록 통신 객체를 주입한 독립 세션입니다.
+  GeminiService.withClient(http.Client client) : this._internal(client: client);
 
-  /// 오래된 턴의 무거운 function/function-response 콘텐츠(지도 검색 결과 원문)를
-  /// 세션 히스토리에서 걷어낸다. 최근 1턴은 그대로 유지해서 문맥은 보존한다.
   void _trimHeavyHistory() {
     final history = _chatSession.history.toList();
-    if (history.length <= 4) return; // 아직 짧으면 스킵
-
-    const keepLastN = 4; // 최근 1턴(user, model-call, function, model-text) 정도 보존
-    final trimmed = <Content>[];
-    for (var i = 0; i < history.length; i++) {
-      final isRecent = i >= history.length - keepLastN;
-      if (!isRecent && history[i].role == 'function') {
-        continue; // 오래된 지도 검색 결과 원문 제거
-      }
-      trimmed.add(history[i]);
-    }
-
+    final trimmed = boundedPlannerHistory(history);
     if (trimmed.length != history.length) {
       _chatSession = _model.startChat(history: trimmed);
-      if (kDebugMode) {
-        debugPrint('✂️ 히스토리 트리밍: ${history.length} → ${trimmed.length}');
-      }
     }
   }
 
-  Stream<String> sendMessageStream(String message) async* {
-    if (kDebugMode) debugPrint('🚀 Gemini 스트리밍 요청: $message');
-
-    _turnCount++;
-    _trimHeavyHistory(); // 새 턴을 보내기 전에 이전 턴들의 무거운 검색 결과를 정리
+  Stream<String> sendMessageStream(String message,
+      {String menu = 'freeform'}) async* {
+    // 싱글턴에서 동시 요청의 사용량이나 대화 기록이 서로 섞이지 않도록 합니다.
+    if (_activeUsage != null) {
+      yield '이전 요청이 정리되는 중이에요. 잠시 후 다시 시도해주세요.';
+      return;
+    }
+    final usage = PlannerUsage(menu);
+    _activeUsage = usage;
+    final version = _sessionVersion;
+    _trimHeavyHistory();
+    final session = _chatSession;
 
     const int maxFunctionCallRounds = 4; // 함수 호출이 계속 이어질 때의 안전장치
 
@@ -438,22 +382,24 @@ $content
           if (kDebugMode) {
             debugPrint('⚠️ 함수 호출 라운드 한도($maxFunctionCallRounds) 초과, 중단');
           }
+          usage.status = 'round_limit';
           yield '\n죄송합니다. 조건에 맞는 장소를 찾지 못했어요. 다른 지역이나 키워드로 다시 시도해 주세요.';
           break;
         }
 
-        final responseStream = _chatSession.sendMessageStream(nextMessage);
+        if (version != _sessionVersion) {
+          usage.status = 'cancelled';
+          break;
+        }
+        final responseStream = session.sendMessageStream(nextMessage);
 
         final pendingCalls = <FunctionCall>[];
         bool emittedAnyText = false;
 
         await for (final chunk in responseStream) {
-          if (chunk.usageMetadata != null && kDebugMode) {
-            final usage = chunk.usageMetadata!;
-            debugPrint(
-                '📊 [turn $_turnCount / round $round] promptTokenCount=${usage.promptTokenCount}, '
-                'candidatesTokenCount=${usage.candidatesTokenCount}, '
-                'totalTokenCount=${usage.totalTokenCount}');
+          if (version != _sessionVersion) {
+            usage.status = 'cancelled';
+            return;
           }
 
           final calls = chunk.candidates.firstOrNull?.content.parts
@@ -486,6 +432,7 @@ $content
         }
 
         // 다음 라운드로 넘어가기 위해 함수 실행 후 결과를 준비
+        usage.toolCalls += pendingCalls.length;
         final futures = pendingCalls.map((call) async {
           final result = await _executeFunctionCall(call);
           return FunctionResponse(call.name, result);
@@ -496,16 +443,26 @@ $content
         // 루프를 다시 돌면서 이 함수 응답을 보내고, 텍스트가 나올 때까지(또는 한도까지) 반복
       }
 
-      if (kDebugMode) debugPrint('📥 전체 응답 완료');
+      if (usage.status == 'running') usage.status = 'completed';
     } catch (e) {
+      usage.status = 'error';
       if (kDebugMode) debugPrint('❌ 스트리밍 오류: $e');
       yield '죄송합니다. 답변을 생성하는 중에 오류가 발생했습니다.\n잠시 후 다시 시도해주세요.';
+    } finally {
+      if (usage.status == 'running') usage.status = 'cancelled';
+      _usageHistory.add(usage);
+      if (_usageHistory.length > 100) _usageHistory.removeAt(0);
+      _activeUsage = null;
+      if (kDebugMode) {
+        debugPrint('📊 planner_usage ${jsonEncode(usage.toJson())}');
+      }
     }
   }
 
-  void resetChat() {
-    _chatSession = _model.startChat();
-    _turnCount = 0;
+  void resetChat({List<Content>? history}) {
+    _sessionVersion++;
+    _chatSession = _model.startChat(
+        history: history == null ? null : boundedPlannerHistory(history));
     if (kDebugMode) {
       debugPrint('🔄 Gemini 채팅 세션 초기화 완료');
     }
