@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// A local illustrative itinerary, separate from the user's saved places.
+/// 사용자가 저장한 장소와 별개로 제공하는 로컬 여행 일정 예시입니다.
 class RouteGuideCard extends StatelessWidget {
   const RouteGuideCard(
       {super.key,
