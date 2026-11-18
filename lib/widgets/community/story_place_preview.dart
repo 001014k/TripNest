@@ -44,7 +44,7 @@ class _StoryPlacePreviewState extends State<StoryPlacePreview> {
             .timeout(const Duration(seconds: 10));
       }
     } catch (_) {
-      // Keep the address visible when coordinate lookup fails.
+      // 좌표 조회에 실패해도 주소는 계속 표시합니다.
     }
     if (mounted) {
       setState(() {
