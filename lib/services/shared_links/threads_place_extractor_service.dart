@@ -6,7 +6,7 @@ import '../ai/gemini_service.dart';
 import 'link_place_extractor_service.dart';
 import 'shared_link_platform.dart';
 
-/// Public post text only; never includes other users' replies or quoted posts.
+/// 공개 게시물 본문만 사용하며 다른 사용자의 답글이나 인용 게시물은 포함하지 않습니다.
 class ThreadsPlaceExtractorService {
   ThreadsPlaceExtractorService(
       {http.Client? client, SocialExtractionService? extraction})
@@ -28,8 +28,8 @@ class ThreadsPlaceExtractorService {
         'www.threads.com', uri.path.replaceFirst(RegExp(r'/$'), ''));
   }
 
-  /// Resolve app share links before invoking the paid actor. Never send API
-  /// credentials to Threads, and never follow redirects outside Threads.
+  /// 유료 작업 실행 전에 앱 공유 링크의 실제 주소를 확인합니다.
+  /// Threads에 API 인증 정보를 보내거나 Threads 외부로 리디렉션하지 않습니다.
   Future<Uri> resolvePostUri(String url) async {
     var uri = Uri.tryParse(url.trim());
     final client = _client ?? http.Client();
