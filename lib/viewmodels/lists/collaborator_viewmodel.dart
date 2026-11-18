@@ -212,7 +212,7 @@ class CollaboratorViewModel extends ChangeNotifier {
           .select('user1_id, profiles!friends_user1_id_fkey(id, nickname)')
           .eq('user2_id', currentUserId);
 
-      final allFriendMap = <String, String>{}; // id → nickname
+      final allFriendMap = <String, String>{}; // 사용자 ID를 닉네임으로 변환
 
       for (var f in friends1) {
         final id = f['user2_id'] as String;
