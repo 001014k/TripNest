@@ -23,7 +23,7 @@ class StorySavedPlaces {
       if (client.auth.currentUser?.id != user) return;
       _markers = rows;
     } catch (_) {
-      // Preserve the last successful snapshot on a transient failure.
+      // 일시적인 오류가 발생하면 마지막으로 성공한 조회 결과를 유지합니다.
     }
     revision.value++;
   }
