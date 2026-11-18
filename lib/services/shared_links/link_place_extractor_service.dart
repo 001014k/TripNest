@@ -101,8 +101,8 @@ class LinkPlaceExtractorService {
         preview,
         explicitAddressCandidates,
       );
-      // The place name must come from the shared link, not a reverse lookup
-      // based on the address or map coordinates.
+      // 장소명은 공유 링크에서 가져와야 하며,
+      // 주소나 지도 좌표를 역조회해 정해서는 안 됩니다.
       return detailedPreview.copyWith(title: sourcePlaceName ?? '');
     }
 
