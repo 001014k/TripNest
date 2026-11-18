@@ -27,7 +27,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:fluttertrip/models/places/cached_photo_url.dart';
 import 'models/shared_links/shared_link_model.dart';
 
-// ViewModel imports...
+// 뷰모델 가져오기
 import 'firebase_options.dart';
 import 'viewmodels/map/mapsample_viewmodel.dart';
 import 'viewmodels/friends/friend_management_viewmodel.dart';
@@ -42,11 +42,11 @@ import 'package:fluttertrip/viewmodels/lists/collaborator_viewmodel.dart';
 import 'viewmodels/home/home_viewmodel.dart';
 import 'viewmodels/markers/marker_list_screen_viewmodel.dart';
 
-// Service imports...
+// 서비스 가져오기
 import 'services/markers/marker_service.dart';
 import 'services/notifications/notification_service.dart';
 
-// View imports...
+// 화면 가져오기
 import 'views/auth/forgot_password_view.dart';
 import 'views/friends/friend_management_view.dart';
 import 'views/map/mapsample_view.dart';
@@ -89,7 +89,7 @@ Future<void> main() async {
   debugPrint("현재 앱의 프로젝트 ID: ${options.projectId}");
   debugPrint("현재 앱의 Sender ID: ${options.messagingSenderId}");
 
-  // intl + Hive
+  // intl 및 Hive 초기화
   await initializeDateFormatting('ko_KR');
   await Hive.initFlutter();
   Hive.registerAdapter(CachedPhotoUrlAdapter());
