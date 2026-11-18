@@ -4,7 +4,7 @@ import '../../navigation/app_tab_shell.dart';
 import '../common/reference_design.dart';
 import 'package:flutter/material.dart';
 
-/// Shared navigation keeps each destination's existing screen and actions.
+/// 공통 탐색 UI에서도 각 목적지의 기존 화면과 동작을 유지합니다.
 class TripNestNavigation extends StatelessWidget {
   final String currentRoute;
   final ValueChanged<String>? onSelect;
@@ -110,7 +110,7 @@ class TripNestHeader extends StatelessWidget {
       ]);
 }
 
-/// Matching friend and notification actions for main screens except the map.
+/// 지도를 제외한 주요 화면에서 친구 및 알림 버튼을 동일하게 제공합니다.
 class TripNestSocialActions extends StatelessWidget {
   const TripNestSocialActions({super.key});
 
