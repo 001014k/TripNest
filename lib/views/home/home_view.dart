@@ -1,7 +1,9 @@
-import '../../widgets/home/home_place_metadata.dart';
+import 'dart:ui' show ImageFilter;
+import '../../widgets/places/place_keyword_icon.dart';
+import '../../widgets/places/place_star_rating.dart';
 import '../../widgets/home/home_skeleton.dart';
-import '../../widgets/common/reference_design.dart' show ReferencePlatform;
-import '../../widgets/lists/travel_list_card.dart';
+import '../../widgets/common/reference_design.dart' show ReferencePhoto;
+
 import '../../navigation/app_tab_shell.dart';
 import '../../widgets/common/app_photo_hero.dart';
 import '../../navigation/app_page_route.dart';
@@ -129,69 +131,116 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
         backgroundColor: AppDesign.primaryBg,
         bottomNavigationBar: const TripNestNavigation(currentRoute: '/home'),
         body: SafeArea(
+            top: false,
             child: Consumer<HomeDashboardViewModel>(
-          builder: (context, viewModel, child) => FadeTransition(
-              opacity: _fadeAnimation,
-              child: ListView(children: [
-                Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const TripNestHeader(
-                              trailing: TripNestSocialActions()),
-                          const SizedBox(height: 20),
-                          const Text('오늘의 여행', style: AppDesign.headingXL),
-                          const SizedBox(height: 6),
-                          const Text('저장한 장소와 일정을 한눈에 확인해보세요.',
-                              style: AppDesign.bodyMedium),
-                          const SizedBox(height: 18),
-                          const HomeWeatherCard(),
-                          const SizedBox(height: 18),
-                          SectionHeader(
-                              title: '다가오는 일정',
-                              icon: Icons.calendar_today,
-                              onViewAll: _openSchedule),
-                          const SizedBox(height: 8),
-                          HomeDateStrip(
-                              start: _dateStripStart,
-                              selected: _scheduleDate,
-                              onSelect: (date) => setState(() {
-                                    _scheduleDate = date;
-                                    _loadUpcoming();
-                                  }),
-                              onPickMonth: _pickScheduleMonth),
-                          const SizedBox(height: 12),
-                          _scheduleCard(),
-                          const _HomeSectionDivider(),
-                          SectionHeader(
-                              title: '내 여행 리스트',
-                              icon: Icons.list,
-                              onViewAll: () =>
-                                  Navigator.pushNamed(context, '/list')),
-                          const SizedBox(height: 12),
-                          _travelListCard(),
-                        ])),
-                const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: _HomeSectionDivider()),
-                RecentMarkersSection(
-                    markers: viewModel.recentMarkers,
-                    onViewAll: _navigateToList),
-                const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: _HomeSectionDivider()),
-                SharedLinksSection(
-                    sharedLinks: viewModel.sharedLinks,
-                    onViewAll: _navigateToSharedLinks),
-              ])),
-        )),
+              builder: (context, viewModel, child) => FadeTransition(
+                  opacity: _fadeAnimation,
+                  // 대시보드는 소수의 정해진 섹션으로 구성되므로 위젯을 유지합니다.
+                  // 스크롤할 때 날씨·미리보기 로더를 다시 만들거나
+                  // 화면 밖 섹션의 높이를 다시 계산하지 않도록 합니다.
+                  child: SingleChildScrollView(
+                      key: const PageStorageKey('home-dashboard-scroll'),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _HomeHeroBackground(
+                                child: Padding(
+                                    padding: EdgeInsets.fromLTRB(
+                                        20,
+                                        MediaQuery.paddingOf(context).top + 8,
+                                        20,
+                                        8),
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const TripNestHeader(
+                                              trailing:
+                                                  TripNestSocialActions()),
+                                          const SizedBox(height: 20),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(_todayLabel(),
+                                                  style: AppDesign.bodySmall
+                                                      .copyWith(
+                                                          fontSize: 13,
+                                                          height: 1.5)),
+                                              const Text('오늘의 여행',
+                                                  style: AppDesign.headingXL),
+                                              const SizedBox(height: 12),
+                                              const HomeWeatherCard(),
+                                            ],
+                                          ),
+                                          const SizedBox(
+                                              height: AppDesign.spacing12),
+                                          HomeDateStrip(
+                                              start: _dateStripStart,
+                                              selected: _scheduleDate,
+                                              onSelect: (date) => setState(() {
+                                                    _scheduleDate = date;
+                                                    _loadUpcoming();
+                                                  }),
+                                              onPickMonth: _pickScheduleMonth),
+                                          const SizedBox(height: 12),
+                                          _HomeGlassSurface(
+                                              child: _scheduleCard()),
+                                          Center(
+                                              child: TextButton(
+                                            onPressed: _openSchedule,
+                                            style: TextButton.styleFrom(
+                                                foregroundColor:
+                                                    AppDesign.primaryText,
+                                                minimumSize: const Size(0, 48)),
+                                            child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text('일정 전체보기'),
+                                                  Icon(Icons.chevron_right,
+                                                      size: 20),
+                                                ]),
+                                          )),
+                                        ]))),
+                            Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                                child: Column(children: [
+                                  SectionHeader(
+                                      title: '내 여행 리스트',
+                                      icon: Icons.list,
+                                      onViewAll: () => Navigator.pushNamed(
+                                          context, '/list')),
+                                  const SizedBox(height: 12),
+                                  _travelListCard(),
+                                ])),
+                            const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 20),
+                                child: _HomeSectionDivider()),
+                            RecentMarkersSection(
+                                markers: viewModel.recentMarkers,
+                                onViewAll: _navigateToList),
+                            const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 20),
+                                child: _HomeSectionDivider()),
+                            SharedLinksSection(
+                                sharedLinks: viewModel.sharedLinks,
+                                onViewAll: _navigateToSharedLinks),
+                          ]))),
+            )),
       );
+
+  String _todayLabel() {
+    final date = DateTime.now();
+    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    return '${date.month}월 ${date.day}일 ${weekdays[date.weekday - 1]}요일';
+  }
 
   Widget _travelListCard() =>
       Consumer<ListViewModel>(builder: (context, vm, _) {
-        if (vm.isLoading && vm.lists.isEmpty)
+        if (vm.isLoading && vm.lists.isEmpty) {
           return const HomeSkeleton(height: 150);
+        }
         if (vm.errorMessage != null) {
           return _summaryCard(const Icon(Icons.refresh), '리스트를 불러오지 못했어요',
               '눌러서 다시 시도', vm.loadLists);
@@ -201,16 +250,103 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
               '가고 싶은 장소를 모아보세요', () => Navigator.pushNamed(context, '/list'));
         }
         final list = vm.lists.first;
-        return TravelListCard(
-          list: list,
-          onTap: () => Navigator.pushNamed(context, '/list'),
-          onOpen: () => Navigator.push(
-              context,
-              AppPageRoute(
-                  builder: (_) => MarkerInfoPage(
-                      listId: list.id,
-                      listName: list.name,
-                      collaboratorCount: list.collaboratorCount))),
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: AppDesign.homeSurfaceBorder),
+              borderRadius: BorderRadius.circular(18)),
+          child: LayoutBuilder(builder: (context, constraints) {
+            final photo = ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: ReferencePhoto(
+                    title: list.coverTitle ?? list.name,
+                    width: double.infinity,
+                    height: 154));
+            final details =
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(list.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppDesign.headingSmall),
+              const SizedBox(height: 6),
+              Semantics(
+                label: '저장한 장소 ${list.markerCount}개'
+                    '${list.collaboratorCount > 0 ? ', ${list.collaboratorCount + 1}명이 함께 편집 중' : ''}',
+                child: ExcludeSemantics(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.location_on_outlined,
+                            size: 14, color: AppDesign.secondaryText),
+                        const SizedBox(width: 3),
+                        Text('장소 ${list.markerCount}개',
+                            style: AppDesign.bodySmall.copyWith(height: 1.5)),
+                      ]),
+                      if (list.collaboratorCount > 0)
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.people_outline_rounded,
+                              size: 14, color: AppDesign.secondaryText),
+                          const SizedBox(width: 3),
+                          Text('${list.collaboratorCount + 1}명',
+                              style: AppDesign.bodySmall.copyWith(height: 1.5)),
+                        ]),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final keyword in list.keywords)
+                  Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                          color: AppDesign.lightGray,
+                          borderRadius: BorderRadius.circular(14)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(placeKeywordIcon(keyword), size: 16),
+                        const SizedBox(width: 4),
+                        Text(keyword,
+                            style: AppDesign.caption
+                                .copyWith(color: AppDesign.primaryText)),
+                      ])),
+              ]),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                  onPressed: () => Navigator.push(
+                      context,
+                      AppPageRoute(
+                          builder: (_) => MarkerInfoPage(
+                              listId: list.id,
+                              listName: list.name,
+                              collaboratorCount: list.collaboratorCount))),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: const Text('바로 보기'),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: AppDesign.homeForeground,
+                      minimumSize: const Size(0, 48),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)))),
+            ]);
+            // 접근성을 위해 공간을 더 확보해야 하는 경우를 제외하고 기준 레이아웃을 유지합니다.
+            if (constraints.maxWidth < 280 ||
+                MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+              return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [photo, const SizedBox(height: 12), details]);
+            }
+            return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: photo),
+                  const SizedBox(width: 12),
+                  Expanded(child: details),
+                ]);
+          }),
         );
       });
 
@@ -222,7 +358,8 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
         }
         if (snapshot.hasError) {
           return _summaryCard(const Icon(Icons.refresh), '일정을 불러오지 못했어요',
-              '눌러서 다시 시도', () => setState(_loadUpcoming));
+              '눌러서 다시 시도', () => setState(_loadUpcoming),
+              inline: true);
         }
         final items = [...?snapshot.data]
           ..sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -238,18 +375,24 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                     motion: AppMotion.editor,
                     builder: (_) => ScheduleEditView(date: _scheduleDate)));
             if (mounted) setState(_loadUpcoming);
-          });
+          }, inline: true, shrinkTitle: true);
         }
         final item = items.first;
         final start = item.startTime.toLocal();
         return _summaryCard(
             Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('${start.month}월', style: AppDesign.bodySmall),
-              Text('${start.day}', style: AppDesign.headingLarge)
+              Text(
+                  '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}',
+                  style: AppDesign.headingSmall),
+              Text(
+                  DateUtils.isSameDay(start, DateTime.now())
+                      ? '오늘'
+                      : '${start.month}/${start.day}',
+                  style:
+                      AppDesign.bodySmall.copyWith(fontSize: 13, height: 1.5))
             ]),
             item.title,
-            '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')} · 참여자 ${item.collaboratorIds?.length ?? 0}명',
-            () async {
+            '참여자 ${item.collaboratorIds?.length ?? 0}명', () async {
           await Navigator.push(
               context,
               AppPageRoute(
@@ -257,41 +400,57 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                   builder: (_) =>
                       ScheduleEditView(date: start, schedule: item)));
           if (mounted) setState(_loadUpcoming);
-        });
+        }, inline: true);
       });
 
   Widget _summaryCard(
           Widget leading, String title, String subtitle, VoidCallback onTap,
-          {String? action}) =>
+          {String? action, bool inline = false, bool shrinkTitle = false}) =>
       Material(
-        color: Colors.white,
+        color: inline ? Colors.transparent : Colors.white,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: AppDesign.borderColor)),
+            side: inline
+                ? BorderSide.none
+                : const BorderSide(color: AppDesign.borderColor)),
         child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(20),
             child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 child: Row(children: [
                   Container(
                       width: 68,
-                      height: 78,
+                      height: inline ? 48 : 78,
                       decoration: BoxDecoration(
-                          color: AppDesign.lightGray,
+                          color:
+                              inline ? Colors.transparent : AppDesign.lightGray,
                           borderRadius: BorderRadius.circular(13)),
                       child: Center(child: leading)),
-                  const SizedBox(width: 14),
+                  if (inline)
+                    Container(
+                        width: 1, height: 36, color: AppDesign.borderColor),
+                  const SizedBox(width: 16),
                   Expanded(
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                        Text(title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppDesign.headingSmall),
+                        if (shrinkTitle)
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(title,
+                                maxLines: 1, style: AppDesign.headingSmall),
+                          )
+                        else
+                          Text(title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppDesign.headingSmall),
                         const SizedBox(height: 7),
-                        Text(subtitle, style: AppDesign.bodySmall),
+                        Text(subtitle,
+                            style: AppDesign.bodySmall
+                                .copyWith(fontSize: 13, height: 1.5)),
                         if (action != null) ...[
                           const SizedBox(height: 10),
                           Align(
@@ -350,7 +509,10 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(children: [
-        Expanded(child: Text(title, style: AppDesign.headingMedium)),
+        Expanded(
+            child: Text(title,
+                style: AppDesign.headingMedium
+                    .copyWith(fontSize: 22, fontWeight: FontWeight.w600))),
         TextButton(
             onPressed: onViewAll,
             child: const Row(mainAxisSize: MainAxisSize.min, children: [
@@ -370,11 +532,7 @@ class _HomeSectionDivider extends StatelessWidget {
   const _HomeSectionDivider();
 
   @override
-  Widget build(BuildContext context) => const Divider(
-        height: 24,
-        thickness: 1,
-        color: Color(0xFFE9E9EC),
-      );
+  Widget build(BuildContext context) => const SizedBox(height: 32);
 }
 
 class RecentMarkersSection extends StatefulWidget {
@@ -605,108 +763,100 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
   }
 
   Widget _buildPremiumMarkerCard(MarkerModel marker) {
-    final previewData =
-        context.watch<HomeDashboardViewModel>().previewFor(marker.address);
-
-    return Container(
-      width: (MediaQuery.sizeOf(context).width * .42).clamp(140.0, 200.0),
-      decoration: BoxDecoration(
-        color: AppDesign.homeSurface,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.softShadow,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          onTap: () => _navigateToMarkerDetail(marker),
-          child: Padding(
-            padding: EdgeInsets.all(8.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppPhotoHero(
-                  tag: 'home-place-${marker.id}',
-                  child: _buildPremiumMarkerImage(
-                    address: marker.address,
-                    title: marker.title,
-                  ),
-                ),
-                const SizedBox(height: AppDesign.spacing10),
-                _buildMarkerTitle(marker, previewData),
-                const SizedBox(height: AppDesign.spacing4),
-                _buildMarkerDescription(marker, previewData),
-                const SizedBox(height: 6),
-                _buildMarkerFooter(marker),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPremiumMarkerImage({
-    required String address,
-    String? title,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-      child: Container(
-        height: 88.h,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        ),
-        child: AddressPhotoPreview(
-          address: address,
-          title: title,
-          size: 88.h,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.6),
-                  Colors.transparent,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMarkerTitle(MarkerModel marker, LinkPreviewData? previewData) {
-    return Text(
-      previewData?.title ?? marker.title,
-      style: AppDesign.headingSmall
-          .copyWith(color: AppDesign.homeForeground, fontSize: 14),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
-  Widget _buildMarkerDescription(
-      MarkerModel marker, LinkPreviewData? previewData) {
-    return Text(
-      previewData?.description ?? marker.address,
-      style: AppDesign.bodyMedium
-          .copyWith(color: AppDesign.homeMutedText, fontSize: 11),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
-  Widget _buildMarkerFooter(MarkerModel marker) {
-    final query = marker.title.isNotEmpty
-        ? '${marker.title} ${marker.address}'
-        : marker.address;
+    final query = marker.title.isEmpty
+        ? marker.address
+        : '${marker.title} ${marker.address}';
     final rating = context.watch<HomeDashboardViewModel>().getRating(query);
-    return HomePlaceMetadata(keyword: marker.keyword, rating: rating);
+    return SizedBox(
+        width:
+            (MediaQuery.sizeOf(context).width * .42).clamp(140, 200).toDouble(),
+        child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Material(
+                child: InkWell(
+                    onTap: () => _navigateToMarkerDetail(marker),
+                    child: Stack(fit: StackFit.expand, children: [
+                      AppPhotoHero(
+                          tag: 'home-place-${marker.id}',
+                          child: AddressPhotoPreview(
+                              address: marker.address,
+                              title: marker.title,
+                              size: 180)),
+                      const DecoratedBox(
+                          decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                            Colors.black54,
+                            Colors.transparent,
+                            Colors.black87
+                          ]))),
+                      Positioned(
+                          left: 8,
+                          top: 8,
+                          right: 8,
+                          child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(children: [
+                                        ExcludeSemantics(
+                                            child: Icon(
+                                                placeKeywordIcon(marker.keyword
+                                                        .trim()
+                                                        .isEmpty
+                                                    ? '기타'
+                                                    : marker.keyword.trim()),
+                                                size: 16,
+                                                color: Colors.white)),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                            child: Text(
+                                                marker.keyword.trim().isEmpty
+                                                    ? '기타'
+                                                    : marker.keyword.trim(),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: AppDesign.caption
+                                                    .copyWith(
+                                                        color: Colors.white))),
+                                      ]),
+                                    ],
+                                  )))),
+                      Positioned(
+                          left: 10,
+                          right: 10,
+                          bottom: 10,
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(marker.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 4),
+                                PlaceStarRating(
+                                    rating: rating,
+                                    starSize: 14,
+                                    textStyle: AppDesign.caption
+                                        .copyWith(color: Colors.white)),
+                                const SizedBox(height: 4),
+                                Text(marker.address,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 13))
+                              ]))
+                    ])))));
   }
 
   void _navigateToMarkerDetail(MarkerModel markerModel) {
@@ -758,16 +908,16 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
     super.didUpdateWidget(oldWidget);
     if (_sourceLinks.isEmpty) return;
 
-    // The home view can receive new extracted places for an existing source
-    // URL. Fetch a preview only when a new source URL appears.
+    // 홈 화면은 기존 원본 URL에서 새로 추출된 장소를 받을 수 있습니다.
+    // 새 원본 URL이 추가된 경우에만 미리보기를 조회합니다.
     final vm = context.read<HomeDashboardViewModel>();
     if (_sourceLinks.any((link) => !vm.hasPreview(link.url))) {
       _loadAllPreviewData();
     }
   }
 
-  /// Multiple places extracted from one post are stored as separate records.
-  /// The home carousel shows that post only once.
+  /// 하나의 게시물에서 추출한 여러 장소는 각각 별도 기록으로 저장됩니다.
+  /// 홈 캐러셀에서는 해당 게시물을 한 번만 표시합니다.
   List<SharedLinkModel> get _sourceLinks {
     final linksByUrl = <String, SharedLinkModel>{};
     for (final link in widget.sharedLinks) {
@@ -1019,80 +1169,60 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
   }
 
   Widget _buildLinksList() {
-    return SizedBox(
-      height: 174 + MediaQuery.textScalerOf(context).scale(112),
-      child: ListView.separated(
-        padding: EdgeInsets.symmetric(horizontal: 20.w),
-        scrollDirection: Axis.horizontal,
-        itemCount: _sourceLinks.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppDesign.spacing16),
-        itemBuilder: (context, index) =>
-            _buildPremiumLinkCard(_sourceLinks[index]),
+    final links = _sourceLinks.take(2).toList();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: AppDesign.homeSurfaceBorder)),
+        child: Column(children: [
+          for (var i = 0; i < links.length; i++) ...[
+            if (i > 0)
+              const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Divider(height: 1, color: AppDesign.borderColor)),
+            _buildPremiumLinkCard(links[i]),
+          ],
+        ]),
       ),
     );
   }
 
   Widget _buildPremiumLinkCard(SharedLinkModel link) {
-    final previewData =
+    final preview =
         context.watch<HomeDashboardViewModel>().previewFor(link.url);
-    final subtitle = _getClippedSubtitle(previewData, link);
-    final placeCount =
-        widget.sharedLinks.where((item) => item.url == link.url).length;
-
-    return Container(
-      width: (MediaQuery.sizeOf(context).width * .72).clamp(240.0, 340.0),
-      decoration: BoxDecoration(
-        color: AppDesign.homeSurface,
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.softShadow,
-        border: Border.all(
-          color: AppDesign.homeSurfaceBorder,
-          width: 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          onTap: () => _navigateToLinkDetail(link),
-          child: Padding(
-            padding: EdgeInsets.all(12.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Expanded(child: ReferencePlatform(platform: link.platform)),
-                  const SizedBox(width: 8),
-                  Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                          color: const Color(0xfff3f3f5),
-                          borderRadius: BorderRadius.circular(20)),
-                      child: Text('장소 $placeCount곳',
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xff85858f))))
-                ]),
-                const SizedBox(height: 10),
-                _buildLinkImage(previewData),
-                const SizedBox(height: AppDesign.spacing10),
-                _buildLinkTitle(previewData, link),
-                const SizedBox(height: AppDesign.spacing4),
-                _buildLinkDescription(subtitle),
-                const Spacer(),
-                const Divider(
-                    height: 16, thickness: 1, color: Color(0xffeeeeF1)),
-                const Row(children: [
-                  Expanded(
-                      child: Text('링크 상세 보기',
-                          style: TextStyle(
-                              fontSize: 13, color: Color(0xff484850)))),
-                  Icon(Icons.chevron_right, size: 21, color: Color(0xff85858f))
-                ]),
-              ],
-            ),
-          ),
-        ),
+    final count = widget.sharedLinks
+        .where((item) =>
+            item.url == link.url &&
+            (item.placeAddress?.trim().isNotEmpty ?? false))
+        .length;
+    return InkWell(
+      onTap: () => _navigateToLinkDetail(link),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(children: [
+          SizedBox(width: 52, height: 52, child: _buildLinkImage(preview)),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(preview?.title ?? link.placeTitle ?? link.url,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text('${link.platform} · 장소 $count개',
+                    style: AppDesign.bodySmall.copyWith(fontSize: 13)),
+              ])),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right,
+              size: 20, color: AppDesign.secondaryText),
+        ]),
       ),
     );
   }
@@ -1114,31 +1244,6 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
                 : Image.network(url,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => fallback)));
-  }
-
-  Widget _buildLinkTitle(LinkPreviewData? previewData, SharedLinkModel link) {
-    return Text(previewData?.title ?? link.platform,
-        style: const TextStyle(
-            fontSize: 17,
-            height: 1.25,
-            fontWeight: FontWeight.w700,
-            color: Color(0xff202024)),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis);
-  }
-
-  Widget _buildLinkDescription(String subtitle) => Text(subtitle,
-      style:
-          const TextStyle(fontSize: 12, height: 1.4, color: Color(0xff85858f)),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis);
-
-  String _getClippedSubtitle(
-      LinkPreviewData? previewData, SharedLinkModel link) {
-    final subtitleText = previewData?.description ?? link.url;
-    return subtitleText.length > 80
-        ? '${subtitleText.substring(0, 77)}...'
-        : subtitleText;
   }
 
   void _navigateToSharedLinks() {
@@ -1260,4 +1365,81 @@ class _FeatureCardState extends State<FeatureCard>
   void _handleTapCancel() {
     _animationController.reverse();
   }
+}
+
+/// 제한된 영역 한 곳에만 흐림 효과를 적용해 홈 피드를 가볍게 유지합니다.
+class _HomeGlassSurface extends StatelessWidget {
+  const _HomeGlassSurface({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final highContrast = MediaQuery.highContrastOf(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        enabled: !highContrast,
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: highContrast ? 1 : .85),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: AppDesign.homeForeground.withValues(alpha: .08)),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeHeroBackground extends StatelessWidget {
+  const _HomeHeroBackground({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+        child: ColoredBox(
+          color: const Color(0xFFEDEDF2),
+          child: Stack(children: [
+            Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 300 + MediaQuery.paddingOf(context).top,
+                child: ExcludeSemantics(
+                    child: IgnorePointer(
+                        child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset('assets/images/home_sea_horizon.png',
+                        fit: BoxFit.cover,
+                        alignment: Alignment.centerRight,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                    const DecoratedBox(
+                        decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                      colors: [Color(0xB3EDEDF2), Color(0x20EDEDF2)],
+                    ))),
+                    const DecoratedBox(
+                        decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0, .25, .55, 1],
+                      colors: [
+                        Color(0xB3EDEDF2),
+                        Color(0x33EDEDF2),
+                        Color(0x55EDEDF2),
+                        Color(0xFFEDEDF2)
+                      ],
+                    ))),
+                  ],
+                )))),
+            child,
+          ]),
+        ),
+      );
 }
