@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 enum AppMotion { detail, editor, fade }
 
-/// Material route semantics and Cupertino's interactive back gesture are retained.
+/// Material 경로 동작과 Cupertino의 대화형 뒤로가기 제스처를 유지합니다.
 class AppPageRoute<T> extends MaterialPageRoute<T> {
   AppPageRoute(
       {required super.builder,
