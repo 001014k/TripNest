@@ -33,7 +33,7 @@ class AppTabController extends ChangeNotifier {
   }
 }
 
-/// Descendants may refresh lightweight data when a retained tab becomes visible.
+/// 유지 중인 탭이 다시 보이면 하위 위젯에서 가벼운 데이터를 갱신할 수 있습니다.
 class AppTabVisibility extends InheritedWidget {
   const AppTabVisibility(
       {super.key, required this.active, required super.child});
