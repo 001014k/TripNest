@@ -103,8 +103,8 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
                           children: [
                             const Text('추출된 장소',
                                 style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w800,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w600,
                                     letterSpacing: -0.6)),
                             const SizedBox(height: 7),
                             Text(
