@@ -1,6 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Device-local, versioned preferences. No account or location data is stored.
+/// 기기에만 저장하는 버전별 환경설정이며, 계정이나 위치 정보는 저장하지 않습니다.
 class OnboardingService {
   static const introKey = 'tripnest.intro.v1';
   static const sharedLinkKey = 'tripnest.guide.shared_link.v1';
