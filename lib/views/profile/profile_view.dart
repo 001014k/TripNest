@@ -1,3 +1,4 @@
+import '../../widgets/common/soft_glass_surface.dart';
 import '../../widgets/places/place_keyword_icon.dart';
 import '../../navigation/app_page_route.dart';
 import '../../widgets/common/app_overlays.dart';
@@ -115,12 +116,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildContent(BuildContext context, ProfileViewModel viewModel) =>
       SafeArea(
         child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             children: [
               const TripNestHeader(trailing: TripNestSocialActions()),
               const SizedBox(height: 18),
               _ProfileHero(viewModel: viewModel, onInfo: _showMyInfo),
-              const SizedBox(height: 22),
+              const SizedBox(height: 24),
               Row(children: [
                 const Expanded(
                     child: Text('최근 저장한 장소', style: AppDesign.headingSmall)),
@@ -291,8 +292,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     bottom: BorderSide(color: AppDesign.borderColor))),
         child: ListTile(
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 2, vertical: 5),
-            leading: Icon(icon, size: 27, color: AppDesign.primaryText),
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            leading: Icon(icon, size: 24, color: AppDesign.primaryText),
             title: Text(title, style: const TextStyle(fontSize: 16)),
             trailing:
                 const Icon(Icons.chevron_right, color: AppDesign.secondaryText),
@@ -395,45 +396,48 @@ class _ProfileHero extends StatelessWidget {
     final avatar = raw is String && Uri.tryParse(raw)?.hasAbsolutePath == true
         ? raw
         : null;
-    return ReferenceCard(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
-          Row(children: [
-            CircleAvatar(
-                radius: 40,
-                backgroundColor: AppDesign.lightGray,
-                foregroundImage: avatar == null ? null : NetworkImage(avatar),
-                child: const Icon(Icons.person_outline,
-                    size: 42, color: AppDesign.secondaryText)),
-            const SizedBox(width: 16),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(viewModel.nickname ?? '여행자',
-                      style: const TextStyle(
-                          fontSize: 23, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 6),
-                  const Text('나만의 여행 지도를 만드는 중', style: AppDesign.bodySmall),
-                ])),
-            IconButton(
-                onPressed: onInfo,
-                tooltip: '내 정보',
-                icon: const Icon(Icons.chevron_right,
-                    color: AppDesign.secondaryText)),
-          ]),
-          const SizedBox(height: 18),
-          const Divider(height: 1, color: AppDesign.borderColor),
-          const SizedBox(height: 14),
-          IntrinsicHeight(
-              child: Row(children: [
-            _stat('내 장소', viewModel.stats?['markers'] ?? 0),
-            const VerticalDivider(width: 1, color: AppDesign.borderColor),
-            _stat('리스트', viewModel.stats?['lists'] ?? 0),
-            const VerticalDivider(width: 1, color: AppDesign.borderColor),
-            _stat('공유 링크', viewModel.stats?['shared_links'] ?? 0),
-          ])),
-        ]));
+    return SoftGlassSurface(
+        child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(children: [
+              Row(children: [
+                CircleAvatar(
+                    radius: 40,
+                    backgroundColor: AppDesign.lightGray,
+                    foregroundImage:
+                        avatar == null ? null : NetworkImage(avatar),
+                    child: const Icon(Icons.person_outline,
+                        size: 42, color: AppDesign.secondaryText)),
+                const SizedBox(width: 16),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(viewModel.nickname ?? '여행자',
+                          style: const TextStyle(
+                              fontSize: 23, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 6),
+                      const Text('나만의 여행 지도를 만드는 중',
+                          style: AppDesign.bodySmall),
+                    ])),
+                IconButton(
+                    onPressed: onInfo,
+                    tooltip: '내 정보',
+                    icon: const Icon(Icons.chevron_right,
+                        color: AppDesign.secondaryText)),
+              ]),
+              const SizedBox(height: 18),
+              const Divider(height: 1, color: AppDesign.borderColor),
+              const SizedBox(height: 14),
+              IntrinsicHeight(
+                  child: Row(children: [
+                _stat('내 장소', viewModel.stats?['markers'] ?? 0),
+                const VerticalDivider(width: 1, color: AppDesign.borderColor),
+                _stat('리스트', viewModel.stats?['lists'] ?? 0),
+                const VerticalDivider(width: 1, color: AppDesign.borderColor),
+                _stat('공유 링크', viewModel.stats?['shared_links'] ?? 0),
+              ])),
+            ])));
   }
 
   Widget _stat(String label, int count) => Expanded(
