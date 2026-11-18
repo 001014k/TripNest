@@ -1,3 +1,5 @@
+import '../common/app_overlays.dart';
+import '../../design/app_design.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../places/address_photo_preview.dart';
@@ -158,42 +160,36 @@ class MarkerDeleteDialog extends StatelessWidget {
                               ])),
                         ])),
                     const SizedBox(height: 16),
-                    Row(children: [
-                      Expanded(
-                          child: OutlinedButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.black,
-                                  side: const BorderSide(
-                                      color: Color(0xffd6d6de)),
-                                  minimumSize: const Size.fromHeight(50),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(15))),
-                              child: const Text('취소'))),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: FilledButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xffe24e4e),
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size.fromHeight(50),
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 8),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(15))),
-                              child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.delete_outline_rounded,
-                                        size: 20),
-                                    SizedBox(width: 6),
-                                    Flexible(
-                                        child: Text(removeFromList
-                                            ? '리스트에서 빼기'
-                                            : '삭제하기'))
-                                  ])))
-                    ]),
+                    AppDialogActions(
+                        cancel: OutlinedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.black,
+                                side:
+                                    const BorderSide(color: Color(0xffd6d6de)),
+                                minimumSize: const Size.fromHeight(48),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15))),
+                            child: const Text('취소')),
+                        confirm: FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: FilledButton.styleFrom(
+                                backgroundColor: AppDesign.travelStamp,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(48),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15))),
+                            child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.delete_outline_rounded, size: 20),
+                                  SizedBox(width: 6),
+                                  Flexible(
+                                      child: Text(
+                                          removeFromList ? '리스트에서 빼기' : '삭제하기'))
+                                ]))),
                   ])))),
     );
   }
