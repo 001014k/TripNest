@@ -1,12 +1,18 @@
+import '../../widgets/planner/planner_session_navigator.dart';
+import '../../widgets/planner/ai_answer_text.dart';
+import '../../models/planner/place_answer_section.dart';
 import '../../navigation/app_page_route.dart';
 import '../../widgets/common/app_overlays.dart';
 import '../../widgets/navigation/tripnest_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import '../../widgets/places/address_photo_preview.dart';
+import '../../widgets/planner/planner_place_card.dart';
 import '../../viewmodels/planner/chat_recommendation_viewmodel.dart';
 import '../../design/app_design.dart';
+import '../../widgets/planner/theme_trip_sheet.dart';
+import '../../widgets/planner/trip_options_sheet.dart';
+import '../../widgets/planner/recent_trip_section.dart';
 import '../../viewmodels/map/mapsample_viewmodel.dart';
 import '../markers/markercreationscreen_view.dart';
 
@@ -20,6 +26,7 @@ class ChatRecommendationScreen extends StatefulWidget {
 
 class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
     with TickerProviderStateMixin {
+  final _plannerNavigatorKey = GlobalKey<NavigatorState>();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -74,16 +81,13 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
                   children: [
                     _buildAppBar(context, vm),
                     Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 400),
-                        transitionBuilder:
-                            (Widget child, Animation<double> animation) {
-                          return FadeTransition(
-                              opacity: animation, child: child);
-                        },
-                        child: vm.messages.isEmpty
-                            ? _buildModeSelectionScreen(context, vm) // Stage 1
-                            : _buildChatScreen(context, vm), // Stage 2
+                      child: PlannerSessionNavigator(
+                        navigatorKey: _plannerNavigatorKey,
+                        home: _buildModeSelectionScreen(context, vm),
+                        chat: vm.messages.isEmpty
+                            ? null
+                            : _buildChatScreen(context, vm),
+                        onLeaveChat: vm.resetChat,
                       ),
                     ),
                   ],
@@ -101,6 +105,11 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
       padding: const EdgeInsets.fromLTRB(8, 10, 16, 14),
       child: TripNestHeader(
         onBack: () {
+          final navigator = _plannerNavigatorKey.currentState;
+          if (navigator != null && navigator.canPop()) {
+            navigator.pop();
+            return;
+          }
           if (vm.messages.isNotEmpty) {
             vm.resetChat();
           } else {
@@ -138,32 +147,63 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
         Expanded(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 22, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('AI 여행 플래너',
-                    style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black,
-                        letterSpacing: -1.2)),
-                const SizedBox(height: 8),
-                const Text('취향에 맞는 여행을 함께 계획해요.',
-                    style: TextStyle(
-                        fontSize: 17, color: Color(0xFF60636E), height: 1.5)),
-                const SizedBox(height: 24),
-                _HeroCard(),
-                const SizedBox(height: 12),
+                const Text('AI 여행 플래너', style: AppDesign.headingLarge),
+                const SizedBox(height: AppDesign.spacing6),
+                const Text('취향에 맞는 여행을 계획해요.', style: AppDesign.bodySmall),
+                const SizedBox(height: AppDesign.spacing20),
+                const Text('새 여행 시작하기', style: AppDesign.headingSmall),
+                const SizedBox(height: AppDesign.spacing12),
                 _QuickStartGrid(
-                  onSelect: (preset, {bool isNearby = false}) {
-                    vm.startNewSession('place');
-                    vm.sendMessage(preset, isNearbySearch: isNearby);
+                  onThemeSelect: () async {
+                    final request = await showModalBottomSheet<String>(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      showDragHandle: true,
+                      builder: (_) => const ThemeTripSheet(),
+                    );
+                    if (!context.mounted || request == null || vm.isLoading) {
+                      return;
+                    }
+                    vm.startNewSession('place', menu: 'theme');
+                    vm.sendMessage(request);
+                  },
+                  onSelect: (title, {bool isNearby = false}) async {
+                    final mode = isNearby
+                        ? TripOptionsMode.nearby
+                        : title == '스테이 & 무드'
+                            ? TripOptionsMode.stay
+                            : TripOptionsMode.companion;
+                    final request = await showModalBottomSheet<String>(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      showDragHandle: true,
+                      builder: (_) => TripOptionsSheet(
+                        mode: mode,
+                        locate: vm.getPlannerLocation,
+                      ),
+                    );
+                    if (!context.mounted || request == null || vm.isLoading) {
+                      return;
+                    }
+                    vm.startNewSession('place', menu: mode.name);
+                    vm.sendMessage(request);
                   },
                 ),
-                const SizedBox(height: 28),
-                _RecentChipsRow(),
-                // 기존에 여기 있던 _PremiumInputArea를 삭제
+                if (vm.recentRecommendations.isNotEmpty) ...[
+                  const SizedBox(height: AppDesign.spacing24),
+                  RecentTripSection(
+                    latest: vm.recentRecommendations.first,
+                    loadPage: (offset) =>
+                        vm.fetchRecentRecommendations(offset: offset),
+                    onSelect: vm.loadRecentRecommendation,
+                  ),
+                ],
               ],
             ),
           ),
@@ -242,39 +282,6 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
   }
 }
 
-// ================================
-// 웰컴 헤더
-// ================================
-class _HeroCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
-        decoration: _plannerCardDecoration,
-        child: Row(children: [
-          const SizedBox(
-              width: 82,
-              height: 64,
-              child: CustomPaint(painter: _PlannerMapPainter())),
-          const SizedBox(width: 18),
-          const Expanded(
-              child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('어디로 떠나고 싶으세요?',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -.6)),
-              SizedBox(height: 10),
-              Text('원하는 지역이나 여행 테마를 알려주세요.',
-                  style: TextStyle(
-                      fontSize: 13, color: Color(0xFF666975), height: 1.5)),
-            ],
-          )),
-        ]),
-      );
-}
-
 final _plannerCardDecoration = BoxDecoration(
   color: Colors.white,
   borderRadius: BorderRadius.circular(15),
@@ -284,58 +291,10 @@ final _plannerCardDecoration = BoxDecoration(
   ],
 );
 
-class _PlannerMapPainter extends CustomPainter {
-  const _PlannerMapPainter();
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.save();
-    canvas.scale(size.width / 82, size.height / 64);
-    final map = Path()
-      ..moveTo(4, 20)
-      ..quadraticBezierTo(4, 16, 9, 15)
-      ..lineTo(28, 9)
-      ..lineTo(53, 17)
-      ..lineTo(74, 10)
-      ..quadraticBezierTo(78, 9, 78, 14)
-      ..lineTo(78, 55)
-      ..lineTo(54, 63)
-      ..lineTo(29, 56)
-      ..lineTo(4, 63)
-      ..close();
-    canvas.drawPath(map, Paint()..color = const Color(0xFFF4F4F5));
-    final route = Path()
-      ..moveTo(13, 51)
-      ..cubicTo(18, 25, 34, 28, 40, 40)
-      ..cubicTo(52, 60, 76, 35, 62, 27);
-    final ink = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..strokeCap = StrokeCap.round;
-    for (final metric in route.computeMetrics()) {
-      for (double d = 0; d < metric.length; d += 7) {
-        canvas.drawPath(metric.extractPath(d, d + 3), ink);
-      }
-    }
-    final pin = Path()
-      ..moveTo(48, 32)
-      ..cubicTo(42, 24, 38, 19, 38, 13)
-      ..cubicTo(38, -1, 58, -1, 58, 13)
-      ..cubicTo(58, 19, 53, 26, 48, 32)
-      ..close();
-    canvas.drawPath(pin, Paint()..color = Colors.white);
-    canvas.drawPath(pin, ink);
-    canvas.drawCircle(const Offset(48, 12), 4, ink);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _PlannerMapPainter oldDelegate) => false;
-}
-
 class _QuickStartGrid extends StatelessWidget {
   final Function(String preset, {bool isNearby}) onSelect;
-  const _QuickStartGrid({required this.onSelect});
+  final VoidCallback onThemeSelect;
+  const _QuickStartGrid({required this.onSelect, required this.onThemeSelect});
 
   static const _items = [
     (
@@ -390,7 +349,9 @@ class _QuickStartGrid extends StatelessWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(15),
-                        onTap: () => onSelect(item.$3, isNearby: item.$5),
+                        onTap: item.$1 == '테마 여행'
+                            ? onThemeSelect
+                            : () => onSelect(item.$1, isNearby: item.$5),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -420,41 +381,6 @@ class _QuickStartGrid extends StatelessWidget {
             .toList(),
       );
     });
-  }
-}
-
-class _RecentChipsRow extends StatelessWidget {
-  const _RecentChipsRow();
-  @override
-  Widget build(BuildContext context) {
-    final vm = context.watch<ChatRecommendationViewModel>();
-    final items = vm.recentRecommendations;
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('최근 추천',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 10),
-      SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: items
-                .map((item) => Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ActionChip(
-                        label: Text(item['title'] ?? '추천 기록'),
-                        onPressed: () => vm.loadRecentRecommendation(item),
-                        backgroundColor: const Color(0xFFF5F5F6),
-                        side: const BorderSide(color: Color(0xFFE6E7EA)),
-                        shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 10),
-                        labelStyle: const TextStyle(
-                            fontSize: 14, color: Color(0xFF202020)),
-                      ),
-                    ))
-                .toList(),
-          )),
-    ]);
   }
 }
 
@@ -725,239 +651,75 @@ class _ChatMessageBubble extends StatelessWidget {
               ],
             ),
           ),
-          // 메시지 버블
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 16,
-            ),
-            decoration: BoxDecoration(
-              gradient: isUser ? AppDesign.primaryGradient : null,
-              color: isUser ? null : AppDesign.cardBg,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(
-                  isUser ? AppDesign.radiusLarge : AppDesign.radiusSmall,
-                ),
-                topRight: Radius.circular(
-                  isUser ? AppDesign.radiusSmall : AppDesign.radiusLarge,
-                ),
-                bottomLeft: const Radius.circular(AppDesign.radiusLarge),
-                bottomRight: const Radius.circular(AppDesign.radiusLarge),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: isUser
-                      ? AppDesign.travelBlue.withValues(alpha: 0.2)
-                      : Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                  spreadRadius: -2,
-                ),
-              ],
-            ),
-            child: Text(
-              message,
-              style: TextStyle(
-                fontSize: 15,
-                color: isUser ? Colors.white : AppDesign.primaryText,
-                height: 1.6,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ),
-          // === AI 응답 완료 시 추천 카드 + 자동 스크롤 ===
-          if (!isUser &&
-              messageIndex == vm.messages.length - 1 &&
-              vm.pendingPlaces.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildRecommendedPlacesCards(context),
-
-                // 자동 스크롤
-                Builder(
-                  builder: (context) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (context.mounted) {
-                        final state = context.findAncestorStateOfType<
-                            _ChatRecommendationScreenState>();
-                        state?._scrollToBottom();
-                      }
-                    });
-                    return const SizedBox.shrink();
-                  },
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecommendedPlacesCards(BuildContext context) {
-    final places = vm.pendingPlaces;
-
-    if (places.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "추천 장소",
-            style: AppDesign.caption.copyWith(
-              color: AppDesign.travelBlue,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: places.map((place) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: _PlaceCard(
-                    place: place,
-                    onAdd: () => _savePlaceToMap(context, place),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// 파일 하단이나 적당한 위치에 추가
-class _PlaceCard extends StatelessWidget {
-  final Map<String, dynamic> place;
-  final VoidCallback onAdd;
-
-  const _PlaceCard({
-    required this.place,
-    required this.onAdd,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final title = place['title']?.toString() ?? '장소 이름';
-    final address =
-        place['address']?.toString() ?? place['snippet']?.toString() ?? '';
-    final rating = (place['rating'] as num?)?.toDouble();
-
-    return Container(
-      width: 310,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppDesign.cardBg,
-        borderRadius: BorderRadius.circular(AppDesign.radiusMedium),
-        border: Border.all(color: AppDesign.borderColor),
-        boxShadow: AppDesign.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                child: SizedBox(
-                  width: 84,
-                  height: 84,
-                  child: AddressPhotoPreview(
-                    address: address,
-                    title: title,
-                    size: 84,
+          if (isUser)
+            _messageText(context, message)
+          else
+            for (final section in splitPlaceAnswer(
+                message, vm.placesForMessage(messageIndex))) ...[
+              if (section.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppDesign.spacing12),
+                  child: AiAnswerText(
+                    text: section.text,
+                    hasPlaceCard: section.place != null,
                   ),
                 ),
-              ),
-              const SizedBox(width: AppDesign.spacing12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: AppDesign.headingSmall.copyWith(fontSize: 17),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (rating != null) ...[
-                      const SizedBox(height: AppDesign.spacing6),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 18,
-                            color: AppDesign.travelOrange,
-                          ),
-                          const SizedBox(width: AppDesign.spacing4),
-                          Text(
-                            rating.toStringAsFixed(1),
-                            style: AppDesign.bodyMedium.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: AppDesign.spacing8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 16,
-                          color: AppDesign.subtleText,
-                        ),
-                        const SizedBox(width: AppDesign.spacing4),
-                        Expanded(
-                          child: Text(
-                            address,
-                            style: AppDesign.caption.copyWith(
-                              color: AppDesign.secondaryText,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+              if (section.place != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppDesign.spacing20),
+                  child: PlannerPlaceCard(
+                    place: section.place!,
+                    onAdd: () => _savePlaceToMap(context, section.place!),
+                  ),
                 ),
-              ),
             ],
-          ),
-          const SizedBox(height: AppDesign.spacing16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add_location_alt_rounded, size: 18),
-              label: const Text('지도에 추가'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppDesign.primary,
-                foregroundColor: AppDesign.whiteText,
-                minimumSize: const Size.fromHeight(44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
+
+  Widget _messageText(BuildContext context, String text) => Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
+        decoration: BoxDecoration(
+          gradient: isUser ? AppDesign.primaryGradient : null,
+          color: isUser ? null : AppDesign.cardBg,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(
+              isUser ? AppDesign.radiusLarge : AppDesign.radiusSmall,
+            ),
+            topRight: Radius.circular(
+              isUser ? AppDesign.radiusSmall : AppDesign.radiusLarge,
+            ),
+            bottomLeft: const Radius.circular(AppDesign.radiusLarge),
+            bottomRight: const Radius.circular(AppDesign.radiusLarge),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isUser
+                  ? AppDesign.travelBlue.withValues(alpha: 0.2)
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+              spreadRadius: -2,
+            ),
+          ],
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 15,
+            color: isUser ? Colors.white : AppDesign.primaryText,
+            height: 1.6,
+            letterSpacing: 0.2,
+          ),
+        ),
+      );
 }
 
 // ================================
