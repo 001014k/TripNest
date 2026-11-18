@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Offline editorial previews; only the illustration region is displayed.
-/// Headings, navigation and progress remain native, accessible widgets.
+/// 오프라인 미리보기에서 삽화 영역만 표시합니다.
+/// 제목, 탐색 및 진행 상태는 접근성을 지원하는 기본 위젯으로 유지합니다.
 class IntroPreview extends StatelessWidget {
   const IntroPreview({super.key, required this.page});
   final int page;
