@@ -14,7 +14,9 @@ import '../../viewmodels/shared_links/shared_link_viewmodel.dart';
 import '../../design/app_design.dart';
 
 class SharedLinkView extends StatefulWidget {
-  const SharedLinkView({super.key, this.showGuide = false});
+  const SharedLinkView(
+      {super.key, this.openAddLink = false, this.showGuide = false});
+  final bool openAddLink;
   final bool showGuide;
 
   @override
@@ -52,6 +54,8 @@ class _SharedLinkViewState extends State<SharedLinkView>
             sharedText: pendingLink.sharedText,
           ),
         );
+      } else if (widget.openAddLink) {
+        unawaited(_addLink());
       }
     });
   }
@@ -192,8 +196,8 @@ class _SharedLinkViewState extends State<SharedLinkView>
       if (!mounted) return;
       failure = _viewModel.errorMessage;
       if (failure == null) {
-        // Duplicate links can skip insertion, so refresh if the saved link
-        // has not reached the local list yet.
+        // 중복 링크는 추가가 생략될 수 있으므로 저장된 링크가
+        // 아직 로컬 목록에 반영되지 않았으면 목록을 갱신합니다.
         if (!_viewModel.sharedLinks.any((link) => link.url == savedUrl)) {
           await _viewModel.loadSharedLinks();
           if (!mounted) return;
@@ -284,8 +288,8 @@ class _SharedLinkViewState extends State<SharedLinkView>
         child: SafeArea(
           child: Consumer<SharedLinkViewModel>(
             builder: (context, vm, child) {
-              // A source link can contain multiple extracted places. Keep the
-              // overview to one card per URL and show places in its detail.
+              // 원본 링크 하나에 여러 장소가 추출될 수 있습니다.
+              // 요약에서는 URL당 카드 하나만 표시하고 장소는 상세 화면에서 보여줍니다.
               final linksByUrl = <String, SharedLinkModel>{};
               for (final link in vm.sharedLinks) {
                 linksByUrl.putIfAbsent(link.url, () => link);
@@ -882,7 +886,7 @@ class _PremiumLinkCardState extends State<_PremiumLinkCard> {
         onTap: () => Navigator.pushNamed(context, '/shared_link_detail',
             arguments: widget.link),
         child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               ClipRRect(
                   borderRadius: BorderRadius.circular(12),
