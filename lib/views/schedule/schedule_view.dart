@@ -1,3 +1,4 @@
+import '../../widgets/common/soft_glass_surface.dart';
 import '../../design/map_style.dart';
 import '../../services/map/marker_icon_service.dart';
 import '../../widgets/places/address_photo_preview.dart';
@@ -80,10 +81,10 @@ class _ScheduleViewState extends State<ScheduleView> {
         floatingActionButton: FloatingActionButton(
             onPressed: () => _edit(),
             tooltip: '일정 추가',
-            backgroundColor: AppDesign.primary,
-            foregroundColor: Colors.white,
+            backgroundColor: Colors.white,
+            foregroundColor: AppDesign.primary,
             shape: const CircleBorder(),
-            child: const Icon(Icons.add, size: 32)),
+            child: const Icon(Icons.add, size: 27)),
         body: SafeArea(
             child: FutureBuilder<List<ScheduleModel>>(
                 future: _items,
@@ -95,7 +96,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                       .toList()
                     ..sort((a, b) => a.startTime.compareTo(b.startTime));
                   return ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 85),
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
                       children: [
                         const TripNestHeader(trailing: TripNestSocialActions()),
                         const SizedBox(height: 20),
@@ -108,25 +109,26 @@ class _ScheduleViewState extends State<ScheduleView> {
                         const Text('여행의 소중한 순간들을 일정으로 계획해보세요.',
                             style: AppDesign.bodySmall),
                         const SizedBox(height: 18),
-                        ReferenceCalendar(
-                            month: _month,
-                            selected: _date,
-                            eventDays: all
-                                .map((item) => item.startTime.toLocal().day)
-                                .toSet(),
-                            onSelected: (date) => setState(() {
-                                  _date = date;
-                                  if (date.month != _month.month ||
-                                      date.year != _month.year) {
-                                    _month = date;
-                                    _reload();
-                                  }
-                                }),
-                            onMonthChanged: (date) => setState(() {
-                                  _month = date;
-                                  _date = date;
-                                  _reload();
-                                })),
+                        SoftGlassSurface(
+                            child: ReferenceCalendar(
+                                month: _month,
+                                selected: _date,
+                                eventDays: all
+                                    .map((item) => item.startTime.toLocal().day)
+                                    .toSet(),
+                                onSelected: (date) => setState(() {
+                                      _date = date;
+                                      if (date.month != _month.month ||
+                                          date.year != _month.year) {
+                                        _month = date;
+                                        _reload();
+                                      }
+                                    }),
+                                onMonthChanged: (date) => setState(() {
+                                      _month = date;
+                                      _date = date;
+                                      _reload();
+                                    }))),
                         const SizedBox(height: 22),
                         Row(children: [
                           const Expanded(
@@ -549,19 +551,19 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                     style: FilledButton.styleFrom(
                         backgroundColor: AppDesign.primary,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(56),
+                        minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30))),
+                            borderRadius: BorderRadius.circular(16))),
                     child: Text(_saving
                         ? '처리 중…'
                         : widget.initialPlaces.isEmpty
-                            ? '저장하기   →'
+                            ? '저장하기'
                             : '${widget.initialPlaces.length}개 일정 추가')))),
         body: SafeArea(
             child: Form(
                 key: _form,
                 child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                     children: [
                       TripNestHeader(
                           onBack: _saving ? null : () => Navigator.pop(context),
@@ -603,9 +605,10 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                             height: 96),
                       ]),
                       const SizedBox(height: 18),
+                      _sectionTitle('기본 정보'),
                       ReferenceCard(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                              horizontal: 16, vertical: 12),
                           child: Row(children: [
                             _formIcon(Icons.title),
                             const SizedBox(width: 16),
@@ -634,9 +637,10 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                                             ? '일정 제목을 입력해주세요.'
                                             : null)),
                           ])),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 24),
+                      _sectionTitle('날짜와 시간'),
                       ReferenceCard(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(16),
                           child: Column(children: [
                             ListTile(
                                 contentPadding: EdgeInsets.zero,
@@ -678,26 +682,23 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                                                 : AppDesign.secondaryText),
                                         side: BorderSide.none,
                                         shape: const StadiumBorder()),
-                                  ActionChip(
-                                      label: const Text('날짜 선택'),
-                                      onPressed: _saving ? null : _pickDate,
-                                      side: BorderSide.none,
-                                      shape: const StadiumBorder()),
                                 ])),
+                            const SizedBox(height: 12),
+                            _timeRow('시작 시간', _editTime(_start),
+                                () => _pickTime(true)),
+                            const SizedBox(height: 8),
+                            _timeRow(
+                                '종료 시간',
+                                '${DateUtils.isSameDay(_start, _end) ? '' : '${_end.month}월 ${_end.day}일 '}${_editTime(_end)}',
+                                () => _pickTime(false)),
                           ])),
-                      const SizedBox(height: 10),
-                      _field(Icons.access_time_rounded, '시작 시간',
-                          _editTime(_start), () => _pickTime(true)),
-                      _field(
-                          Icons.access_time_rounded,
-                          '종료 시간',
-                          '${DateUtils.isSameDay(_start, _end) ? '' : '${_end.month}월 ${_end.day}일 '}${_editTime(_end)}',
-                          () => _pickTime(false)),
+                      const SizedBox(height: 24),
+                      _sectionTitle('장소'),
                       if (widget.initialPlaces.isNotEmpty)
                         _listPlacesPreview()
                       else
                         ReferenceCard(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(16),
                             child: Column(children: [
                               InkWell(
                                 onTap: _saving ? null : _pickPlace,
@@ -799,7 +800,8 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                                 ),
                               ],
                             ])),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 24),
+                      _sectionTitle('함께하는 사람'),
                       _field(
                           Icons.people_outline,
                           '참석자',
@@ -900,13 +902,29 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
     ]);
   }
 
+  Widget _sectionTitle(String title) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(title, style: AppDesign.headingSmall),
+      );
+
+  Widget _timeRow(String label, String value, VoidCallback onTap) => ListTile(
+        contentPadding: EdgeInsets.zero,
+        enabled: !_saving,
+        onTap: onTap,
+        leading: _formIcon(Icons.access_time_rounded),
+        title: Text(label, style: AppDesign.caption),
+        subtitle:
+            Text(value, style: AppDesign.bodyMedium.copyWith(fontSize: 17)),
+        trailing: const Icon(Icons.chevron_right),
+      );
+
   Widget _formIcon(IconData icon) => Container(
       width: 44,
       height: 44,
       decoration: BoxDecoration(
           color: const Color(0xfff2f2f4),
           borderRadius: BorderRadius.circular(14)),
-      child: Icon(icon, size: 25, color: AppDesign.primaryText));
+      child: Icon(icon, size: 22, color: AppDesign.primaryText));
 
   Widget _field(
           IconData icon, String label, String value, VoidCallback? onTap) =>
