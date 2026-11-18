@@ -74,7 +74,7 @@ class _SharedLinkGuideButtonState extends State<SharedLinkGuideButton> {
                 floating: widget.floating));
     try {
       await service.markSeen(OnboardingService.sharedLinkKey);
-    } catch (_) {/* Retry on a later visit. */}
+    } catch (_) {/* 다음 방문 시 다시 시도합니다. */}
     if (mounted && action == true) {
       if (widget.forceGuide) {
         await ScreenGuide.start(context);
