@@ -16,7 +16,7 @@ class HomeDashboardViewModel extends ChangeNotifier {
   final Map<String, LinkPreviewData?> _previewCache = {};
   final Map<String, Future<LinkPreviewData?>> _previewRequests = {};
 
-  // Desktop Naver shells and mobile articles must not share stale shell metadata.
+  // 데스크톱 네이버 외부 페이지와 모바일 본문이 오래된 외부 페이지 메타데이터를 공유하지 않도록 합니다.
   String _previewKey(String url) {
     final uri = Uri.tryParse(url);
     return uri?.host.toLowerCase() == 'blog.naver.com'
