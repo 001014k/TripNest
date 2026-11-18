@@ -1,4 +1,4 @@
-/// Bounded read cache. Coalesces concurrent requests; failures are never cached.
+/// 크기가 제한된 조회 캐시입니다. 동시 요청을 합치며 실패는 캐시하지 않습니다.
 class AsyncTtlCache<K, V> {
   AsyncTtlCache(
       {required this.ttl,
