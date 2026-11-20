@@ -63,7 +63,7 @@ class _NotificationDetailViewState extends State<NotificationDetailView> {
         if (id('actor_id') != null) {
           actor = await db
               .from('profiles')
-              .select()
+              .select('id,nickname')
               .eq('id', id('actor_id')!)
               .maybeSingle();
         }
