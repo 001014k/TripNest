@@ -3,11 +3,22 @@ import 'package:provider/provider.dart';
 import '../../viewmodels/auth/forgot_password_viewmodel.dart';
 import '../../design/app_design.dart'; // 디자인 시스템 import
 
-class ForgotPasswordView extends StatelessWidget {
+class ForgotPasswordView extends StatefulWidget {
+  const ForgotPasswordView({super.key});
+  @override
+  State<ForgotPasswordView> createState() => _ForgotPasswordViewState();
+}
+
+class _ForgotPasswordViewState extends State<ForgotPasswordView> {
   final TextEditingController _emailController = TextEditingController();
   final FocusNode _emailFocusNode = FocusNode();
 
-  ForgotPasswordView({super.key});
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _emailFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
