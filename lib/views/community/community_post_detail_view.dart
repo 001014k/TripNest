@@ -40,7 +40,7 @@ class _CommunityPostDetailBodyState extends State<_CommunityPostDetailBody> {
   final _commentController = TextEditingController();
   final _commentFocus = FocusNode();
   final _composerKey = GlobalKey();
-  bool _newestFirst = true;
+
   bool _savingMarker = false;
   bool _markerSaved = false;
   @override
@@ -264,16 +264,20 @@ class _CommunityPostDetailBodyState extends State<_CommunityPostDetailBody> {
                                             ? Colors.redAccent
                                             : Colors.black,
                                         label: '${viewModel.likeCount}',
-                                        onPressed: () async {
-                                          await viewModel.toggleLike();
-                                          if (context.mounted &&
-                                              viewModel.errorMessage != null) {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(SnackBar(
-                                                    content: Text(viewModel
-                                                        .errorMessage!)));
-                                          }
-                                        })),
+                                        onPressed: viewModel.isLiking ||
+                                                viewModel.isLoading
+                                            ? null
+                                            : () async {
+                                                await viewModel.toggleLike();
+                                                if (context.mounted &&
+                                                    viewModel.errorMessage !=
+                                                        null) {
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(SnackBar(
+                                                          content: Text(viewModel
+                                                              .errorMessage!)));
+                                                }
+                                              })),
                                 const SizedBox(width: 7),
                                 Expanded(
                                     flex: 3,
@@ -331,13 +335,12 @@ class _CommunityPostDetailBodyState extends State<_CommunityPostDetailBody> {
                               const SizedBox(height: 24),
                               Row(children: [
                                 Expanded(
-                                    child: Text(
-                                        '댓글 ${viewModel.comments.length}',
+                                    child: Text('댓글 ${viewModel.commentCount}',
                                         style: AppDesign.headingSmall)),
                                 PopupMenuButton<bool>(
                                     tooltip: '댓글 정렬',
                                     onSelected: (value) =>
-                                        setState(() => _newestFirst = value),
+                                        viewModel.changeCommentOrder(value),
                                     itemBuilder: (_) => const [
                                           PopupMenuItem(
                                               value: true, child: Text('최신순')),
@@ -348,7 +351,10 @@ class _CommunityPostDetailBodyState extends State<_CommunityPostDetailBody> {
                                         padding: const EdgeInsets.symmetric(
                                             vertical: 12),
                                         child: Row(children: [
-                                          Text(_newestFirst ? '최신순' : '등록순',
+                                          Text(
+                                              viewModel.newestFirst
+                                                  ? '최신순'
+                                                  : '등록순',
                                               style: AppDesign.caption),
                                           const Icon(Icons.keyboard_arrow_down,
                                               size: 18,
@@ -369,12 +375,23 @@ class _CommunityPostDetailBodyState extends State<_CommunityPostDetailBody> {
                               else if (viewModel.comments.isEmpty)
                                 const _EmptyComments()
                               else
-                                ...(_newestFirst
-                                        ? viewModel.comments.reversed
-                                        : viewModel.comments)
-                                    .map((comment) => Padding(
-                                        padding: const EdgeInsets.only(top: 12),
-                                        child: _CommentCard(comment: comment))),
+                                ...viewModel.comments.map((comment) => Padding(
+                                    padding: const EdgeInsets.only(top: 12),
+                                    child: _CommentCard(comment: comment))),
+                              if (viewModel.errorMessage != null)
+                                TextButton(
+                                    onPressed: viewModel.load,
+                                    child: Text(viewModel.errorMessage!)),
+                              if (viewModel.hasMoreComments &&
+                                  !viewModel.isLoading)
+                                TextButton(
+                                  onPressed: viewModel.isLoadingMore
+                                      ? null
+                                      : viewModel.loadMoreComments,
+                                  child: Text(viewModel.isLoadingMore
+                                      ? '불러오는 중…'
+                                      : '댓글 더 보기'),
+                                ),
                             ])),
                   ],
                 ))),
