@@ -31,6 +31,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
   late Animation<double> _fadeAnimation;
   bool _isProcessingSharedLink = false;
   String _query = '';
+  Timer? _searchDebounce;
   String? _platform;
   bool _incomingShare = false;
 
@@ -122,6 +123,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _intentStreamSub?.cancel();
     _fadeAnimationController.dispose();
     super.dispose();
@@ -213,6 +215,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
             _query = '';
             _platform = null;
           });
+          await _viewModel.filterLinks('', null);
         }
         progress.value = 3;
         await Future<void>.delayed(const Duration(milliseconds: 480));
@@ -294,13 +297,7 @@ class _SharedLinkViewState extends State<SharedLinkView>
               for (final link in vm.sharedLinks) {
                 linksByUrl.putIfAbsent(link.url, () => link);
               }
-              final sourceLinks = linksByUrl.values
-                  .where((link) =>
-                      (_platform == null || link.platform == _platform) &&
-                      '${link.placeTitle ?? ''} ${link.url}'
-                          .toLowerCase()
-                          .contains(_query.toLowerCase()))
-                  .toList();
+              final sourceLinks = linksByUrl.values.toList();
 
               return FadeTransition(
                 opacity: _fadeAnimation,
@@ -312,8 +309,14 @@ class _SharedLinkViewState extends State<SharedLinkView>
                         child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: ReferenceSearch(
-                                onChanged: (value) =>
-                                    setState(() => _query = value),
+                                onChanged: (value) {
+                                  _query = value;
+                                  _searchDebounce?.cancel();
+                                  _searchDebounce = Timer(
+                                      const Duration(milliseconds: 350),
+                                      () => _viewModel.filterLinks(
+                                          _query, _platform));
+                                },
                                 onFilter: _choosePlatform))),
                     const SliverToBoxAdapter(child: SizedBox(height: 12)),
                     SliverToBoxAdapter(
@@ -364,6 +367,16 @@ class _SharedLinkViewState extends State<SharedLinkView>
                       ),
                     ],
 
+                    if (vm.hasMoreLinks)
+                      SliverToBoxAdapter(
+                          child: Center(
+                              child: TextButton(
+                                  onPressed: vm.loadingMoreLinks
+                                      ? null
+                                      : vm.loadMoreLinks,
+                                  child: Text(vm.loadingMoreLinks
+                                      ? '불러오는 중…'
+                                      : '이전 링크 더 보기')))),
                     // 하단 여백
                     const SliverToBoxAdapter(
                       child: SizedBox(height: 96),
@@ -401,8 +414,22 @@ class _SharedLinkViewState extends State<SharedLinkView>
   }
 
   Future<void> _choosePlatform() async {
-    final platforms =
-        _viewModel.sharedLinks.map((e) => e.platform).toSet().toList();
+    final platforms = {
+      'Instagram',
+      'Threads',
+      'YouTube',
+      'Naver',
+      'Daum',
+      'Blogger',
+      'TikTok',
+      'Facebook',
+      'Twitter',
+      'Google Maps',
+      'Google',
+      'Kakao',
+      '기타',
+      ..._viewModel.sharedLinks.map((e) => e.platform)
+    }.toList();
     final choice = await showAppSheet<String>(
       context: context,
       builder: (sheet) => AppSheet(
@@ -421,6 +448,8 @@ class _SharedLinkViewState extends State<SharedLinkView>
     );
     if (choice != null && mounted) {
       setState(() => _platform = choice == '전체' ? null : choice);
+      _searchDebounce?.cancel();
+      await _viewModel.filterLinks(_query, _platform);
     }
   }
 
