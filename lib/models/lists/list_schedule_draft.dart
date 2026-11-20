@@ -10,7 +10,11 @@ List<ScheduleModel> buildListSchedules({
   required DateTime start,
   required DateTime end,
   List<String> participants = const [],
+  List<String>? scheduleIds,
 }) {
+  if (scheduleIds != null && scheduleIds.length != places.length) {
+    throw ArgumentError('일정 ID 개수가 장소 개수와 다릅니다.');
+  }
   final minutes = end.difference(start).inMinutes;
   if (places.isEmpty || minutes < places.length) {
     throw ArgumentError('장소마다 최소 1분 이상의 시간이 필요합니다.');
@@ -18,7 +22,7 @@ List<ScheduleModel> buildListSchedules({
   return [
     for (var i = 0; i < places.length; i++)
       ScheduleModel(
-        id: const Uuid().v4(),
+        id: scheduleIds?[i] ?? const Uuid().v4(),
         userId: userId,
         title: '${title.trim()} · ${places[i].title}',
         startTime: start.add(Duration(minutes: minutes * i ~/ places.length)),
