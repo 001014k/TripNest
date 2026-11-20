@@ -13,8 +13,9 @@ class TripNestNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (AppTabVisibility.maybeOf(context) != null)
+    if (AppTabVisibility.maybeOf(context) != null) {
       return const SizedBox.shrink();
+    }
     const items = [
       ('/home', Icons.home_outlined, '홈'),
       ('/map', Icons.map_outlined, '지도'),
