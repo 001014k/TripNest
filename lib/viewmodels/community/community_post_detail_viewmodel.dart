@@ -13,6 +13,18 @@ class CommunityPostDetailViewModel extends ChangeNotifier {
 
   List<CommunityComment> get comments => List.unmodifiable(_comments);
   bool isLoading = false;
+  bool isLiking = false;
+  bool isLoadingMore = false;
+  bool hasMoreComments = true;
+  bool newestFirst = true;
+  int commentCount = 0;
+  int _revision = 0;
+  Map<String, dynamic>? _cursor;
+  Future<void> changeCommentOrder(bool newest) async {
+    newestFirst = newest;
+    await load();
+  }
+
   bool isSubmittingComment = false;
   bool isLiked = false;
   int likeCount = 0;
@@ -54,6 +66,7 @@ class CommunityPostDetailViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _revision++;
     super.dispose();
   }
 
@@ -80,45 +93,63 @@ class CommunityPostDetailViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> load() async {
-    isLoading = true;
+  Future<void> load() => _loadComments(false);
+  Future<void> loadMoreComments() => _loadComments(true);
+  Future<void> _loadComments(bool append) async {
+    if (append && (isLoading || isLoadingMore || !hasMoreComments)) return;
+    final revision = ++_revision;
+    if (append) {
+      isLoadingMore = true;
+    } else {
+      isLoading = true;
+    }
     errorMessage = null;
     notifyListeners();
-
     try {
-      final results = await Future.wait([
-        _client
-            .from('travel_post_likes')
-            .select('user_id')
-            .eq('post_id', postId),
-        _client
-            .from('travel_post_comments')
-            .select('id, content, author_id, created_at, profiles(nickname)')
-            .eq('post_id', postId)
-            .order('created_at'),
-      ]);
-      final likes = results[0] as List;
-      final currentUserId = _client.auth.currentUser?.id;
-      likeCount = likes.length;
-      isLiked = currentUserId != null &&
-          likes.any((like) =>
-              (like as Map<String, dynamic>)['user_id'] == currentUserId);
-      _comments
-        ..clear()
-        ..addAll(
-          (results[1] as List).map(
-            (data) => CommunityComment.fromMap(data as Map<String, dynamic>),
-          ),
-        );
+      var query = _client
+          .from('travel_post_comments')
+          .select('id, content, author_id, created_at, profiles(nickname)')
+          .eq('post_id', postId);
+      if (append && _cursor != null) {
+        final op = newestFirst ? 'lt' : 'gt';
+        query = query.or(
+            'created_at.$op.${_cursor!['created_at']},and(created_at.eq.${_cursor!['created_at']},id.$op.${_cursor!['id']})');
+      }
+      final rows = await query
+          .order('created_at', ascending: !newestFirst)
+          .order('id', ascending: !newestFirst)
+          .limit(30);
+      final stats = append
+          ? null
+          : await _client
+              .rpc('community_post_stats', params: {'p_post_id': postId});
+      if (_disposed || revision != _revision) return;
+      if (!append) {
+        _comments.clear();
+        likeCount = (stats['likes'] as num).toInt();
+        commentCount = (stats['comments'] as num).toInt();
+        if (!isLiking) isLiked = stats['liked'] == true;
+      }
+      final ids = _comments.map((c) => c.id).toSet();
+      _comments.addAll(
+          rows.map(CommunityComment.fromMap).where((c) => ids.add(c.id)));
+      _cursor = rows.isEmpty ? null : rows.last;
+      hasMoreComments = rows.length == 30;
     } catch (_) {
-      errorMessage = '좋아요와 댓글을 불러오지 못했습니다.';
+      if (!_disposed && revision == _revision) {
+        errorMessage = '댓글을 불러오지 못했습니다. 다시 시도해주세요.';
+      }
     } finally {
-      isLoading = false;
-      notifyListeners();
+      if (!_disposed && revision == _revision) {
+        isLoading = false;
+        isLoadingMore = false;
+        notifyListeners();
+      }
     }
   }
 
   Future<void> toggleLike() async {
+    if (isLiking || isLoading || _disposed) return;
     final user = _client.auth.currentUser;
     if (user == null) {
       errorMessage = '로그인 후 좋아요를 누를 수 있습니다.';
@@ -126,6 +157,9 @@ class CommunityPostDetailViewModel extends ChangeNotifier {
       return;
     }
 
+    isLiking = true;
+    errorMessage = null;
+    String? failure;
     final wasLiked = isLiked;
     isLiked = !wasLiked;
     likeCount += wasLiked ? -1 : 1;
@@ -147,13 +181,20 @@ class CommunityPostDetailViewModel extends ChangeNotifier {
     } catch (_) {
       isLiked = wasLiked;
       likeCount += wasLiked ? 1 : -1;
-      errorMessage = '좋아요를 반영하지 못했습니다.';
+      failure = '좋아요를 반영하지 못했습니다. 다시 시도해주세요.';
+    } finally {
+      isLiking = false;
+      if (!_disposed) {
+        await load();
+        if (failure != null) errorMessage = failure;
+      }
       notifyListeners();
     }
   }
 
   Future<bool> addComment(String content) async {
     final user = _client.auth.currentUser;
+    if (isSubmittingComment || _disposed) return false;
     final trimmed = content.trim();
     if (user == null || trimmed.isEmpty) return false;
 
