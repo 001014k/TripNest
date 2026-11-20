@@ -92,7 +92,9 @@ class _ScheduleViewState extends State<ScheduleView> {
                   final all = snapshot.data ?? [];
                   final items = all
                       .where((item) =>
-                          DateUtils.isSameDay(item.startTime.toLocal(), _date))
+                          item.startTime.toLocal().isBefore(DateTime(
+                              _date.year, _date.month, _date.day + 1)) &&
+                          item.endTime.toLocal().isAfter(_date))
                       .toList()
                     ..sort((a, b) => a.startTime.compareTo(b.startTime));
                   return ListView(
@@ -113,9 +115,20 @@ class _ScheduleViewState extends State<ScheduleView> {
                             child: ReferenceCalendar(
                                 month: _month,
                                 selected: _date,
-                                eventDays: all
-                                    .map((item) => item.startTime.toLocal().day)
-                                    .toSet(),
+                                eventDays: {
+                                  for (var day = 1;
+                                      day <=
+                                          DateUtils.getDaysInMonth(
+                                              _month.year, _month.month);
+                                      day++)
+                                    if (all.any((item) =>
+                                        item.startTime.toLocal().isBefore(
+                                            DateTime(_month.year, _month.month,
+                                                day + 1)) &&
+                                        item.endTime.toLocal().isAfter(DateTime(
+                                            _month.year, _month.month, day))))
+                                      day,
+                                },
                                 onSelected: (date) => setState(() {
                                       _date = date;
                                       if (date.month != _month.month ||
@@ -247,6 +260,9 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
   late DateTime _start;
   late DateTime _end;
   bool _saving = false;
+  late final String _saveId = widget.schedule?.id ?? const Uuid().v4();
+  late final List<String> _scheduleIds =
+      List.generate(widget.initialPlaces.length, (_) => const Uuid().v4());
   String? _placeId;
   String _placeLabel = '장소를 선택해주세요';
   String _placeAddress = '';
@@ -401,6 +417,7 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
       if (widget.initialPlaces.isNotEmpty) {
         await _service.addAll(buildListSchedules(
             places: widget.initialPlaces,
+            scheduleIds: _scheduleIds,
             userId: userId,
             title: _title.text,
             start: _start,
@@ -408,7 +425,7 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
             participants: _participants));
       } else {
         await _service.addOrUpdate(ScheduleModel(
-            id: old?.id ?? const Uuid().v4(),
+            id: _saveId,
             userId: old?.userId ?? userId,
             title: _title.text.trim(),
             startTime: _start,
