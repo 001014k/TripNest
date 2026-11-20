@@ -194,6 +194,7 @@ class _LogoPainter extends CustomPainter {
 }
 
 class ReferenceCalendar extends StatelessWidget {
+  final DateTime? firstDate, lastDate;
   final DateTime month;
   final DateTime selected;
   final Set<int> eventDays;
@@ -201,6 +202,8 @@ class ReferenceCalendar extends StatelessWidget {
   final ValueChanged<DateTime> onMonthChanged;
   const ReferenceCalendar(
       {super.key,
+      this.firstDate,
+      this.lastDate,
       required this.month,
       required this.selected,
       required this.eventDays,
@@ -221,8 +224,12 @@ class ReferenceCalendar extends StatelessWidget {
           Row(children: [
             IconButton(
                 tooltip: '이전 달',
-                onPressed: () =>
-                    onMonthChanged(DateTime(month.year, month.month - 1)),
+                onPressed: firstDate != null &&
+                        !DateTime(month.year, month.month).isAfter(
+                            DateTime(firstDate!.year, firstDate!.month))
+                    ? null
+                    : () =>
+                        onMonthChanged(DateTime(month.year, month.month - 1)),
                 icon: const Icon(Icons.chevron_left)),
             Expanded(
                 child: Text('${month.year}년 ${month.month}월',
@@ -231,8 +238,12 @@ class ReferenceCalendar extends StatelessWidget {
                         fontSize: 17, fontWeight: FontWeight.w700))),
             IconButton(
                 tooltip: '다음 달',
-                onPressed: () =>
-                    onMonthChanged(DateTime(month.year, month.month + 1)),
+                onPressed: lastDate != null &&
+                        !DateTime(month.year, month.month)
+                            .isBefore(DateTime(lastDate!.year, lastDate!.month))
+                    ? null
+                    : () =>
+                        onMonthChanged(DateTime(month.year, month.month + 1)),
                 icon: const Icon(Icons.chevron_right)),
           ]),
           const SizedBox(height: 8),
@@ -258,14 +269,19 @@ class ReferenceCalendar extends StatelessWidget {
                   crossAxisCount: 7, mainAxisExtent: 37),
               itemBuilder: (context, index) {
                 final date = start.add(Duration(days: index));
+                final enabled = (firstDate == null ||
+                        !date.isBefore(DateUtils.dateOnly(firstDate!))) &&
+                    (lastDate == null ||
+                        !date.isAfter(DateUtils.dateOnly(lastDate!)));
                 final active = DateUtils.isSameDay(date, selected);
                 final inMonth = date.month == month.month;
                 return Semantics(
                     label: '${date.month}월 ${date.day}일',
                     selected: active,
+                    enabled: enabled,
                     button: true,
                     child: InkResponse(
-                        onTap: () => onSelected(date),
+                        onTap: enabled ? () => onSelected(date) : null,
                         child: Center(
                             child: Container(
                                 width: 34,
@@ -281,31 +297,35 @@ class ReferenceCalendar extends StatelessWidget {
                                       Text('${date.day}',
                                           style: TextStyle(
                                               fontSize: 13,
-                                              color: active
-                                                  ? Colors.white
-                                                  : inMonth
-                                                      ? (date.weekday ==
-                                                              DateTime.saturday
-                                                          ? const Color(
-                                                              0xFF5DAFD0)
-                                                          : date.weekday ==
+                                              color: !enabled
+                                                  ? const Color(0xFFCCCCD0)
+                                                  : active
+                                                      ? Colors.white
+                                                      : inMonth
+                                                          ? (date.weekday ==
                                                                   DateTime
-                                                                      .sunday
+                                                                      .saturday
                                                               ? const Color(
-                                                                  0xFFD46B76)
-                                                              : const Color(
-                                                                  0xFF222222))
-                                                      : (date.weekday ==
-                                                              DateTime.saturday
-                                                          ? const Color(
-                                                              0xFFB7D9E6)
-                                                          : date.weekday ==
+                                                                  0xFF5DAFD0)
+                                                              : date.weekday ==
+                                                                      DateTime
+                                                                          .sunday
+                                                                  ? const Color(
+                                                                      0xFFD46B76)
+                                                                  : const Color(
+                                                                      0xFF222222))
+                                                          : (date.weekday ==
                                                                   DateTime
-                                                                      .sunday
+                                                                      .saturday
                                                               ? const Color(
-                                                                  0xFFE8BDC2)
-                                                              : const Color(
-                                                                  0xFFB9B9BE)))),
+                                                                  0xFFB7D9E6)
+                                                              : date.weekday ==
+                                                                      DateTime
+                                                                          .sunday
+                                                                  ? const Color(
+                                                                      0xFFE8BDC2)
+                                                                  : const Color(
+                                                                      0xFFB9B9BE)))),
                                       if (inMonth &&
                                           eventDays.contains(date.day))
                                         Positioned(
