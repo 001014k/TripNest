@@ -14,7 +14,11 @@ import '../../services/places/geocoding_service.dart';
 typedef PlaceRating = ({double score, int? count});
 
 class SharedLinkDetailViewModel extends ChangeNotifier {
-  SharedLinkDetailViewModel(this.link);
+  SharedLinkDetailViewModel(this.link,
+      {Future<Map<String, dynamic>?> Function(String)? ratingLoader})
+      : _ratingLoader =
+            ratingLoader ?? ((query) => PlacesService().searchRating(query));
+  final Future<Map<String, dynamic>?> Function(String) _ratingLoader;
 
   final SharedLinkModel link;
   final SharedPlaceLookupService _placeLookup =
@@ -71,32 +75,50 @@ class SharedLinkDetailViewModel extends ChangeNotifier {
     } finally {
       isLoadingPlaces = false;
       _notify();
-      unawaited(_loadRatings());
       await refreshSavedMarkers();
     }
   }
 
-  Future<void> _loadRatings() async {
-    await Future.wait(places.map((place) async {
-      final title = place.placeTitle?.trim() ?? '';
-      final address = place.placeAddress?.trim() ?? '';
-      if (title.isEmpty || address.isEmpty) return;
-      try {
-        final results = await PlacesService().searchPlacesByKeyword(
-          '$title $address',
-        );
-        if (results.isEmpty) return;
-        final score = (results.first['rating'] as num?)?.toDouble();
-        if (score == null) return;
-        _ratings[placeKey(place)] = (
-          score: score,
-          count: (results.first['userRatingCount'] as num?)?.toInt(),
-        );
-        _notify();
-      } catch (_) {
-        // 평점은 저장된 장소 상세 정보에 덧붙이는 보조 정보입니다.
-      }
-    }));
+  final _ratingQueued = <String>{};
+  final _ratingQueue = <SharedLinkModel>[];
+  int _ratingActive = 0;
+
+  // 실제로 생성된 카드만 요청하고 동시에 실행하는 검색은 두 개로 제한합니다.
+  void requestRating(SharedLinkModel place) {
+    if (_disposed ||
+        _ratings.containsKey(placeKey(place)) ||
+        !_ratingQueued.add(placeKey(place))) {
+      return;
+    }
+    _ratingQueue.add(place);
+    _drainRatings();
+  }
+
+  void _drainRatings() {
+    while (!_disposed && _ratingActive < 2 && _ratingQueue.isNotEmpty) {
+      final place = _ratingQueue.removeAt(0);
+      _ratingActive++;
+      unawaited(_loadRating(place).whenComplete(() {
+        _ratingActive--;
+        _drainRatings();
+      }));
+    }
+  }
+
+  Future<void> _loadRating(SharedLinkModel place) async {
+    final title = place.placeTitle?.trim() ?? '';
+    final address = place.placeAddress?.trim() ?? '';
+    if (title.isEmpty || address.isEmpty) return;
+    try {
+      final result = await _ratingLoader('$title $address');
+      final score = (result?['rating'] as num?)?.toDouble();
+      if (_disposed || score == null) return;
+      _ratings[placeKey(place)] =
+          (score: score, count: (result?['userRatingCount'] as num?)?.toInt());
+      _notify();
+    } catch (_) {
+      // 실패를 성공 캐시로 남기지 않고 다음 진입에서 재시도합니다.
+    }
   }
 
   String _normalized(String? value) => (value ?? '').trim().toLowerCase();
