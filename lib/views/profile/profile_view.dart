@@ -1,4 +1,5 @@
 import '../../widgets/common/soft_glass_surface.dart';
+import '../../navigation/app_tab_shell.dart';
 import '../../widgets/places/place_keyword_icon.dart';
 import '../../navigation/app_page_route.dart';
 import '../../widgets/common/app_overlays.dart';
@@ -42,8 +43,24 @@ class _ProfilePageState extends State<ProfilePage> {
   void didUpdateWidget(covariant ProfilePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userId != widget.userId) {
+      _reloadRecent();
       context.read<ProfileViewModel>().fetchUserStats(widget.userId);
     }
+  }
+
+  bool _wasActive = true;
+  void _reloadRecent() {
+    if (mounted) {
+      setState(() => _recent = MarkerService().getRecentMarkers(limit: 4));
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = AppTabVisibility.maybeOf(context)?.active ?? true;
+    if (active && !_wasActive) _reloadRecent();
+    _wasActive = active;
   }
 
   @override
@@ -126,8 +143,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 const Expanded(
                     child: Text('최근 저장한 장소', style: AppDesign.headingSmall)),
                 TextButton(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, '/marker_list'),
+                    onPressed: () async {
+                      await Navigator.pushNamed(context, '/marker_list');
+                      _reloadRecent();
+                    },
                     child: const Text('전체보기 ›',
                         style: TextStyle(
                             fontSize: 12, color: AppDesign.secondaryText)))
@@ -153,71 +172,74 @@ class _ProfilePageState extends State<ProfilePage> {
                           child: Text('저장한 장소가 아직 없어요.',
                               style: AppDesign.bodySmall));
                     }
-                    return SizedBox(
-                        height: 154,
-                        child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: places.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final place = places[index];
-                              return SizedBox(
-                                  width:
-                                      (MediaQuery.sizeOf(context).width - 56) /
-                                          4,
-                                  child: InkWell(
-                                    onTap: () => Navigator.push(
-                                        context,
-                                        AppPageRoute(
-                                            builder: (_) => MarkerDetailView(
-                                                marker: MarkerMapAdapter
-                                                    .toGoogleMarker(place),
-                                                keyword: place.keyword))),
-                                    child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          ReferencePhoto(
-                                              title: place.title,
-                                              address: place.address,
-                                              width: double.infinity,
-                                              height: 84),
-                                          const SizedBox(height: 7),
-                                          Row(children: [
-                                            Icon(
-                                                placeKeywordIcon(place.keyword),
-                                                size: 13,
-                                                color: AppDesign.primaryText),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                                child: Text(place.keyword,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                        fontSize: 10,
-                                                        color: AppDesign
-                                                            .secondaryText))),
-                                          ]),
-                                          const SizedBox(height: 3),
-                                          Text(place.title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700)),
-                                          const SizedBox(height: 3),
-                                          Text(place.address,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                  fontSize: 10,
-                                                  color:
-                                                      AppDesign.secondaryText)),
-                                        ]),
-                                  ));
-                            }));
+                    return GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: 124 +
+                              70 * MediaQuery.textScalerOf(context).scale(1),
+                        ),
+                        itemCount: places.length,
+                        itemBuilder: (context, index) {
+                          final place = places[index];
+                          return SizedBox(
+                              width:
+                                  (MediaQuery.sizeOf(context).width - 48) / 2,
+                              child: InkWell(
+                                onTap: () async {
+                                  await Navigator.push(
+                                      context,
+                                      AppPageRoute(
+                                          builder: (_) => MarkerDetailView(
+                                              marker: MarkerMapAdapter
+                                                  .toGoogleMarker(place),
+                                              keyword: place.keyword)));
+                                  _reloadRecent();
+                                },
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      ReferencePhoto(
+                                          title: place.title,
+                                          address: place.address,
+                                          width: double.infinity,
+                                          height: 112),
+                                      const SizedBox(height: 7),
+                                      Row(children: [
+                                        Icon(placeKeywordIcon(place.keyword),
+                                            size: 13,
+                                            color: AppDesign.primaryText),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                            child: Text(place.keyword,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppDesign
+                                                        .secondaryText))),
+                                      ]),
+                                      const SizedBox(height: 3),
+                                      Text(place.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700)),
+                                      const SizedBox(height: 3),
+                                      Text(place.address,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontSize: 10,
+                                              color: AppDesign.secondaryText)),
+                                    ]),
+                              ));
+                        });
                   }),
               const SizedBox(height: 18),
               ReferenceCard(
