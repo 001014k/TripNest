@@ -5,8 +5,6 @@ import '../../services/community/story_saved_places.dart';
 import '../../widgets/community/community_feed_skeleton.dart';
 import '../../widgets/community/community_marker_picker.dart';
 import '../../widgets/community/nearby_location_notice.dart';
-import '../../services/community/community_nearby_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../widgets/places/place_keyword_icon.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../widgets/community/story_actions.dart';
@@ -47,15 +45,16 @@ class _CommunityBoardBody extends StatefulWidget {
 class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
   int _tab = 0;
   String _topic = '전체';
-  final _nearby = CommunityNearbyService();
-  Map<String, double> _distances = {};
   int _nearbyRequest = 0;
   bool _locating = false;
   String? _locationError;
   Future<void> _selectTab(int tab) async {
     final vm = context.read<CommunityBoardViewModel>();
     StorySavedPlaces.refresh();
-    final reload = vm.loadPosts();
+    final reload = tab == 2
+        ? Future<void>.value()
+        : vm.filterPosts(
+            order: tab == 1 ? 'popular' : 'recent', category: '전체');
     final request = ++_nearbyRequest;
     setState(() {
       _tab = tab;
@@ -87,11 +86,11 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
               const LocationSettings(timeLimit: Duration(seconds: 15)));
       await reload;
       if (!mounted || request != _nearbyRequest) return;
-      final distances = await _nearby.distances(
-          vm.posts, LatLng(position.latitude, position.longitude));
-      if (mounted && request == _nearbyRequest) {
-        setState(() => _distances = distances);
-      }
+      await vm.filterPosts(
+          order: 'nearby',
+          category: '전체',
+          lat: position.latitude,
+          lng: position.longitude);
     } catch (_) {
       if (mounted && request == _nearbyRequest) {
         setState(
@@ -105,23 +104,7 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
     }
   }
 
-  List<CommunityPost> _filtered(CommunityBoardViewModel vm) {
-    final posts = vm.posts.where((p) {
-      if (_tab == 2 &&
-          (_distances[p.id] == null || _distances[p.id]! > 20000)) {
-        return false;
-      }
-      return _matchesKeyword(p, _topic);
-    }).toList();
-    if (_tab == 1) {
-      posts.sort((a, b) =>
-          (vm.likeCounts[b.id] ?? 0).compareTo(vm.likeCounts[a.id] ?? 0));
-    }
-    if (_tab == 2) {
-      posts.sort((a, b) => _distances[a.id]!.compareTo(_distances[b.id]!));
-    }
-    return posts;
-  }
+  List<CommunityPost> _filtered(CommunityBoardViewModel vm) => vm.posts;
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +229,9 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
                       );
                     }
 
-                    if (viewModel.posts.isEmpty) {
+                    if (viewModel.posts.isEmpty &&
+                        _topic == '전체' &&
+                        _tab != 2) {
                       return _BoardMessage(
                         icon: Icons.edit_note_outlined,
                         message: '첫 여행 이야기를 남겨보세요',
@@ -263,8 +248,10 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
                               child: _TopicFilters(
                                   posts: viewModel.posts,
                                   selected: _topic,
-                                  onChanged: (topic) =>
-                                      setState(() => _topic = topic))),
+                                  onChanged: (topic) {
+                                    setState(() => _topic = topic);
+                                    viewModel.filterPosts(category: topic);
+                                  })),
                         if (posts.isEmpty)
                           SliverFillRemaining(
                               hasScrollBody: false,
@@ -300,6 +287,14 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
                                             padding: const EdgeInsets.only(bottom: 12),
                                             child: _PostCard(key: ValueKey(posts[i].id), post: posts[i])),
                                         childCount: posts.length))),
+                        if (viewModel.hasMorePosts)
+                          SliverToBoxAdapter(
+                              child: Center(
+                                  child: TextButton(
+                                      onPressed: viewModel.isLoading
+                                          ? null
+                                          : viewModel.loadMorePosts,
+                                      child: const Text('이전 이야기 더 보기')))),
                       ],
                     );
                   },
