@@ -173,8 +173,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                                               const HomeWeatherCard(),
                                             ],
                                           ),
-                                          const SizedBox(
-                                              height: AppDesign.spacing12),
+                                          const SizedBox(height: 4),
                                           HomeDateStrip(
                                               start: _dateStripStart,
                                               selected: _scheduleDate,
@@ -362,6 +361,10 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
               inline: true);
         }
         final items = [...?snapshot.data]
+            .where((item) =>
+                !DateUtils.isSameDay(_scheduleDate, DateTime.now()) ||
+                !item.endTime.isBefore(DateTime.now()))
+            .toList()
           ..sort((a, b) => a.startTime.compareTo(b.startTime));
         if (items.isEmpty) {
           return _summaryCard(
@@ -391,7 +394,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                   style:
                       AppDesign.bodySmall.copyWith(fontSize: 13, height: 1.5))
             ]),
-            item.title,
+            '${item.title}${items.length > 1 ? ' · 외 ${items.length - 1}개' : ''}',
             '참여자 ${item.collaboratorIds?.length ?? 0}명', () async {
           await Navigator.push(
               context,
