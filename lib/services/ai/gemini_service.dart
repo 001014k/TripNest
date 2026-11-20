@@ -1,3 +1,4 @@
+import '../places/place_lookup_repository.dart';
 import 'planner_prompts.dart';
 import 'package:http/http.dart' as http;
 import 'planner_usage.dart';
@@ -11,6 +12,7 @@ import '../../models/shared_links/instagram_place_source_model.dart';
 
 class GeminiService {
   late final GenerativeModel _model;
+  late final http.Client _placeClient;
   // Instagram 장소명 추출 전용 모델
   late final GenerativeModel _instagramModel;
   late ChatSession _chatSession;
@@ -22,10 +24,31 @@ class GeminiService {
   List<Map<String, dynamic>> get usageHistory =>
       _usageHistory.map((usage) => usage.toJson()).toList(growable: false);
 
-  //메모리 캐시
-  static final Map<String, Map<String, dynamic>> _placeCache = {};
+  // 한 답변을 생성하는 동안의 검증 결과만 보관합니다.
+  final Map<String, Map<String, dynamic>> _placeCache = {};
+  final Map<String, Future<Map<String, dynamic>>> _placePending = {};
+  Map<String, dynamic>? verifiedPlace(String title, String address) {
+    for (final place in _placeCache.values) {
+      if (place['found'] == true &&
+          place['placeName'] == title &&
+          place['address'] == address) {
+        return place;
+      }
+    }
+    return null;
+  }
 
-  Future<Map<String, dynamic>> _executeFunctionCall(FunctionCall call) async {
+  Future<Map<String, dynamic>> _executeFunctionCall(FunctionCall call) {
+    final key =
+        '${call.name}:${call.args['placeName']?.toString().trim().toLowerCase()}';
+    return _placePending.putIfAbsent(
+        key,
+        () => _searchFunctionCall(call).whenComplete(() {
+              _placePending.remove(key);
+            }));
+  }
+
+  Future<Map<String, dynamic>> _searchFunctionCall(FunctionCall call) async {
     if (call.name == 'searchGoogleMaps') {
       final placeName = (call.args['placeName'] as String).trim().toLowerCase();
 
@@ -48,26 +71,28 @@ class GeminiService {
           'found': false,
           'message': 'Google Maps API Key가 설정되지 않았습니다.',
         };
-        _placeCache[placeName] = result;
         return result;
       }
 
       final uri = Uri.https('places.googleapis.com', '/v1/places:searchText');
 
       try {
-        final response = await ServerApiClient().post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': googleMapsApiKey,
-            'X-Goog-FieldMask':
-                'places.displayName,places.formattedAddress,places.location,places.editorialSummary,places.types',
-          },
-          body: jsonEncode({
-            'textQuery': placeName,
-            'languageCode': 'ko',
-          }),
-        );
+        final response = await _placeClient
+            .post(
+              uri,
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': googleMapsApiKey,
+                'X-Goog-FieldMask':
+                    'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.types',
+              },
+              body: jsonEncode({
+                'textQuery': placeName,
+                'maxResultCount': 1,
+                'languageCode': 'ko',
+              }),
+            )
+            .timeout(const Duration(seconds: 15));
 
         final json = jsonDecode(response.body);
 
@@ -92,7 +117,15 @@ class GeminiService {
             }
 
             if (kDebugMode) debugPrint('✅ Place found: $name at $address');
+            final id = place['id'];
+            if (id is String) {
+              PlaceLookupRepository.shared.rememberId('$name $address', id);
+              PlaceLookupRepository.shared.rememberId(placeName, id);
+            }
             result = {
+              'placeId': id,
+              'location': place['location'],
+              'rating': place['rating'],
               'placeName': name,
               'found': true,
               'address': address,
@@ -119,7 +152,7 @@ class GeminiService {
           };
         }
 
-        _placeCache[placeName] = result; // 캐싱 추가
+        if (result['found'] == true) _placeCache[placeName] = result;
         return result;
       } catch (e) {
         if (kDebugMode) debugPrint('❌ Network or parsing error: $e');
@@ -128,7 +161,6 @@ class GeminiService {
           'found': false,
           'message': '네트워크 또는 파싱 오류: $e',
         };
-        _placeCache[placeName] = result;
         return result;
       }
     }
@@ -136,6 +168,7 @@ class GeminiService {
   }
 
   GeminiService._internal({http.Client? client}) {
+    _placeClient = client ?? ServerApiClient();
     final String apiKey = 'server-managed';
 
     if (apiKey.isEmpty || apiKey == 'your-actual-gemini-api-key-here') {
@@ -361,20 +394,22 @@ $content
       {String menu = 'freeform'}) async* {
     // 싱글턴에서 동시 요청의 사용량이나 대화 기록이 서로 섞이지 않도록 합니다.
     if (_activeUsage != null) {
-      yield '이전 요청이 정리되는 중이에요. 잠시 후 다시 시도해주세요.';
-      return;
+      throw StateError('이전 요청이 정리되는 중입니다.');
     }
+    _placeCache.clear();
     final usage = PlannerUsage(menu);
     _activeUsage = usage;
     final version = _sessionVersion;
     _trimHeavyHistory();
     final session = _chatSession;
+    final previousHistory = session.history.toList();
 
     const int maxFunctionCallRounds = 4; // 함수 호출이 계속 이어질 때의 안전장치
 
     try {
       Content nextMessage = Content.text(message);
       int round = 0;
+      final searched = <String>{};
 
       while (true) {
         round++;
@@ -383,8 +418,7 @@ $content
             debugPrint('⚠️ 함수 호출 라운드 한도($maxFunctionCallRounds) 초과, 중단');
           }
           usage.status = 'round_limit';
-          yield '\n죄송합니다. 조건에 맞는 장소를 찾지 못했어요. 다른 지역이나 키워드로 다시 시도해 주세요.';
-          break;
+          throw StateError('장소 검색 한도에 도달했습니다.');
         }
 
         if (version != _sessionVersion) {
@@ -419,6 +453,7 @@ $content
         }
 
         if (pendingCalls.isEmpty) {
+          if (!emittedAnyText) throw StateError('빈 AI 응답입니다.');
           // 이번 라운드에서 함수 호출 없이 끝났다면 최종 응답으로 간주하고 종료
           if (!emittedAnyText && kDebugMode) {
             debugPrint('⚠️ 텍스트도 함수 호출도 없는 빈 응답 (round $round)');
@@ -434,6 +469,12 @@ $content
         // 다음 라운드로 넘어가기 위해 함수 실행 후 결과를 준비
         usage.toolCalls += pendingCalls.length;
         final futures = pendingCalls.map((call) async {
+          final key = '${call.name}:${call.args['placeName']}';
+          if (!searched.contains(key) && searched.length >= 5) {
+            return FunctionResponse(call.name,
+                {'found': false, 'message': '이번 요청의 장소 검색 한도에 도달했습니다.'});
+          }
+          searched.add(key);
           final result = await _executeFunctionCall(call);
           return FunctionResponse(call.name, result);
         }).toList();
@@ -447,9 +488,12 @@ $content
     } catch (e) {
       usage.status = 'error';
       if (kDebugMode) debugPrint('❌ 스트리밍 오류: $e');
-      yield '죄송합니다. 답변을 생성하는 중에 오류가 발생했습니다.\n잠시 후 다시 시도해주세요.';
+      rethrow;
     } finally {
       if (usage.status == 'running') usage.status = 'cancelled';
+      if (usage.status != 'completed' && version == _sessionVersion) {
+        _chatSession = _model.startChat(history: previousHistory);
+      }
       _usageHistory.add(usage);
       if (_usageHistory.length > 100) _usageHistory.removeAt(0);
       _activeUsage = null;
