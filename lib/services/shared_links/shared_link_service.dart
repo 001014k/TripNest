@@ -4,7 +4,9 @@ import '../../models/shared_links/link_place_preview_model.dart';
 import '../../models/shared_links/shared_link_model.dart';
 
 class SharedLinkService {
-  final SupabaseClient _client = Supabase.instance.client;
+  SharedLinkService({SupabaseClient? client})
+      : _client = client ?? Supabase.instance.client;
+  final SupabaseClient _client;
 
   Future<void> saveSharedLinkPlace(
     String url,
@@ -32,19 +34,37 @@ class SharedLinkService {
     });
   }
 
-  Future<List<SharedLinkModel>> loadSharedLinks() async {
+  Future<List<SharedLinkModel>> loadSharedLinks() => loadSharedLinksPage();
+
+  Future<List<SharedLinkModel>> loadSharedLinksPage(
+      {SharedLinkModel? before, String search = '', String? platform}) async {
     final user = _client.auth.currentUser;
-    if (user == null) throw Exception("로그인이 필요합니다");
-
-    final response = await _client
-        .from('shared_links')
-        .select()
-        .eq('user_id', user.id)
-        .order('created_at', ascending: false);
-
-    final list = response.map((e) => SharedLinkModel.fromMap(e)).toList();
-
-    return list;
+    if (user == null) throw StateError('로그인이 필요합니다.');
+    var query = _client.from('shared_links').select().eq('user_id', user.id);
+    final filters = <String>[];
+    if (search.trim().isNotEmpty) {
+      final escaped = search
+          .trim()
+          .replaceAll('\\', '\\\\')
+          .replaceAll('"', '\\"')
+          .replaceAll('%', r'\%')
+          .replaceAll('_', r'\_')
+          .replaceAll('*', r'\*');
+      filters.add(
+          'or(place_title.ilike."%$escaped%",place_address.ilike."%$escaped%",url.ilike."%$escaped%")');
+    }
+    if (platform != null) query = query.eq('platform', platform);
+    if (before != null) {
+      final date = before.createdAt.toIso8601String();
+      filters.add(
+          'or(created_at.lt.$date,and(created_at.eq.$date,id.lt.${before.id}))');
+    }
+    if (filters.isNotEmpty) query = query.or('and(${filters.join(',')})');
+    final response = await query
+        .order('created_at', ascending: false)
+        .order('id', ascending: false)
+        .limit(40);
+    return response.map(SharedLinkModel.fromMap).toList();
   }
 
   /// 하나의 공유 원본 URL에서 추출된 모든 장소를 반환합니다.
