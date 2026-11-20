@@ -1,3 +1,4 @@
+import '../../services/infrastructure/paged_rows.dart';
 import '../../services/map/map_route_repository.dart';
 import '../../services/lists/list_access_service.dart';
 import 'dart:async';
@@ -54,8 +55,14 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data =
-          await supabase.from('user_markers').select().eq('user_id', user.id);
+      final data = await loadRowsById(
+          () => supabase
+              .from('user_markers')
+              .select('id,title,address,keyword,lat,lng')
+              .eq('user_id', user.id),
+          isCancelled: () => _accountDisposed);
+      if (_accountDisposed || supabase.auth.currentUser?.id != user.id) return;
+      _markerKeywords.clear();
 
       final loadedMarkers = (data as List<dynamic>)
           .map((json) {
