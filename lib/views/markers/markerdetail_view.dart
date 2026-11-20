@@ -433,11 +433,21 @@ class _ReferencePlaceHeroState extends State<_ReferencePlaceHero> {
                 builder: (context, snapshot) {
                   final photos = snapshot.data ?? [];
                   return Stack(fit: StackFit.expand, children: [
-                    if (photos.isEmpty)
+                    if (snapshot.connectionState != ConnectionState.done)
                       const ColoredBox(
                           color: AppDesign.lightGray,
-                          child: Icon(Icons.photo_outlined,
-                              size: 40, color: AppDesign.subtleText))
+                          child: Center(child: CircularProgressIndicator()))
+                    else if (snapshot.hasError ||
+                        widget.vm.placeDetailsError != null)
+                      Center(
+                          child: TextButton.icon(
+                              onPressed: widget.vm.retryPlaceDetails,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('사진 다시 불러오기')))
+                    else if (photos.isEmpty)
+                      const ColoredBox(
+                          color: AppDesign.lightGray,
+                          child: Center(child: Text('등록된 장소 사진이 없어요.')))
                     else
                       PageView.builder(
                           controller: widget.controller,
