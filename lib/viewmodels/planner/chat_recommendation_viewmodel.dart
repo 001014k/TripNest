@@ -1,3 +1,8 @@
+import '../../models/planner/trip_history_controller.dart';
+import 'dart:convert';
+import '../../services/ai/trip_draft_store.dart';
+import 'package:uuid/uuid.dart';
+import '../../services/ai/trip_history_repository.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart'; // 위치 정보 사용 시 필요
@@ -7,14 +12,60 @@ import '../../services/places/places_service.dart';
 
 class ChatRecommendationViewModel extends ChangeNotifier {
   final GeminiService _geminiService;
+  final SupabaseClient? _client;
+  final TripDraftStore _draftStore;
+  SupabaseClient get _db => _client ?? Supabase.instance.client;
+
+  late final _tripRepository = TripHistoryRepository(_db);
+  TripHistoryController? _tripHistory;
+  TripHistoryController get tripHistory =>
+      _tripHistory ??= TripHistoryController(
+        loadPage: _tripRepository.list,
+        deleteRecord: (id) async {
+          await _tripRepository.delete(id);
+          await loadRecentRecommendations();
+        },
+      );
+  Future<TripRecord> fetchTripRecord(Object id) => _tripRepository.detail(id);
 
   bool _disposed = false;
   String _usageMenu = 'freeform';
   int _requestVersion = 0;
+  String _sessionId = const Uuid().v4();
+  int _sessionRevision = 0;
+  String? _sessionOwner;
+  String? _pendingOwner;
+  bool saveConflict = false;
+  List<Map<String, dynamic>> _recoveredDrafts = [];
+  List<Map<String, dynamic>> get recoveredDrafts => _recoveredDrafts
+      .where((draft) => draft['owner'] == _db.auth.currentUser?.id)
+      .toList(growable: false);
+  String? recoveryError;
+  String? saveError;
+  final Map<String, Map<String, dynamic>> _cleanupPending = {};
+  bool saving = false;
+  Map<String, dynamic>? _pendingSave;
+  String? _selectedCategory;
+  String get _category =>
+      _selectedCategory ??
+      switch (_usageMenu) {
+        'stay' => '스테이',
+        'theme' || 'nearby' || 'companion' => '여행',
+        _ => '기타',
+      };
   List<Map<String, dynamic>> get usageHistory => _geminiService.usageHistory;
 
   void _resetAiSession() {
     _requestVersion++;
+    _sessionId = const Uuid().v4();
+    _pendingSave = null;
+    _pendingOwner = null;
+    _sessionOwner = null;
+    _sessionRevision = 0;
+    saveConflict = false;
+    _selectedCategory = null;
+    saveError = null;
+    saving = false;
     isLoading = false;
     _usageMenu = 'freeform';
     _geminiService.resetChat();
@@ -23,6 +74,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _tripHistory?.dispose();
     _resetAiSession();
     super.dispose();
   }
@@ -37,8 +89,13 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     notifyListeners(); // UI 갱신 (Stage 1으로 복귀)
   }
 
-  ChatRecommendationViewModel({GeminiService? geminiService})
-      : _geminiService = geminiService ?? GeminiService();
+  ChatRecommendationViewModel(
+      {GeminiService? geminiService,
+      SupabaseClient? client,
+      TripDraftStore? draftStore})
+      : _client = client,
+        _draftStore = draftStore ?? TripDraftStore.shared,
+        _geminiService = geminiService ?? GeminiService();
 
   List<Map<String, String>> messages = [];
   bool isLoading = false;
@@ -59,16 +116,12 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
   // 초기화 시 호출하거나 사용자가 진입할 때 호출
   Future<void> loadRecentRecommendations() async {
-    final user = Supabase.instance.client.auth.currentUser;
+    final user = _db.auth.currentUser;
     if (user == null) return;
 
     try {
-      final response = await Supabase.instance.client
-          .from('ai_recommendations')
-          .select()
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false)
-          .limit(5);
+      final response =
+          await _tripRepository.list(const TripHistoryQuery(), limit: 5);
 
       if (_disposed) return;
       recentRecommendations = List<Map<String, dynamic>>.from(response);
@@ -82,6 +135,10 @@ class ChatRecommendationViewModel extends ChangeNotifier {
   void loadRecentRecommendation(Map<String, dynamic> record) {
     _resetAiSession();
     _usageMenu = 'history';
+    _sessionId = record['id'].toString();
+    _sessionOwner = _db.auth.currentUser?.id;
+    _sessionRevision = (record['revision'] as num?)?.toInt() ?? 1;
+    _restoredCategory = record['category']?.toString() ?? '기타';
     // 1. 화면 초기화 (Stage 1 -> Stage 2 전환 준비)
     _placesByMessage.clear();
     messages.clear();
@@ -91,44 +148,38 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     final String title = record['title'] ?? '과거 추천';
     final List<dynamic> savedPlaces = record['recommendation_data'] ?? [];
 
-    // 3. 메시지 스택 복구
-    // 사용자가 했던 질문 복구
-    messages.add({'role': 'user', 'text': title});
-
-    // AI가 했던 답변 형식으로 다시 구성 (또는 저장된 요약문이 있다면 그것을 사용)
-    String restoredResponse = savedPlaces.isEmpty ? '저장된 추천 장소가 없습니다.' : '';
-    for (var place in savedPlaces) {
-      restoredResponse += "📍 ${place['title']}\n${place['snippet'] ?? ''}\n\n";
+    final conversation = record['conversation'];
+    if (conversation is List && conversation.isNotEmpty) {
+      for (final entry in conversation.whereType<Map>()) {
+        final message = <String, String>{
+          'role': entry['role'].toString(),
+          'text': entry['text'].toString()
+        };
+        messages.add(message);
+        _placesByMessage[message] =
+            List<Map<String, dynamic>>.from(entry['places'] as List? ?? []);
+      }
+    } else {
+      messages.add({'role': 'user', 'text': title});
+      messages.add({
+        'role': 'bot',
+        'text': savedPlaces
+            .map((p) => "📍 ${p['title']}\n${p['snippet'] ?? ''}")
+            .join('\n\n')
+      });
+      _placesByMessage[messages.last] =
+          List<Map<String, dynamic>>.from(savedPlaces);
     }
-
-    messages.add({'role': 'bot', 'text': restoredResponse});
-    _geminiService.resetChat(history: [
-      Content.text(title),
-      Content.model([TextPart(restoredResponse)]),
-    ]);
-
-    // 4. 지도 마커 데이터 즉시 복구 (이게 핵심!)
-    // 이미 verifiedPlacesWithCoords 형태로 저장되어 있으므로 다시 API 호출할 필요 없음
+    _geminiService.resetChat(
+        history: messages
+            .map((m) => m['role'] == 'user'
+                ? Content.text(m['text']!)
+                : Content.model([TextPart(m['text']!)]))
+            .toList());
     pendingPlaces = List<Map<String, dynamic>>.from(savedPlaces);
-    _placesByMessage[messages.last] = List.of(pendingPlaces);
 
     // 5. UI 갱신 (vm.messages.isEmpty가 false가 되어 채팅창 Stage로 자동 전환됨)
     notifyListeners();
-  }
-
-  Future<List<Map<String, dynamic>>> fetchRecentRecommendations(
-      {int offset = 0}) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return [];
-
-    final response = await Supabase.instance.client
-        .from('ai_recommendations')
-        .select()
-        .eq('user_id', user.id)
-        .order('created_at', ascending: false)
-        .range(offset, offset + 19);
-
-    return List<Map<String, dynamic>>.from(response);
   }
 
   Future<void> _handleAiResponse(String fullResponse) async {
@@ -143,6 +194,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     final parsedPlacesData = parsePlaceDetailsFromResponse(fullResponse);
     if (parsedPlacesData.isEmpty) {
       if (kDebugMode) print('⚠️ 파싱된 장소 데이터가 없습니다.');
+      await _saveRecommendation(_lastUserQuery, pendingPlaces);
       return;
     }
 
@@ -150,10 +202,16 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     final placesService = PlacesService();
     final List<Map<String, dynamic>> verifiedPlacesWithCoords = [];
 
-    for (final parsedPlace in parsedPlacesData) {
+    for (final parsedPlace in parsedPlacesData.take(5)) {
       final placeTitle = parsedPlace['title'] as String;
-      final placeDetailsList =
-          await placesService.searchPlacesByKeyword(placeTitle);
+      final verified = _geminiService.verifiedPlace(
+          placeTitle, parsedPlace['address'] as String? ?? '');
+      final placeDetailsList = verified?['location'] != null
+          ? <Map<String, dynamic>>[
+              {'location': verified!['location'], 'rating': verified['rating']}
+            ]
+          : await placesService.searchPlacesByKeyword(
+              '$placeTitle ${parsedPlace['address'] ?? ''}');
       if (requestVersion != _requestVersion) return;
 
       if (placeDetailsList.isNotEmpty) {
@@ -181,9 +239,7 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     notifyListeners();
 
     // 4. DB 저장 (lastUserMessage 대신 _lastUserQuery 사용)
-    if (pendingPlaces.isNotEmpty) {
-      await _saveRecommendation(_lastUserQuery, pendingPlaces);
-    }
+    await _saveRecommendation(_lastUserQuery, pendingPlaces);
   }
 
   @visibleForTesting
@@ -316,9 +372,11 @@ class ChatRecommendationViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startNewSession(String mode, {String menu = 'freeform'}) {
+  void startNewSession(String mode,
+      {String menu = 'freeform', String? category}) {
     _resetAiSession();
     _usageMenu = menu;
+    _selectedCategory = category;
     _placesByMessage.clear();
     messages.clear();
     pendingPlaces.clear();
@@ -332,26 +390,226 @@ class ChatRecommendationViewModel extends ChangeNotifier {
 
   Future<void> _saveRecommendation(
       String title, List<Map<String, dynamic>> places) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null || places.isEmpty) return;
+    final owner = _db.auth.currentUser?.id;
+    if (owner == null || owner != _sessionOwner) return;
+    _pendingOwner = owner;
+    final successfulMessages =
+        messages.where((message) => message['failed'] != 'true').toList();
+    final savedMessages = successfulMessages
+        .skip(successfulMessages.length > _maxHistoryLength
+            ? successfulMessages.length - _maxHistoryLength
+            : 0)
+        .skipWhile((m) => m['role'] != 'user')
+        .toList();
+    final previousPlaces = savedMessages.reversed
+        .map((m) => _placesByMessage[m] ?? <Map<String, dynamic>>[])
+        .where((p) => p.isNotEmpty);
+    _pendingSave = {
+      'p_id': _sessionId,
+      'p_expected_revision': _sessionRevision,
+      'p_write_id': const Uuid().v4(),
+      'p_title': title,
+      'p_places': places.isNotEmpty
+          ? places
+          : (previousPlaces.isEmpty ? [] : previousPlaces.first),
+      'p_category': _usageMenu == 'history' ? _restoredCategory : _category,
+      'p_conversation': [
+        for (final m in savedMessages)
+          {...m, 'places': _placesByMessage[m] ?? []}
+      ],
+    };
+    await retrySave();
+  }
 
+  String _restoredCategory = '기타';
+  Future<void> loadPendingDrafts() async {
+    final owner = _db.auth.currentUser?.id;
+    if (owner == null) return;
     try {
-      await Supabase.instance.client.from('ai_recommendations').insert({
-        'user_id': user.id,
-        'title': title, // 예: userInput 또는 AI가 요약한 제목
-        'recommendation_data': places, // JSON 데이터로 저장
-      });
-      if (kDebugMode) print('✅ 추천 내역이 DB에 저장되었습니다.');
-    } catch (e) {
-      if (kDebugMode) print('❌ DB 저장 실패: $e');
+      for (final entry in _cleanupPending.entries.toList()) {
+        if (entry.value['owner'] != owner) continue;
+        await _draftStore.markSaved(
+            owner, entry.value['payload'] as Map<String, dynamic>);
+        await _draftStore.removeIfSaved(
+            owner, entry.value['payload'] as Map<String, dynamic>);
+        _cleanupPending.remove(entry.key);
+      }
+      final drafts = await _draftStore.list(owner);
+      if (_disposed || _db.auth.currentUser?.id != owner) return;
+      _recoveredDrafts = drafts;
+      recoveryError = null;
+    } catch (_) {
+      if (!_disposed && _db.auth.currentUser?.id == owner) {
+        recoveryError = _cleanupPending.isNotEmpty
+            ? '서버 저장은 완료됐어요. 기기의 임시 기록 정리를 다시 시도해주세요.'
+            : '기기의 미저장 기록을 확인하지 못했어요.';
+      }
     }
-    await loadRecentRecommendations();
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> restoreDraft(Map<String, dynamic> draft) async {
+    if (saving || isLoading || draft['owner'] != _db.auth.currentUser?.id) {
+      return;
+    }
+    final payload = Map<String, dynamic>.from(draft['payload'] as Map);
+    loadRecentRecommendation({
+      'id': payload['p_id'],
+      'title': payload['p_title'],
+      'category': payload['p_category'],
+      'recommendation_data': payload['p_places'],
+      'conversation': payload['p_conversation'],
+      'revision': payload['p_expected_revision'],
+    });
+    _pendingOwner = draft['owner'] as String;
+    _pendingSave = payload;
+    await retrySave();
+  }
+
+  Future<void> showLatestConflict() async {
+    final payload = _pendingSave;
+    if (payload == null ||
+        !saveConflict ||
+        _pendingOwner != _db.auth.currentUser?.id) {
+      return;
+    }
+    final version = _requestVersion;
+    try {
+      final latest = await _tripRepository.detail(payload['p_id']);
+      if (_disposed || version != _requestVersion) return;
+      loadRecentRecommendation(latest);
+      await loadPendingDrafts();
+    } catch (_) {
+      if (!_disposed && version == _requestVersion) {
+        saveError = '최신 기록을 열 수 없어요. 내 답변은 별도 기록으로 저장할 수 있어요.';
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> saveConflictAsCopy() async {
+    final previous = _pendingSave;
+    final owner = _pendingOwner;
+    if (previous == null ||
+        owner == null ||
+        owner != _db.auth.currentUser?.id ||
+        saving ||
+        !saveConflict) {
+      return;
+    }
+    _sessionId = const Uuid().v4();
+    final copyId = _sessionId;
+    final version = _requestVersion;
+    _sessionRevision = 0;
+    _pendingSave = {
+      ...previous,
+      'p_id': _sessionId,
+      'p_expected_revision': 0,
+      'p_write_id': const Uuid().v4()
+    };
+    saveConflict = false;
+    await retrySave();
+    if (!_disposed &&
+        version == _requestVersion &&
+        _sessionId == copyId &&
+        _sessionRevision > 0 &&
+        _pendingSave == null) {
+      await _cleanupSavedDraft(owner, previous);
+      await loadPendingDrafts();
+    }
+  }
+
+  Future<void> retrySave() async {
+    final original = _pendingSave;
+    final owner = _pendingOwner;
+    if (original == null ||
+        owner == null ||
+        owner != _db.auth.currentUser?.id ||
+        saving) {
+      return;
+    }
+    final payload =
+        Map<String, dynamic>.from(jsonDecode(jsonEncode(original)) as Map);
+    final version = _requestVersion;
+    saving = true;
+    saveError = null;
+    saveConflict = false;
+    notifyListeners();
+    var localSaved = false;
+    var serverSaved = false;
+    try {
+      await _draftStore.put(owner, payload);
+      localSaved = true;
+      await loadPendingDrafts();
+      if (_disposed ||
+          version != _requestVersion ||
+          owner != _db.auth.currentUser?.id) {
+        return;
+      }
+      final result = await _db.rpc('save_trip_session_v2', params: payload);
+      final savedRevision = (result['revision'] as num).toInt();
+      serverSaved = true;
+      if (!_disposed &&
+          version == _requestVersion &&
+          owner == _db.auth.currentUser?.id) {
+        _sessionRevision = savedRevision;
+        _pendingSave = null;
+      }
+      // 다른 화면으로 이동했더라도 확인된 쓰기만 임시 저장에서 제거합니다.
+      await _cleanupSavedDraft(owner, payload);
+      if (!_disposed && owner == _db.auth.currentUser?.id) {
+        await loadPendingDrafts();
+      }
+      if (_disposed ||
+          version != _requestVersion ||
+          owner != _db.auth.currentUser?.id) {
+        return;
+      }
+      _sessionRevision = savedRevision;
+      _pendingSave = null;
+      await loadPendingDrafts();
+      await loadRecentRecommendations();
+      if (!_disposed && version == _requestVersion && _tripHistory != null) {
+        await _tripHistory!.refresh(since: _tripHistory!.since);
+      }
+    } catch (error) {
+      if (!_disposed &&
+          version == _requestVersion &&
+          owner == _db.auth.currentUser?.id) {
+        if (serverSaved) {
+          recoveryError = '서버 저장은 완료됐어요. 기록 목록을 다시 불러와주세요.';
+          return;
+        }
+        saveConflict = error is PostgrestException &&
+            error.message.contains('TRIP_SESSION_CONFLICT');
+        saveError = saveConflict
+            ? '다른 기기에서 변경되었거나 삭제된 기록이에요. 내 답변은 기기에 보관했어요.'
+            : localSaved
+                ? '서버에 저장하지 못했어요. 답변은 이 기기에 보관했어요.'
+                : '기기에 임시 저장하지 못했어요. 화면을 닫기 전에 다시 시도해주세요.';
+      }
+    } finally {
+      if (!_disposed && version == _requestVersion) {
+        saving = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> sendMessage(String userInput,
       {bool isNearbySearch = false}) async {
-    if (userInput.trim().isEmpty || isLoading) return;
+    if (userInput.trim().isEmpty || isLoading || saving) return;
+    _sessionOwner ??= _db.auth.currentUser?.id;
+    if (_sessionOwner != _db.auth.currentUser?.id) return;
     final requestVersion = _requestVersion;
+    if (_pendingSave != null) {
+      if (!await prepareNextMessage() ||
+          requestVersion != _requestVersion ||
+          _disposed) {
+        return;
+      }
+    }
+    if (isLoading || saving) return;
 
     // 사용자 질문 저장 (DB 타이틀용)
     _lastUserQuery = userInput;
@@ -401,7 +659,19 @@ class ChatRecommendationViewModel extends ChangeNotifier {
       await _handleAiResponse(fullResponse);
     } catch (e) {
       if (requestVersion != _requestVersion) return;
-      messages.add({'role': 'bot', 'text': '죄송합니다. 오류가 발생했습니다. ($e)'});
+      final userIndex = messages.lastIndexWhere((m) => m['role'] == 'user');
+      for (var i = userIndex; i >= 0 && i < messages.length; i++) {
+        messages[i]['failed'] = 'true';
+      }
+      if (messages.isNotEmpty && messages.last['role'] == 'bot') {
+        messages.last['text'] = '답변을 완료하지 못했어요. 다시 질문해주세요.';
+      } else {
+        messages.add({
+          'role': 'bot',
+          'text': '답변을 완료하지 못했어요. 다시 질문해주세요.',
+          'failed': 'true'
+        });
+      }
     } finally {
       if (requestVersion == _requestVersion) {
         isLoading = false;
@@ -411,6 +681,29 @@ class ChatRecommendationViewModel extends ChangeNotifier {
   }
 
   // 히스토리 길이 제한
+  Future<bool> prepareNextMessage() async {
+    if (_disposed || isLoading || saving) return false;
+    final version = _requestVersion;
+    if (_pendingSave != null) {
+      if (saveConflict) return false;
+      await retrySave();
+    }
+    return !_disposed && version == _requestVersion && _pendingSave == null;
+  }
+
+  Future<void> _cleanupSavedDraft(
+      String owner, Map<String, dynamic> payload) async {
+    final key = '$owner:${payload['p_write_id']}';
+    _cleanupPending[key] = {'owner': owner, 'payload': payload};
+    try {
+      await _draftStore.markSaved(owner, payload);
+      await _draftStore.removeIfSaved(owner, payload);
+      _cleanupPending.remove(key);
+    } catch (_) {
+      recoveryError = '서버 저장은 완료됐어요. 기기의 임시 기록 정리를 다시 시도해주세요.';
+    }
+  }
+
   void _trimHistory() {
     if (messages.length > _maxHistoryLength) {
       messages.removeRange(0, messages.length - _maxHistoryLength);
