@@ -10,16 +10,17 @@ class ScheduleService {
   static Listenable get changes => _changes;
 
   Future<List<ScheduleModel>> fetchByDate(DateTime date) async {
-    final start =
-        DateTime(date.year, date.month, date.day, 0, 0, 0).toUtc().toIso8601String();
+    final start = DateTime(date.year, date.month, date.day, 0, 0, 0)
+        .toUtc()
+        .toIso8601String();
     final end =
-        DateTime(date.year, date.month, date.day, 23, 59, 59).toUtc().toIso8601String();
+        DateTime(date.year, date.month, date.day + 1).toUtc().toIso8601String();
 
     final data = await _supabase
         .from('schedules')
         .select()
-        .gte('start_time', start)
-        .lte('start_time', end)
+        .lt('start_time', end)
+        .gt('end_time', start)
         .order('start_time');
 
     // data는 List<dynamic> 타입이므로 타입캐스트 후 반환
@@ -33,7 +34,7 @@ class ScheduleService {
     final data = await _supabase
         .from('schedules')
         .select()
-        .gte('start_time', start.toUtc().toIso8601String())
+        .gt('end_time', start.toUtc().toIso8601String())
         .lte('start_time', end.toUtc().toIso8601String())
         .order('start_time');
 
@@ -51,7 +52,7 @@ class ScheduleService {
     if (schedules.isEmpty) return;
     await _supabase
         .from('schedules')
-        .insert(schedules.map((schedule) => schedule.toJson()).toList());
+        .upsert(schedules.map((schedule) => schedule.toJson()).toList());
     _changes.value++;
   }
 
