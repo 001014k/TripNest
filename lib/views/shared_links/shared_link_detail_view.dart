@@ -163,6 +163,7 @@ class _SharedLinkDetailViewState extends State<SharedLinkDetailView> {
                     itemCount: placesWithAddress.length,
                     itemBuilder: (context, index) {
                       final place = placesWithAddress[index];
+                      _viewModel.requestRating(place);
                       return _ExtractedPlaceCard(
                         key: ValueKey(
                             place.id ?? '${place.url}-${place.placeAddress}'),
