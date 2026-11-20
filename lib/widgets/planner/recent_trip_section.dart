@@ -1,21 +1,48 @@
+import 'dart:async';
+import '../common/reference_design.dart' show ReferenceCalendar;
+import '../common/app_overlays.dart';
+import '../places/address_photo_preview.dart';
 import 'package:flutter/material.dart';
+import '../../models/planner/trip_history_controller.dart';
+export '../../models/planner/trip_history_controller.dart';
 
 import '../../design/app_design.dart';
+import '../navigation/tripnest_navigation.dart' show TripNestHeader;
 
-typedef TripRecord = Map<String, dynamic>;
-typedef TripPageLoader = Future<List<TripRecord>> Function(int offset);
-
-class RecentTripSection extends StatelessWidget {
-  const RecentTripSection({
-    super.key,
-    required this.latest,
-    required this.loadPage,
-    required this.onSelect,
-  });
-
+class RecentTripSection extends StatefulWidget {
+  const RecentTripSection(
+      {super.key,
+      required this.latest,
+      required this.history,
+      required this.loadRecord,
+      required this.onSelect,
+      this.onNew});
+  final VoidCallback? onNew;
   final TripRecord latest;
-  final TripPageLoader loadPage;
+  final TripHistoryController history;
+  final Future<TripRecord> Function(Object id) loadRecord;
   final ValueChanged<TripRecord> onSelect;
+  @override
+  State<RecentTripSection> createState() => _RecentTripSectionState();
+}
+
+class _RecentTripSectionState extends State<RecentTripSection> {
+  bool _opening = false;
+  Future<void> _openLatest() async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      final record = await widget.loadRecord(widget.latest['id']);
+      if (mounted) widget.onSelect(record);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('기록을 열지 못했어요. 다시 시도해주세요.')));
+      }
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Column(
@@ -23,21 +50,24 @@ class RecentTripSection extends StatelessWidget {
         children: [
           Row(children: [
             const Expanded(
-              child: Text('최근 여행 계획', style: AppDesign.headingSmall),
-            ),
+                child: Text('최근 여행 계획', style: AppDesign.headingSmall)),
             TextButton(
-              onPressed: () async {
-                final record = await Navigator.of(context).push<TripRecord>(
-                  MaterialPageRoute(
-                    builder: (_) => _TripHistoryScreen(loadPage: loadPage),
-                  ),
-                );
-                if (context.mounted && record != null) onSelect(record);
-              },
-              child: const Text('전체 보기'),
-            ),
+                onPressed: _opening
+                    ? null
+                    : () async {
+                        final record =
+                            await Navigator.of(context, rootNavigator: true)
+                                .push<TripRecord>(MaterialPageRoute(
+                                    builder: (_) => _TripHistoryScreen(
+                                        history: widget.history,
+                                        loadRecord: widget.loadRecord,
+                                        onNew: widget.onNew)));
+                        if (mounted && record != null) widget.onSelect(record);
+                      },
+                child: const Text('전체 보기')),
           ]),
-          _TripRecordCard(record: latest, onTap: () => onSelect(latest)),
+          if (_opening) const LinearProgressIndicator(),
+          _TripRecordCard(record: widget.latest, onTap: _openLatest),
         ],
       );
 }
@@ -96,149 +126,350 @@ class _TripRecordCard extends StatelessWidget {
 }
 
 class _TripHistoryScreen extends StatefulWidget {
-  const _TripHistoryScreen({required this.loadPage});
-  final TripPageLoader loadPage;
-
+  const _TripHistoryScreen(
+      {required this.history, required this.loadRecord, this.onNew});
+  final VoidCallback? onNew;
+  final TripHistoryController history;
+  final Future<TripRecord> Function(Object id) loadRecord;
   @override
   State<_TripHistoryScreen> createState() => _TripHistoryScreenState();
 }
 
 class _TripHistoryScreenState extends State<_TripHistoryScreen> {
-  final _records = <TripRecord>[];
-  bool _loading = false;
-  bool _hasMore = true;
-  bool _failed = false;
+  TripHistoryController get history => widget.history;
+  List<TripRecord> get _records => history.records;
+  bool get _loading => history.loading;
+  bool get _failed => history.failed;
+  bool get _hasMore => history.hasMore;
+  late final ScrollController _scroll;
+  late final TextEditingController _search;
+  Timer? _debounce;
+  bool _opening = false;
+  final _deleting = <Object>{};
+  bool _oldest = false;
+  String _category = '전체';
+  List<TripRecord> get _visible {
+    final rows = _records
+        .where((r) =>
+            _category == '전체' || _TripHistoryEntry(r).category == _category)
+        .toList();
+    rows.sort((a, b) {
+      final comparison = (b['created_at']?.toString() ?? '')
+          .compareTo(a['created_at']?.toString() ?? '');
+      return comparison;
+    });
+    if (_oldest && rows.length > 1) {
+      return [rows.first, ...rows.skip(1).toList().reversed];
+    }
+    return rows;
+  }
+
+  Future<void> _completePages() async {
+    while (mounted && history.hasMore && !history.loading) {
+      await history.loadMore();
+      if (history.failed) break;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadMore();
+    _scroll = ScrollController(initialScrollOffset: history.scrollOffset);
+    _search = TextEditingController(text: history.search);
+    history.addListener(_changed);
+    _scroll.addListener(_rememberScroll);
+    if (!history.initialized) history.loadMore();
   }
 
-  Future<void> _loadMore() async {
-    if (_loading) return;
-    setState(() {
-      _loading = true;
-      _failed = false;
-    });
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  void _rememberScroll() {
+    history.scrollOffset = _scroll.offset;
+  }
+
+  Future<void> _loadMore() => history.loadMore();
+
+  Future<void> _filter({DateTime? since}) async {
+    _debounce?.cancel();
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    await history.refresh(search: _search.text.trim(), since: since);
+    if (_category != '전체' || _oldest) await _completePages();
+  }
+
+  Future<void> _select(TripRecord record) async {
+    if (_opening || _deleting.contains(record['id'])) return;
+    setState(() => _opening = true);
     try {
-      final page = await widget.loadPage(_records.length);
-      if (!mounted) return;
-      setState(() {
-        _records.addAll(page);
-        _hasMore = page.length == 20;
-      });
+      final detail = await widget.loadRecord(record['id']);
+      if (mounted) Navigator.of(context).pop(detail);
     } catch (_) {
-      if (mounted) setState(() => _failed = true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('기록을 열지 못했어요. 다시 시도해주세요.')));
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _opening = false);
     }
   }
 
-  void _select(TripRecord record) => Navigator.of(context).pop(record);
+  Future<void> _delete(TripRecord record) async {
+    final id = record['id'];
+    if (_opening || _deleting.contains(id)) return;
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+                title: const Text('여행 계획 기록을 삭제할까요?'),
+                content: const Text('이 기록은 복구할 수 없어요. 지도에 저장한 장소는 유지됩니다.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('취소')),
+                  FilledButton(
+                      style: FilledButton.styleFrom(
+                          backgroundColor: AppDesign.travelStamp),
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text('삭제')),
+                ]));
+    if (confirmed != true || !mounted) return;
+    setState(() => _deleting.add(id));
+    try {
+      await history.remove(id);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('삭제하지 못했어요. 다시 시도해주세요.')));
+      }
+    } finally {
+      if (mounted) setState(() => _deleting.remove(id));
+    }
+  }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppDesign.primaryBg,
-        body: SafeArea(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            itemCount: _records.length + 2,
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return const Padding(
-                  padding: EdgeInsets.only(bottom: AppDesign.spacing24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('여행 계획 기록', style: AppDesign.headingLarge),
-                      SizedBox(height: AppDesign.spacing8),
-                      Text('저장한 여행 계획을 다시 이어보세요.', style: AppDesign.bodySmall),
-                    ],
+  void dispose() {
+    _debounce?.cancel();
+    history.removeListener(_changed);
+    _scroll.dispose();
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final records = _visible;
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F7FB),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 16, 14),
+              child: TripNestHeader(
+                onBack: () => Navigator.pop(context),
+                trailing: const SizedBox.shrink(),
+              ),
+            ),
+            Expanded(
+                child: RefreshIndicator(
+              onRefresh: () => _filter(since: history.since),
+              child: ListView(
+                controller: _scroll,
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  _header(),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    decoration: const BoxDecoration(
+                        color: Color(0xFFF7F7FB),
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(28))),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _filters(),
+                          if (_search.text.isNotEmpty)
+                            Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: TextField(
+                                    controller: _search,
+                                    decoration: const InputDecoration(
+                                        hintText: '지역·제목·테마 검색',
+                                        prefixIcon: Icon(Icons.search)),
+                                    onChanged: (_) {
+                                      _debounce?.cancel();
+                                      _debounce = Timer(
+                                          const Duration(milliseconds: 350),
+                                          () => _filter(since: history.since));
+                                    },
+                                    onSubmitted: (_) =>
+                                        _filter(since: history.since))),
+                          if (_opening) const LinearProgressIndicator(),
+                          const SizedBox(height: 14),
+                          if (records.isNotEmpty)
+                            _historyCard(records.first, featured: true),
+                          if (records.length > 1) ...[
+                            const SizedBox(height: 22),
+                            Row(children: [
+                              const Text('이전 기록',
+                                  style: AppDesign.headingSmall),
+                              const SizedBox(width: 6),
+                              Text('${records.length - 1}',
+                                  style: AppDesign.bodySmall),
+                              const Spacer(),
+                              PopupMenuButton<bool>(
+                                  tooltip: '기록 정렬',
+                                  onSelected: (value) async {
+                                    setState(() => _oldest = value);
+                                    if (value) await _completePages();
+                                  },
+                                  itemBuilder: (_) => const [
+                                        PopupMenuItem(
+                                            value: false, child: Text('최신순')),
+                                        PopupMenuItem(
+                                            value: true, child: Text('오래된순'))
+                                      ],
+                                  child: Padding(
+                                      padding: const EdgeInsets.all(10),
+                                      child: Row(children: [
+                                        const Icon(Icons.swap_vert, size: 17),
+                                        Text(_oldest ? '오래된순' : '최신순'),
+                                        const Icon(Icons.expand_more, size: 17)
+                                      ]))),
+                            ]),
+                            const SizedBox(height: 10),
+                            for (final record in records.skip(1))
+                              Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _historyCard(record)),
+                          ],
+                          _buildFooter(),
+                          if (records.isEmpty &&
+                              _records.isNotEmpty &&
+                              !_loading)
+                            const Text('선택한 분류의 기록이 없어요.',
+                                textAlign: TextAlign.center),
+                        ]),
                   ),
-                );
-              }
-              if (index <= _records.length) {
-                final record = _records[index - 1];
-                final entry = _TripHistoryEntry(record);
-                if (index == 1) {
-                  return _buildLatest(entry, () => _select(record));
-                }
-                return _buildHistoryRow(
-                  entry,
-                  first: index == 2,
-                  last: index == _records.length,
-                  onTap: () => _select(record),
-                );
-              }
-              return Padding(
-                padding: const EdgeInsets.only(top: AppDesign.spacing16),
-                child: _buildFooter(),
-              );
-            },
-          ),
+                ],
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _header() => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Flexible(
+                    child: Text('나의 여행 추천', style: AppDesign.headingLarge)),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: '보관 정책',
+                  onPressed: _showRetentionPolicy,
+                  icon: const Icon(Icons.info_outline_rounded,
+                      size: 20, color: AppDesign.label2),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text('저장한 여행 계획을 다시 이어보세요.', style: AppDesign.bodyMedium),
+            const SizedBox(height: 16),
+            _retentionNotice(),
+          ],
         ),
       );
 
-  Widget _buildLatest(_TripHistoryEntry entry, VoidCallback onTap) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-        boxShadow: AppDesign.softShadow,
-      ),
-      child: Material(
-        color: AppDesign.cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          side: const BorderSide(color: AppDesign.borderColor),
+  Widget _retentionNotice() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppDesign.secondaryBg,
+          border: Border.all(color: AppDesign.borderColor),
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppDesign.spacing16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Icon(Icons.history_rounded,
+                  size: 20, color: AppDesign.primary),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text.rich(
+                      TextSpan(children: [
+                        TextSpan(text: '최근 여행 계획 '),
+                        TextSpan(
+                            text: '11개 보관',
+                            style: TextStyle(color: AppDesign.primary)),
+                      ]),
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppDesign.label1)),
+                  const SizedBox(height: 5),
+                  const Text('새 계획을 저장하면 가장 오래된 기록이 자동 삭제돼요.',
+                      style: TextStyle(
+                          fontSize: 12, height: 1.5, color: AppDesign.label2)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+  void _showRetentionPolicy() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppDesign.secondaryBg,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              const Text('여행 계획 보관 정책', style: AppDesign.headingSmall),
+              const SizedBox(height: 20),
+              for (final item in [
+                (Icons.history_rounded, '최근 계획 1개와 이전 기록 10개를 보관해요.'),
+                (Icons.auto_delete_outlined, '새 계획 저장이 완료되면 오래된 기록부터 자동 삭제돼요.'),
+                (Icons.info_outline_rounded, '삭제된 AI 기록은 복구할 수 없어요.'),
+                (Icons.map_outlined, '지도에 따로 저장한 장소는 그대로 유지돼요.'),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.history_rounded, size: 14),
-                      SizedBox(width: AppDesign.spacing6),
-                      Flexible(
-                        child: Text('최근 여행 계획', style: AppDesign.bodySmall),
-                      ),
+                      Icon(item.$1, size: 20, color: AppDesign.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Text(item.$2, style: AppDesign.bodyMedium)),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: AppDesign.spacing12),
-              Text(entry.title, style: AppDesign.headingMedium),
-              const SizedBox(height: AppDesign.spacing4),
-              Text(entry.metadata, style: _TripHistoryEntry.metadataStyle),
-              const SizedBox(height: AppDesign.spacing16),
+              const SizedBox(height: 8),
               FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppDesign.primary,
-                  foregroundColor: AppDesign.whiteText,
-                  minimumSize: const Size(48, 44),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                  ),
-                ),
-                onPressed: onTap,
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(child: Text('이어보기')),
-                    SizedBox(width: AppDesign.spacing6),
-                    Icon(Icons.arrow_forward_rounded, size: 16),
-                  ],
-                ),
+                onPressed: () => Navigator.pop(sheetContext),
+                child: const Text('확인'),
               ),
             ],
           ),
@@ -247,69 +478,175 @@ class _TripHistoryScreenState extends State<_TripHistoryScreen> {
     );
   }
 
-  Widget _buildHistoryRow(
-    _TripHistoryEntry entry, {
-    required bool first,
-    required bool last,
-    required VoidCallback onTap,
-  }) {
-    const radius = Radius.circular(AppDesign.radiusMedium);
-    final row = Material(
-      color: AppDesign.cardBg,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: first ? radius : Radius.zero,
-          bottom: last ? radius : Radius.zero,
-        ),
-        side: const BorderSide(color: AppDesign.borderColor),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppDesign.secondaryBg,
-                  borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-                ),
-                child: Icon(entry.icon, size: 18, color: AppDesign.primary),
-              ),
-              const SizedBox(width: AppDesign.spacing12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(entry.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppDesign.bodyMedium),
-                    Text(entry.metadata,
-                        style: _TripHistoryEntry.metadataStyle),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppDesign.spacing8),
-              const Icon(Icons.chevron_right_rounded,
-                  size: 18, color: AppDesign.label2),
-            ],
+  Future<DateTime?> _pickHistoryDate() {
+    final today = DateUtils.dateOnly(DateTime.now());
+    var selected = history.since ?? today;
+    var month = DateTime(selected.year, selected.month);
+    return showAppSheet<DateTime>(
+      context: context,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => AppSheet(
+          title: '기록 조회 시작일',
+          subtitle: '선택한 날짜 이후에 저장한 추천을 보여드려요.',
+          footer: FilledButton(
+            onPressed: () => Navigator.pop(sheetContext, selected),
+            child: const Text('적용'),
           ),
+          children: [
+            ReferenceCalendar(
+              month: month,
+              selected: selected,
+              firstDate: DateTime(2000),
+              lastDate: today,
+              eventDays: const {},
+              onSelected: (date) => setSheetState(() {
+                selected = date;
+                month = DateTime(date.year, date.month);
+              }),
+              onMonthChanged: (date) => setSheetState(() => month = date),
+            ),
+          ],
         ),
       ),
     );
-    if (!first) return row;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: AppDesign.spacing24),
-        const Text('이전 기록', style: AppDesign.headingSmall),
-        const SizedBox(height: AppDesign.spacing12),
-        row,
-      ],
+  }
+
+  Widget _filters() => SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        ActionChip(
+            avatar: const Icon(Icons.calendar_month_outlined, size: 18),
+            label: Text(history.since == null
+                ? '전체 기간 ⌄'
+                : '${history.since!.month}/${history.since!.day} 이후'),
+            onPressed: () async {
+              final date = await _pickHistoryDate();
+              if (date != null && mounted) await _filter(since: date);
+            }),
+        if (history.since != null)
+          TextButton(onPressed: () => _filter(), child: const Text('기간 해제')),
+        const SizedBox(width: 10),
+        for (final item in [
+          ('전체', Icons.grid_view),
+          ('여행', Icons.flight_outlined),
+          ('스테이', Icons.bed_outlined),
+          ('맛집', Icons.restaurant_outlined),
+          ('기타', Icons.chat_bubble_outline)
+        ])
+          Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                  showCheckmark: false,
+                  selectedColor: AppDesign.primary,
+                  avatar: Icon(item.$2,
+                      size: 17,
+                      color: _category == item.$1
+                          ? Colors.white
+                          : AppDesign.primary),
+                  label: Text(item.$1,
+                      style: TextStyle(
+                          color: _category == item.$1
+                              ? Colors.white
+                              : AppDesign.primary)),
+                  selected: _category == item.$1,
+                  onSelected: (_) async {
+                    setState(() => _category = item.$1);
+                    if (_category != '전체') await _completePages();
+                  })),
+      ]));
+
+  Widget _historyCard(TripRecord record, {bool featured = false}) {
+    final entry = _TripHistoryEntry(record);
+    final busy = _opening || _deleting.contains(record['id']);
+    return Container(
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppDesign.borderColor),
+          boxShadow: AppDesign.softShadow),
+      child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: busy ? null : () => _select(record),
+            child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: IntrinsicHeight(
+                    child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                      ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox(
+                              width: featured ? 104 : 62,
+                              height: featured ? 140 : 68,
+                              child: _HistoryPhoto(
+                                  key: ValueKey(record['id']),
+                                  record: record,
+                                  scroll: _scroll,
+                                  height: featured ? 140 : 68))),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                            Row(children: [
+                              if (featured)
+                                const Expanded(
+                                    child: Text('◷ 최근 여행 계획',
+                                        style: AppDesign.caption))
+                              else
+                                Expanded(
+                                    child: Text(entry.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppDesign.bodyMedium.copyWith(
+                                            fontWeight: FontWeight.w600))),
+                              SizedBox(
+                                  width: 30,
+                                  height: 28,
+                                  child: PopupMenuButton<String>(
+                                      tooltip: '기록 관리',
+                                      enabled: !busy,
+                                      padding: EdgeInsets.zero,
+                                      icon: const Icon(Icons.more_horiz,
+                                          size: 20),
+                                      onSelected: (_) => _delete(record),
+                                      itemBuilder: (_) => const [
+                                            PopupMenuItem(
+                                                value: 'delete',
+                                                child: Text('기록 삭제'))
+                                          ])),
+                            ]),
+                            if (featured)
+                              Text(entry.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppDesign.bodyMedium
+                                      .copyWith(fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 4),
+                            Text(entry.metadata,
+                                style: _TripHistoryEntry.metadataStyle),
+                            const SizedBox(height: 8),
+                            if (featured) const Spacer(),
+                            if (featured)
+                              FilledButton(
+                                  onPressed:
+                                      busy ? null : () => _select(record),
+                                  style: FilledButton.styleFrom(
+                                      backgroundColor: AppDesign.primary,
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size(0, 36)),
+                                  child: const Text('이어보기  →'))
+                            else
+                              Row(children: [
+                                Icon(entry.icon, size: 14),
+                                const SizedBox(width: 4),
+                                Text(entry.category, style: AppDesign.caption)
+                              ]),
+                          ])),
+                    ]))),
+          )),
     );
   }
 
@@ -331,9 +668,12 @@ class _TripHistoryScreenState extends State<_TripHistoryScreen> {
       );
     }
     if (_records.isEmpty) {
-      return const Center(
-        child: Text('저장된 여행 계획이 없어요.', style: AppDesign.bodyMedium),
-      );
+      return Center(
+          child: Text(
+              history.search.isNotEmpty || history.since != null
+                  ? '조건에 맞는 여행 계획이 없어요.'
+                  : '저장된 여행 계획이 없어요.',
+              style: AppDesign.bodyMedium));
     }
     if (_hasMore) {
       return OutlinedButton(
@@ -347,7 +687,8 @@ class _TripHistoryScreenState extends State<_TripHistoryScreen> {
 
 class _TripHistoryEntry {
   _TripHistoryEntry(TripRecord record)
-      : rawTitle = record['title']?.toString().trim() ?? '',
+      : storedCategory = record['category']?.toString(),
+        rawTitle = record['title']?.toString().trim() ?? '',
         date = DateTime.tryParse(record['created_at']?.toString() ?? '')
             ?.toLocal();
 
@@ -356,14 +697,31 @@ class _TripHistoryEntry {
   static final metadataStyle =
       AppDesign.caption.copyWith(color: AppDesign.label2);
 
+  final String? storedCategory;
   final String rawTitle;
   final DateTime? date;
 
-  String get title =>
-      _menuTitle.firstMatch(rawTitle)?.group(1)?.trim() ??
-      (rawTitle.isEmpty ? '여행 계획' : rawTitle);
+  String get title {
+    final menu = _menuTitle.firstMatch(rawTitle)?.group(1)?.trim();
+    if (menu == null) return rawTitle.isEmpty ? '여행 계획' : rawTitle;
+    final details = rawTitle
+        .split('\n')
+        .where((line) => RegExp(r'^(지역|테마|동행|숙소|분위기):').hasMatch(line))
+        .map((line) => line.substring(line.indexOf(':') + 1).trim())
+        .where((value) => value.isNotEmpty);
+    return [menu, ...details].join(' · ');
+  }
 
-  IconData get icon => switch (title) {
+  String get category {
+    if (storedCategory != null) return storedCategory!;
+    if (title.contains('스테이') || title.contains('숙소')) return '스테이';
+    if (title.contains('맛집')) return '맛집';
+    if (title.contains('여행') || title.contains('명소')) return '여행';
+    return '기타';
+  }
+
+  IconData get icon =>
+      switch (_menuTitle.firstMatch(rawTitle)?.group(1)?.trim() ?? title) {
         '테마 여행' => Icons.explore_outlined,
         '스테이 & 무드' => Icons.bed_outlined,
         '근처 명소' => Icons.place_outlined,
@@ -378,9 +736,70 @@ class _TripHistoryEntry {
     final savedAt = date;
     final saved = savedAt == null
         ? '저장된 추천'
-        : '${savedAt.year}.${savedAt.month.toString().padLeft(2, '0')}.${savedAt.day.toString().padLeft(2, '0')} 저장';
+        : '${savedAt.year}.${savedAt.month.toString().padLeft(2, '0')}.${savedAt.day.toString().padLeft(2, '0')} ${savedAt.hour.toString().padLeft(2, '0')}:${savedAt.minute.toString().padLeft(2, '0')} 저장';
     return region == null
         ? saved
         : '${region == 'Seoul' ? '서울' : region} · $saved';
+  }
+}
+
+/// 화면에 보이는 기록만 기존 장소 사진 조회 경로로 불러옵니다.
+class _HistoryPhoto extends StatefulWidget {
+  const _HistoryPhoto(
+      {super.key,
+      required this.record,
+      required this.scroll,
+      required this.height});
+  final TripRecord record;
+  final ScrollController scroll;
+  final double height;
+  @override
+  State<_HistoryPhoto> createState() => _HistoryPhotoState();
+}
+
+class _HistoryPhotoState extends State<_HistoryPhoto> {
+  bool _visible = false;
+  @override
+  void initState() {
+    super.initState();
+    widget.scroll.addListener(_checkVisible);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkVisible());
+  }
+
+  void _checkVisible() {
+    if (!mounted || _visible) return;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return;
+    final top = box.localToGlobal(Offset.zero).dy;
+    if (top < MediaQuery.sizeOf(context).height && top + box.size.height > 0) {
+      setState(() => _visible = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scroll.removeListener(_checkVisible);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkVisible());
+    final saved = widget.record['recommendation_data'];
+    final first = saved is List && saved.isNotEmpty && saved.first is Map
+        ? saved.first as Map
+        : const {};
+    final title =
+        (widget.record['preview_title'] ?? first['title'] ?? '').toString();
+    final address =
+        (widget.record['preview_address'] ?? first['address'] ?? '').toString();
+    if (!_visible || (title.isEmpty && address.isEmpty)) {
+      return const ColoredBox(
+          color: AppDesign.lightGray,
+          child: Center(
+              child: Icon(Icons.photo_outlined, color: AppDesign.subtleText)));
+    }
+    return AddressPhotoPreview(
+        address: address, title: title, size: widget.height);
   }
 }
