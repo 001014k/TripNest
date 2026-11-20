@@ -23,105 +23,112 @@ class NotificationSettingsView extends StatelessWidget {
               ),
               Expanded(
                   child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 6),
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Padding(
-                                    padding:
-                                        EdgeInsets.symmetric(horizontal: 6),
-                                    child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text('알림 설정',
-                                              style: TextStyle(
-                                                  fontSize: 30,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Colors.black,
-                                                  letterSpacing: -1,
-                                                  height: 1.3)),
-                                          SizedBox(height: 8),
-                                          Text('필요한 여행 소식만 받아보세요.',
-                                              style: TextStyle(
-                                                  fontSize: 15,
-                                                  color: _secondary,
-                                                  height: 1.5)),
-                                        ])),
-                                const SizedBox(height: 28),
-                                const _SectionLabel(
-                                    label: '푸시 알림',
-                                    icon: Icons.notifications_none_rounded),
-                                const SizedBox(height: 14),
-                                if (vm.isLoading)
-                                  const _NotificationGroup(children: [
-                                    _NotificationSkeletonRow(),
-                                    _NotificationSkeletonRow(),
-                                    _NotificationSkeletonRow(),
-                                  ])
-                                else _NotificationGroup(children: [
-                                  _NotificationTile(
-                                      title: '새 마커 알림',
-                                      subtitle: '친구가 마커를 공유했을 때',
-                                      icon: Icons.location_on_outlined,
-                                      value: vm.pushNewMarker,
-                                      onChanged: (value) =>
-                                          vm.updatePushSetting(
-                                              'new_marker', value)),
-                                  _NotificationTile(
-                                      title: '리스트 업데이트',
-                                      subtitle: '함께 쓰는 리스트가 변경됐을 때',
-                                      icon: Icons.format_list_bulleted_rounded,
-                                      value: vm.pushListUpdate,
-                                      onChanged: (value) =>
-                                          vm.updatePushSetting(
-                                              'list_update', value)),
-                                  _NotificationTile(
-                                      title: '친구 요청',
-                                      subtitle: '새로운 친구 요청이 왔을 때',
-                                      icon: Icons.person_add_alt_outlined,
-                                      value: vm.pushFriendRequest,
-                                      onChanged: (value) =>
-                                          vm.updatePushSetting(
-                                              'friend_request', value)),
-                                ]),
-                                const SizedBox(height: 28),
-                                if (vm.pushConnectionMessage != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 20),
-                                    child: Text(vm.pushConnectionMessage!,
-                                        style: const TextStyle(
-                                            fontSize: 13,
-                                            color: _secondary,
-                                            height: 1.5)),
-                                  ),
-                                const _SectionLabel(
-                                    label: '계정 보안 알림',
-                                    icon: Icons.shield_outlined),
-                                const SizedBox(height: 14),
-                                if (vm.isLoading)
-                                  const _NotificationGroup(children: [_NotificationSkeletonRow()])
-                                else _NotificationGroup(children: [
-                                  _NotificationTile(
-                                      title: '보안 알림',
-                                      subtitle: vm.securityEmailDescription,
-                                      icon: Icons.verified_user_outlined,
-                                      value: vm.emailSecurity,
-                                      onChanged: (value) =>
-                                          vm.updateEmailSetting(
-                                              'security', value)),
-                                ]),
-                                const SizedBox(height: 16),
-                                const Padding(
-                                    padding:
-                                        EdgeInsets.symmetric(horizontal: 14),
-                                    child: Text('알림 설정은 변경 즉시 적용돼요.',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: _secondary,
-                                            height: 1.5))),
-                              ]),
-                        )),
+                                Text('알림 설정',
+                                    style: TextStyle(
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.black,
+                                        letterSpacing: -1,
+                                        height: 1.3)),
+                                SizedBox(height: 8),
+                                Text('필요한 여행 소식만 받아보세요.',
+                                    style: TextStyle(
+                                        fontSize: 15,
+                                        color: _secondary,
+                                        height: 1.5)),
+                              ])),
+                      const SizedBox(height: 28),
+                      if (vm.errorMessage != null)
+                        TextButton(
+                            onPressed: vm.loadSettings,
+                            child: Text(vm.errorMessage!)),
+                      const _SectionLabel(
+                          label: '푸시 알림',
+                          icon: Icons.notifications_none_rounded),
+                      const SizedBox(height: 14),
+                      if (vm.isLoading)
+                        const _NotificationGroup(children: [
+                          _NotificationSkeletonRow(),
+                          _NotificationSkeletonRow(),
+                          _NotificationSkeletonRow(),
+                        ])
+                      else
+                        _NotificationGroup(children: [
+                          _NotificationTile(
+                              title: '새 마커 알림',
+                              subtitle: '친구가 마커를 공유했을 때',
+                              icon: Icons.location_on_outlined,
+                              value: vm.pushNewMarker,
+                              onChanged: vm.pending.contains('new_marker')
+                                  ? null
+                                  : (value) => vm.updatePushSetting(
+                                      'new_marker', value)),
+                          _NotificationTile(
+                              title: '리스트 업데이트',
+                              subtitle: '함께 쓰는 리스트가 변경됐을 때',
+                              icon: Icons.format_list_bulleted_rounded,
+                              value: vm.pushListUpdate,
+                              onChanged: vm.pending.contains('list_update')
+                                  ? null
+                                  : (value) => vm.updatePushSetting(
+                                      'list_update', value)),
+                          _NotificationTile(
+                              title: '친구 요청',
+                              subtitle: '새로운 친구 요청이 왔을 때',
+                              icon: Icons.person_add_alt_outlined,
+                              value: vm.pushFriendRequest,
+                              onChanged: vm.pending.contains('friend_request')
+                                  ? null
+                                  : (value) => vm.updatePushSetting(
+                                      'friend_request', value)),
+                        ]),
+                      const SizedBox(height: 28),
+                      if (vm.pushConnectionMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          child: Text(vm.pushConnectionMessage!,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  color: _secondary,
+                                  height: 1.5)),
+                        ),
+                      const _SectionLabel(
+                          label: '계정 보안 알림', icon: Icons.shield_outlined),
+                      const SizedBox(height: 14),
+                      if (vm.isLoading)
+                        const _NotificationGroup(
+                            children: [_NotificationSkeletonRow()])
+                      else
+                        _NotificationGroup(children: [
+                          _NotificationTile(
+                              title: '보안 알림',
+                              subtitle: vm.securityEmailDescription,
+                              icon: Icons.verified_user_outlined,
+                              value: vm.emailSecurity,
+                              onChanged: vm.pending.contains('security')
+                                  ? null
+                                  : (value) =>
+                                      vm.updateEmailSetting('security', value)),
+                        ]),
+                      const SizedBox(height: 16),
+                      const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 14),
+                          child: Text('알림 설정은 변경 즉시 적용돼요.',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: _secondary,
+                                  height: 1.5))),
+                    ]),
+              )),
             ])),
           ),
         ),
@@ -181,7 +188,7 @@ class _NotificationTile extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
   const _NotificationTile(
       {required this.title,
       required this.subtitle,
@@ -225,14 +232,16 @@ class _NotificationTile extends StatelessWidget {
 class _NotificationSkeletonRow extends StatefulWidget {
   const _NotificationSkeletonRow();
   @override
-  State<_NotificationSkeletonRow> createState() => _NotificationSkeletonRowState();
+  State<_NotificationSkeletonRow> createState() =>
+      _NotificationSkeletonRowState();
 }
 
 class _NotificationSkeletonRowState extends State<_NotificationSkeletonRow>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 900));
-  late final Animation<double> _opacity = Tween<double>(begin: .4, end: 1).animate(_controller);
+  late final Animation<double> _opacity =
+      Tween<double>(begin: .4, end: 1).animate(_controller);
 
   @override
   void didChangeDependencies() {
@@ -252,26 +261,35 @@ class _NotificationSkeletonRowState extends State<_NotificationSkeletonRow>
   }
 
   Widget _block(double width, double height, {double radius = 6}) => Container(
-    width: width, height: height,
-    decoration: BoxDecoration(color: const Color(0xFFE8E9EC), borderRadius: BorderRadius.circular(radius)),
-  );
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+            color: const Color(0xFFE8E9EC),
+            borderRadius: BorderRadius.circular(radius)),
+      );
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: '알림 설정 불러오는 중',
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: FadeTransition(opacity: _opacity, child: Row(children: [
-        _block(28, 28),
-        const SizedBox(width: 16),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          FractionallySizedBox(widthFactor: .6, child: _block(double.infinity, 18)),
-          const SizedBox(height: 8),
-          _block(double.infinity, 12),
-        ])),
-        const SizedBox(width: 10),
-        _block(51, 31, radius: 20),
-      ])),
-    ),
-  );
+        label: '알림 설정 불러오는 중',
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          child: FadeTransition(
+              opacity: _opacity,
+              child: Row(children: [
+                _block(28, 28),
+                const SizedBox(width: 16),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      FractionallySizedBox(
+                          widthFactor: .6, child: _block(double.infinity, 18)),
+                      const SizedBox(height: 8),
+                      _block(double.infinity, 12),
+                    ])),
+                const SizedBox(width: 10),
+                _block(51, 31, radius: 20),
+              ])),
+        ),
+      );
 }
