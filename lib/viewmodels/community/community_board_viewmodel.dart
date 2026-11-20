@@ -62,16 +62,33 @@ class CommunityBoardViewModel extends ChangeNotifier {
   bool isLoadingMarkers = false;
   String? errorMessage;
 
+  String sort = 'recent', topic = '전체';
+  double? latitude, longitude;
+  String? _feedSnapshot;
+  int _feedAfter = 0;
   int _postsRequest = 0;
+  Future<void> filterPosts(
+      {String? order, String? category, double? lat, double? lng}) {
+    sort = order ?? sort;
+    topic = category ?? topic;
+    if (lat != null) latitude = lat;
+    if (lng != null) longitude = lng;
+    return loadPosts();
+  }
 
-  Future<void> loadPosts() async {
+  Map<String, dynamic>? _postCursor;
+  bool hasMorePosts = true;
+  Future<void> loadMorePosts() => loadPosts(append: true);
+
+  Future<void> loadPosts({bool append = false}) async {
+    if (append && (isLoading || !hasMorePosts)) return;
     final request = ++_postsRequest;
     isLoading = true;
     errorMessage = null;
     notifyListeners();
 
     try {
-      final response = await _client.from('travel_posts').select('''
+      var query = _client.from('travel_posts').select('''
           id, 
           title, 
           content, 
@@ -88,7 +105,32 @@ class CommunityBoardViewModel extends ChangeNotifier {
           profiles!travel_posts_author_id_fkey(nickname),
           travel_post_likes(count),
           travel_post_comments(count)
-          ''').order('created_at', ascending: false);
+          ''');
+      if (append && _postCursor != null) {
+        final date = _postCursor!['created_at'];
+        query = query.or(
+            'created_at.lt.$date,and(created_at.eq.$date,id.lt.${_postCursor!['id']})');
+      }
+      final usesSnapshot = sort != 'recent' || topic != '전체';
+      Map<String, dynamic>? feedPage;
+      final List<Map<String, dynamic>> response;
+      if (usesSnapshot) {
+        feedPage = Map<String, dynamic>.from(
+            await _client.rpc('community_feed_page', params: {
+          'p_sort': sort,
+          'p_topic': topic,
+          'p_lat': latitude,
+          'p_lng': longitude,
+          'p_snapshot': append ? _feedSnapshot : null,
+          'p_after': append ? _feedAfter : 0,
+        }));
+        response = List<Map<String, dynamic>>.from(feedPage['items']);
+      } else {
+        response = await query
+            .order('created_at', ascending: false)
+            .order('id', ascending: false)
+            .limit(40);
+      }
 
       int count(dynamic value) => value is List && value.isNotEmpty
           ? ((value.first as Map)['count'] as num?)?.toInt() ?? 0
@@ -104,26 +146,33 @@ class CommunityBoardViewModel extends ChangeNotifier {
         nextLikes.addAll(ownLikes.map((row) => row['post_id'].toString()));
       }
       if (_disposed || request != _postsRequest) return;
-      likeCounts.clear();
-      commentCounts.clear();
+      if (!append) {
+        likeCounts.clear();
+        commentCounts.clear();
+        likedPosts.clear();
+        _posts.clear();
+      }
+      _feedSnapshot = feedPage?['snapshot'] as String?;
+      _feedAfter = (feedPage?['next'] as num?)?.toInt() ?? 0;
+      if (response.isNotEmpty) _postCursor = response.last;
+      hasMorePosts = feedPage?['has_more'] as bool? ?? response.length == 40;
       for (final row in response) {
         likeCounts[row['id'].toString()] = count(row['travel_post_likes']);
         commentCounts[row['id'].toString()] =
             count(row['travel_post_comments']);
       }
-      likedPosts
-        ..clear()
-        ..addAll(nextLikes);
-      _posts
-        ..clear()
-        ..addAll(
-          (response as List).map(
-              (data) => CommunityPost.fromMap(data as Map<String, dynamic>)),
-        );
+      likedPosts.addAll(nextLikes);
+      final ids = _posts.map((post) => post.id).toSet();
+      _posts.addAll(response
+          .map(CommunityPost.fromMap)
+          .where((post) => ids.add(post.id)));
     } catch (e) {
       if (_disposed || request != _postsRequest) return;
       debugPrint('❌ loadPosts 에러: $e');
-      errorMessage = '게시물을 불러오지 못했습니다.';
+      errorMessage =
+          e is PostgrestException && e.message.contains('FEED_SNAPSHOT_EXPIRED')
+              ? '조회 시간이 만료됐어요. 새로고침하면 최신 게시물을 볼 수 있어요.'
+              : '게시물을 불러오지 못했습니다.';
     } finally {
       if (!_disposed && request == _postsRequest) {
         isLoading = false;
