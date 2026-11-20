@@ -184,6 +184,7 @@ class MapSampleViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _listLoadRevision++;
     _routeRevision++;
     _searchRevision++;
     _isDisposed = true;
@@ -588,7 +589,9 @@ class MapSampleViewModel extends ChangeNotifier {
     _polygonPoints = _orderedMarkers.map((m) => m.position).toList();
   }
 
+  int _listLoadRevision = 0;
   Future<void> loadMarkersForList(String listId) async {
+    final revision = ++_listLoadRevision;
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
@@ -606,14 +609,14 @@ class MapSampleViewModel extends ChangeNotifier {
       debugPrint('ID: ${item['id']}, sort_order: ${item['sort_order']}');
     }
 
-    // 매핑 초기화 후 최신 매핑 저장
-    _listBookmarkRowIdByMarkerId.clear();
+    if (revision != _listLoadRevision) return;
+    final rowIds = <String, String>{};
 
     final markers = await Future.wait(response.map((doc) async {
       final String rowId = doc['id']?.toString() ?? '';
       final String markerIdStr = doc['marker_id']?.toString() ?? '';
       if (rowId.isNotEmpty && markerIdStr.isNotEmpty) {
-        _listBookmarkRowIdByMarkerId[markerIdStr] = rowId;
+        rowIds[markerIdStr] = rowId;
       }
       final String keyword = doc['keyword']?.toString() ?? 'default';
       final String? markerImagePath = keywordMarkerImages[keyword];
@@ -636,6 +639,10 @@ class MapSampleViewModel extends ChangeNotifier {
 
     debugPrint(
         'ViewModel _orderedMarkers ID 순서: ${markers.map((m) => m.markerId.value).toList()}');
+    if (revision != _listLoadRevision) return;
+    _listBookmarkRowIdByMarkerId
+      ..clear()
+      ..addAll(rowIds);
     _orderedMarkers = markers;
     setFilteredMarkers(markers);
     notifyListeners();
