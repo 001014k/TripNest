@@ -3,11 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 
-class FriendManagementViewModel extends ChangeNotifier {
+class FriendManagementViewModel extends ChangeNotifier
+    with WidgetsBindingObserver {
   final supabase = Supabase.instance.client;
   FriendManagementViewModel() {
+    WidgetsBinding.instance.addObserver(this);
     _watchRequests();
-    _authSubscription = supabase.auth.onAuthStateChange.listen((_) => _watchRequests());
+    _authSubscription =
+        supabase.auth.onAuthStateChange.listen((_) => _watchRequests());
+  }
+
+  bool _realtimeReady = false;
+  bool _requestInFlight = false;
+  bool _foreground = true;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground) unawaited(refreshPendingRequestCount());
   }
 
   int pendingRequestCount = 0;
@@ -22,6 +34,7 @@ class FriendManagementViewModel extends ChangeNotifier {
     final userId = supabase.auth.currentUser?.id;
     if (_requestUserId == userId) return;
     _requestUserId = userId;
+    _realtimeReady = false;
     _requestRevision++;
     _requestChannel?.unsubscribe();
     _requestChannel = null;
@@ -29,39 +42,64 @@ class FriendManagementViewModel extends ChangeNotifier {
     pendingRequestCount = 0;
     if (!_disposed) notifyListeners();
     if (userId == null) return;
-    _requestChannel = supabase.channel('friend-request-badge-$userId')
-        .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public',
-          table: 'friend_requests',
-          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq,
-              column: 'requested_id', value: userId),
-          callback: (_) => refreshPendingRequestCount())
-        .subscribe();
+    _requestChannel = supabase
+        .channel('friend-request-badge-$userId')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'friend_requests',
+            filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'requested_id',
+                value: userId),
+            callback: (_) => refreshPendingRequestCount())
+        .subscribe((status, [error]) {
+      if (_disposed || userId != _requestUserId) return;
+      _realtimeReady = status == RealtimeSubscribeStatus.subscribed;
+    });
     unawaited(refreshPendingRequestCount());
     // 이 테이블에서 실시간 구독을 사용할 수 없는 경우에도 갱신합니다.
-    _requestPoll = Timer.periodic(const Duration(seconds: 30),
-        (_) => refreshPendingRequestCount());
+    _requestPoll = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!_realtimeReady && _foreground) {
+        unawaited(refreshPendingRequestCount());
+      }
+    });
   }
 
   Future<void> refreshPendingRequestCount() async {
     final userId = _requestUserId;
-    if (userId == null || _disposed) return;
+    if (userId == null || _disposed || _requestInFlight || !_foreground) return;
+    _requestInFlight = true;
     final revision = ++_requestRevision;
     try {
-      final count = await supabase.from('friend_requests').count()
-          .eq('requested_id', userId).eq('status', 'pending');
-      if (_disposed || revision != _requestRevision || userId != _requestUserId) return;
+      final count = await supabase
+          .from('friend_requests')
+          .count()
+          .eq('requested_id', userId)
+          .eq('status', 'pending');
+      if (_disposed ||
+          revision != _requestRevision ||
+          userId != _requestUserId) {
+        return;
+      }
       if (pendingRequestCount != count) {
         pendingRequestCount = count;
         notifyListeners();
       }
     } catch (e) {
       debugPrint('친구 요청 배지 조회 실패: $e');
+    } finally {
+      _requestInFlight = false;
+      if (!_disposed && userId != _requestUserId) {
+        unawaited(refreshPendingRequestCount());
+      }
     }
   }
 
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     _requestPoll?.cancel();
     _requestChannel?.unsubscribe();
@@ -182,27 +220,9 @@ class FriendManagementViewModel extends ChangeNotifier {
 
   // 친구 요청 수락
   Future<String> acceptFriendRequest(String requesterId) async {
-    final currentUserId = this.currentUserId;
-
     try {
-      await supabase
-          .from('friend_requests')
-          .update({'status': 'accepted'})
-          .eq('requester_id', requesterId)
-          .eq('requested_id', currentUserId);
-
-      final existingFriend = await supabase
-          .from('friends')
-          .select()
-          .or('and(user1_id.eq.$currentUserId,user2_id.eq.$requesterId),and(user1_id.eq.$requesterId,user2_id.eq.$currentUserId)')
-          .maybeSingle();
-
-      if (existingFriend == null) {
-        await supabase.from('friends').insert({
-          'user1_id': currentUserId,
-          'user2_id': requesterId,
-        });
-      }
+      await supabase.rpc('respond_to_friend_request',
+          params: {'p_requester_id': requesterId, 'p_accept': true});
 
       await refreshPendingRequestCount();
       return '친구 요청을 수락했습니다.';
@@ -214,14 +234,9 @@ class FriendManagementViewModel extends ChangeNotifier {
 
   // 친구 요청 거절
   Future<String> declineFriendRequest(String requesterId) async {
-    final currentUserId = this.currentUserId;
-
     try {
-      await supabase
-          .from('friend_requests')
-          .update({'status': 'declined'})
-          .eq('requester_id', requesterId)
-          .eq('requested_id', currentUserId);
+      await supabase.rpc('respond_to_friend_request',
+          params: {'p_requester_id': requesterId, 'p_accept': false});
 
       await refreshPendingRequestCount();
       return '친구 요청을 거절했습니다.';
@@ -266,42 +281,20 @@ class FriendManagementViewModel extends ChangeNotifier {
   }
 
   // 친구 삭제 메서드
+  final _removingFriends = <String>{};
   Future<String> removeFriend(String friendId) async {
+    if (!_removingFriends.add(friendId)) return '친구 관계를 정리하고 있어요.';
     try {
-      final currentUserId = this.currentUserId;
-
-      // 1. 친구 관계 삭제 (friends 테이블)
-      await supabase.from('friends').delete().or(
-          'and(user1_id.eq.$currentUserId,user2_id.eq.$friendId),and(user1_id.eq.$friendId,user2_id.eq.$currentUserId)');
-
-      // 2. 여행 리스트 멤버 삭제 (list_members 테이블)
-      // 내가 생성한 리스트들(lists 테이블의 owner) 중에서
-      // 삭제할 친구(friendId)가 멤버로(list_members 테이블) 등록된 경우 삭제
-
-      // 2-1. 내가 생성한 리스트들의 ID 가져오기
-      final myListRes = await supabase
-          .from('lists')
-          .select('id')
-          .eq('user_id', currentUserId);
-
-      final myListIds =
-          (myListRes as List).map((e) => e['id'] as String).toList();
-
-      // 2-2. 해당 리스트들 중에서 삭제할 친구가 멤버인 행 삭제
-      if (myListIds.isNotEmpty) {
-        await supabase
-            .from('list_members')
-            .delete()
-            .eq('user_id', friendId)
-            .inFilter('list_id', myListIds);
-      }
-
+      await supabase
+          .rpc('remove_friend_atomic', params: {'p_friend': friendId});
       // 3. 알림 및 UI 업데이트
       notifyListeners();
       return '친구 삭제 및 관련 여행 협업 관계가 해제되었습니다.';
     } catch (e) {
       debugPrint('친구 삭제 오류: $e');
-      return '오류가 발생했습니다: $e';
+      return '친구를 삭제하지 못했어요. 다시 시도해주세요.';
+    } finally {
+      _removingFriends.remove(friendId);
     }
   }
 }
