@@ -98,7 +98,7 @@ class UserService {
   Future<List<UserModel>> searchUsersByNickname(String nickname) async {
     final response = await supabase
         .from('profiles')
-        .select()
+        .select('id,nickname,created_at')
         .ilike('nickname', '%$nickname%');
 
     return (response as List).map((item) => UserModel.fromMap(item)).toList();
@@ -113,7 +113,7 @@ class UserService {
     try {
       final response = await supabase
           .from('profiles')
-          .select()
+          .select('id,nickname,created_at')
           .eq('id', userId)
           .maybeSingle();
 
@@ -122,7 +122,12 @@ class UserService {
         return null;
       }
 
-      return UserProfile.fromMap(response);
+      return UserProfile.fromMap({
+        ...response,
+        'email': userId == supabase.auth.currentUser?.id
+            ? supabase.auth.currentUser?.email ?? ''
+            : ''
+      });
     } catch (e) {
       debugPrint('getProfileById 에러: $e');
       return null;
