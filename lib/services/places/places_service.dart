@@ -21,6 +21,9 @@ class PlacesService {
   Future<Map<String, dynamic>?> searchPlaceDetails(String query) =>
       _repository.lookup(query, PlaceLookupRepository.detailFields);
 
+  Future<Map<String, dynamic>?> searchRating(String query) =>
+      _repository.lookup(query, 'id,rating,userRatingCount');
+
   Future<List<String>> searchPhotoUrls(String query) async =>
       PlaceLookupRepository.photoUrls(
           await _repository.lookup(query, PlaceLookupRepository.photoFields));
@@ -36,7 +39,7 @@ class PlacesService {
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': apiKey,
             'X-Goog-FieldMask':
-                'places.displayName,places.formattedAddress,places.location,places.photos,places.rating,places.userRatingCount',
+                'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount',
           },
           body: jsonEncode({
             'textQuery': keyword,
