@@ -85,6 +85,49 @@ class SharedLinkViewModel extends ChangeNotifier {
   List<SharedLinkModel> sharedLinks = [];
   String? errorMessage;
   bool isLoadingLinks = false;
+  bool hasMoreLinks = true;
+  bool loadingMoreLinks = false;
+  SharedLinkModel? _linkCursor;
+  String search = '';
+  String? platform;
+  Future<void> filterLinks(String value, String? source) {
+    search = value.trim();
+    platform = source;
+    return loadSharedLinks();
+  }
+
+  Future<void> loadMoreLinks() async {
+    if (_disposed ||
+        _mutating ||
+        isLoadingLinks ||
+        loadingMoreLinks ||
+        !hasMoreLinks) {
+      return;
+    }
+    final revision = _loadRevision;
+    loadingMoreLinks = true;
+    notifyListeners();
+    try {
+      final page = await _service.loadSharedLinksPage(
+          before: _linkCursor, search: search, platform: platform);
+      if (_disposed || revision != _loadRevision) return;
+      if (page.isNotEmpty) _linkCursor = page.last;
+      hasMoreLinks = page.length == 40;
+      final ids = sharedLinks.map((link) => link.id).toSet();
+      sharedLinks.addAll(page.where((link) => ids.add(link.id)));
+      errorMessage = null;
+    } catch (_) {
+      if (!_disposed && revision == _loadRevision) {
+        errorMessage = '이전 링크를 불러오지 못했어요. 다시 시도해주세요.';
+      }
+    } finally {
+      if (!_disposed && revision == _loadRevision) {
+        loadingMoreLinks = false;
+        notifyListeners();
+      }
+    }
+  }
+
   String? _lastSavedUrl;
   RealtimeChannel? _realtimeChannel;
   String? _realtimeUserId;
@@ -404,15 +447,21 @@ class SharedLinkViewModel extends ChangeNotifier {
   Future<void> _loadSharedLinks({bool afterMutation = false}) async {
     if (_disposed || (_mutating && !afterMutation)) return;
     final revision = ++_loadRevision;
+    loadingMoreLinks = false;
     debugPrint('🔹 [loadSharedLinks] 호출됨');
     errorMessage = null;
     isLoadingLinks = true;
     notifyListeners();
 
     try {
-      final loaded = await _service.loadSharedLinks();
+      final loaded = search.isEmpty && platform == null
+          ? await _service.loadSharedLinks()
+          : await _service.loadSharedLinksPage(
+              search: search, platform: platform);
       if (_disposed || revision != _loadRevision) return;
       sharedLinks = loaded;
+      _linkCursor = loaded.isEmpty ? null : loaded.last;
+      hasMoreLinks = loaded.length == 40;
       debugPrint('✅ [loadSharedLinks] 불러온 링크 개수: ${sharedLinks.length}');
       for (final link in sharedLinks) {
         debugPrint('   ↳ ${link.platform} | ${link.url}');
