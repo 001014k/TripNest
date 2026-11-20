@@ -3,6 +3,29 @@ import '../../services/notifications/notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationSettingsViewModel extends ChangeNotifier {
+  NotificationSettingsViewModel(
+      {SupabaseClient? client, Future<bool> Function()? connectPush})
+      : _client = client ?? Supabase.instance.client,
+        _connectPush = connectPush ??
+            (() => NotificationService().initializePushNotifications());
+  final SupabaseClient _client;
+  final Future<bool> Function() _connectPush;
+  bool _disposed = false;
+  int _revision = 0;
+  final Set<String> pending = {};
+  String? errorMessage;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _revision++;
+    super.dispose();
+  }
+
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
@@ -15,7 +38,7 @@ class NotificationSettingsViewModel extends ChangeNotifier {
 
   // 이메일 설정
   bool emailSecurity = true;
-  String? get securityEmail => Supabase.instance.client.auth.currentUser?.email;
+  String? get securityEmail => _client.auth.currentUser?.email;
   String get securityEmailDescription {
     final email = securityEmail?.trim();
     if (email == null || email.isEmpty) {
@@ -25,86 +48,89 @@ class NotificationSettingsViewModel extends ChangeNotifier {
   }
 
   Future<void> loadSettings() async {
+    if (_disposed || _isLoading || pending.isNotEmpty) return;
+    final revision = ++_revision;
     _isLoading = true;
+    errorMessage = null;
     notifyListeners();
 
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
+      final userId = _client.auth.currentUser?.id;
       if (userId == null) return;
 
-      final data = await Supabase.instance.client
+      final data = await _client
           .from('user_notification_settings')
           .select()
           .eq('user_id', userId)
           .maybeSingle();
 
-      if (data == null) return;
+      if (_disposed ||
+          revision != _revision ||
+          _client.auth.currentUser?.id != userId ||
+          data == null) {
+        return;
+      }
 
       pushNewMarker = data['push_new_marker'] ?? true;
       pushListUpdate = data['push_list_update'] ?? true;
       pushFriendRequest = data['push_friend_request'] ?? true;
       emailSecurity = data['email_security'] ?? true;
     } catch (e) {
-      debugPrint('알림 설정 로드 실패: $e');
+      if (!_disposed && revision == _revision) {
+        errorMessage = '알림 설정을 불러오지 못했어요. 다시 시도해주세요.';
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> updatePushSetting(String key, bool value) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
+  Future<void> updatePushSetting(String key, bool value) =>
+      _update(key, value, push: true);
+  Future<void> updateEmailSetting(String key, bool value) =>
+      _update(key, value, push: false);
 
+  Future<void> _update(String key, bool value, {required bool push}) async {
+    final owner = _client.auth.currentUser?.id;
+    if (_disposed || _isLoading || owner == null || !pending.add(key)) return;
+    errorMessage = null;
+    notifyListeners();
     try {
-      await Supabase.instance.client.from('user_notification_settings').upsert({
-        'user_id': userId,
+      await _client.from('user_notification_settings').upsert({
+        'user_id': owner,
         'updated_at': DateTime.now().toIso8601String(),
         _getColumnName(key): value,
       }, onConflict: 'user_id');
-
-      if (value) {
-        final connected =
-            await NotificationService().initializePushNotifications();
-        pushConnectionMessage = connected
-            ? '이 기기에서 푸시 알림을 받을 수 있어요.'
-            : '설정은 저장했지만 기기 알림 연결을 확인하지 못했어요. 휴대폰 설정에서 알림 권한과 네트워크를 확인해 주세요.';
-      }
-
-      // 로컬 상태 업데이트
+      if (_disposed || _client.auth.currentUser?.id != owner) return;
       switch (key) {
         case 'new_marker':
           pushNewMarker = value;
-          break;
         case 'list_update':
           pushListUpdate = value;
-          break;
         case 'friend_request':
           pushFriendRequest = value;
-          break;
+        case 'security':
+          emailSecurity = value;
       }
+      if (push && value) {
+        bool connected;
+        try {
+          connected = await _connectPush();
+        } catch (_) {
+          connected = false;
+        }
+        if (_disposed || _client.auth.currentUser?.id != owner) return;
+        pushConnectionMessage = connected
+            ? '이 기기에서 푸시 알림을 받을 수 있어요.'
+            : '설정은 저장했지만 기기 알림 연결을 확인하지 못했어요. 알림 권한을 확인해주세요.';
+      }
+    } catch (_) {
+      if (!_disposed && _client.auth.currentUser?.id == owner) {
+        errorMessage = '설정을 저장하지 못했어요. 다시 변경해주세요.';
+      }
+    } finally {
+      pending.remove(key);
       notifyListeners();
-    } catch (e) {
-      debugPrint('푸시 설정 업데이트 실패: $e');
-    }
-  }
-
-  Future<void> updateEmailSetting(String key, bool value) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
-    try {
-      await Supabase.instance.client.from('user_notification_settings').upsert({
-        'user_id': userId,
-        'updated_at': DateTime.now().toIso8601String(),
-        _getColumnName(key): value,
-      }, onConflict: 'user_id');
-
-      if (key == 'security') emailSecurity = value;
-
-      notifyListeners();
-    } catch (e) {
-      debugPrint('이메일 설정 업데이트 실패: $e');
     }
   }
 
