@@ -63,6 +63,7 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
         final vm = ChatRecommendationViewModel();
         // 생성 직후 바로 로드
         vm.loadRecentRecommendations();
+        vm.loadPendingDrafts();
         return vm;
       },
       child: Consumer<ChatRecommendationViewModel>(
@@ -154,6 +155,28 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
                 const Text('AI 여행 플래너', style: AppDesign.headingLarge),
                 const SizedBox(height: AppDesign.spacing6),
                 const Text('취향에 맞는 여행을 계획해요.', style: AppDesign.bodySmall),
+                if (vm.recoveryError != null)
+                  TextButton(
+                      onPressed: vm.loadPendingDrafts,
+                      child: Text('${vm.recoveryError} 다시 시도')),
+                if (vm.recoveredDrafts.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text('미저장 추천 복구', style: AppDesign.headingSmall),
+                  const Text('이 기기에 보관된 답변이에요. 선택하면 복구하고 저장을 다시 시도해요.',
+                      style: AppDesign.caption),
+                  for (final draft in vm.recoveredDrafts)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.restore_rounded),
+                      title: Text(
+                          (draft['payload'] as Map)['p_title']?.toString() ??
+                              '미저장 추천',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: vm.saving ? null : () => vm.restoreDraft(draft),
+                    ),
+                ],
                 const SizedBox(height: AppDesign.spacing20),
                 const Text('새 여행 시작하기', style: AppDesign.headingSmall),
                 const SizedBox(height: AppDesign.spacing12),
@@ -169,7 +192,12 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
                     if (!context.mounted || request == null || vm.isLoading) {
                       return;
                     }
-                    vm.startNewSession('place', menu: 'theme');
+                    vm.startNewSession('place',
+                        menu: 'theme',
+                        category: RegExp(r'^테마: 맛집$', multiLine: true)
+                                .hasMatch(request)
+                            ? '맛집'
+                            : '여행');
                     vm.sendMessage(request);
                   },
                   onSelect: (title, {bool isNearby = false}) async {
@@ -199,8 +227,9 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
                   const SizedBox(height: AppDesign.spacing24),
                   RecentTripSection(
                     latest: vm.recentRecommendations.first,
-                    loadPage: (offset) =>
-                        vm.fetchRecentRecommendations(offset: offset),
+                    history: vm.tripHistory,
+                    onNew: vm.resetChat,
+                    loadRecord: vm.fetchTripRecord,
                     onSelect: vm.loadRecentRecommendation,
                   ),
                 ],
@@ -209,6 +238,34 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
           ),
         ),
         // 입력창을 Expanded 외부(Column 하단)에 배치하여 고정
+        if (vm.recoveryError != null)
+          TextButton(
+            onPressed: vm.loadPendingDrafts,
+            child: Text(vm.recoveryError!),
+          ),
+        if (vm.saveError != null)
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(vm.saveError!, style: AppDesign.caption),
+                  Wrap(spacing: 8, children: [
+                    if (vm.saveConflict) ...[
+                      TextButton(
+                          onPressed: vm.saving ? null : vm.showLatestConflict,
+                          child: const Text('최신 기록 보기')),
+                      TextButton(
+                          onPressed: vm.saving ? null : vm.saveConflictAsCopy,
+                          child: const Text('내 답변 별도 저장')),
+                    ] else
+                      TextButton(
+                          onPressed: vm.saving ? null : vm.retrySave,
+                          child: const Text('저장 재시도')),
+                  ]),
+                ],
+              )),
+        if (vm.saving) const LinearProgressIndicator(),
         _PremiumInputArea(
           controller: _controller,
           onSend: () => _sendMessage(context, vm),
@@ -256,6 +313,21 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
             },
           ),
         ),
+        if (vm.recoveryError != null)
+          TextButton(
+            onPressed: vm.loadPendingDrafts,
+            child: Text(vm.recoveryError!),
+          ),
+        if (vm.saveError != null)
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(children: [
+                Expanded(child: Text(vm.saveError!, style: AppDesign.caption)),
+                TextButton(
+                    onPressed: vm.saving ? null : vm.retrySave,
+                    child: const Text('저장 재시도')),
+              ])),
+        if (vm.saving) const LinearProgressIndicator(),
         _PremiumInputArea(
           controller: _controller,
           onSend: () => _sendMessage(context, vm),
@@ -264,10 +336,13 @@ class _ChatRecommendationScreenState extends State<ChatRecommendationScreen>
     );
   }
 
-  void _sendMessage(BuildContext context, ChatRecommendationViewModel vm) {
+  void _sendMessage(
+      BuildContext context, ChatRecommendationViewModel vm) async {
+    if (vm.isLoading || vm.saving) return;
     final text = _controller.text.trim();
     if (text.isNotEmpty) {
-      _controller.clear();
+      if (!await vm.prepareNextMessage() || !context.mounted) return;
+      if (_controller.text.trim() == text) _controller.clear();
       vm.sendMessage(text);
       FocusScope.of(context).unfocus();
       _scheduleScrollToBottom();
