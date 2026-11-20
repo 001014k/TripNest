@@ -8,14 +8,15 @@ import '../../navigation/app_page_route.dart';
 import 'notification_detail_view.dart';
 
 class NotificationsView extends StatefulWidget {
-  const NotificationsView({super.key});
+  const NotificationsView({super.key, this.client});
+  final SupabaseClient? client;
   @override
   State<NotificationsView> createState() => _NotificationsViewState();
 }
 
 class _NotificationsViewState extends State<NotificationsView> {
-  final _client = Supabase.instance.client;
-  List<Map<String, dynamic>> _items = [];
+  late final _client = widget.client ?? Supabase.instance.client;
+  final List<Map<String, dynamic>> _items = [];
   bool _loading = true, _marking = false;
   String? _error;
   int _filter = 0;
@@ -25,47 +26,80 @@ class _NotificationsViewState extends State<NotificationsView> {
     _load();
   }
 
-  Future<void> _load() async {
+  bool _hasMore = true, _loadingMore = false;
+  int _loadRevision = 0;
+  Future<void> _load({bool more = false}) async {
+    if (more && (_loading || _loadingMore || !_hasMore)) return;
+    final revision = ++_loadRevision;
+    setState(() {
+      if (more) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+      }
+    });
     try {
       final user = _client.auth.currentUser;
       if (user == null) throw StateError('로그인 후 알림을 확인해주세요.');
-      final data = await _client
-          .from('notifications')
-          .select()
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false);
+      var query = _client.from('notifications').select().eq('user_id', user.id);
+      if (_filter == 1) query = query.eq('type', 'list_marker_added');
+      if (_filter == 2) query = query.eq('type', 'list_update');
+      if (_filter == 3) query = query.like('type', 'friend%');
+      if (more && _items.isNotEmpty) {
+        final last = _items.last;
+        query = query.or(
+            'created_at.lt.${last['created_at']},and(created_at.eq.${last['created_at']},id.lt.${last['id']})');
+      }
+      final data = await query
+          .order('created_at', ascending: false)
+          .order('id', ascending: false)
+          .limit(30);
+      if (!mounted ||
+          revision != _loadRevision ||
+          _client.auth.currentUser?.id != user.id) {
+        return;
+      }
       if (mounted) {
         setState(() {
-          _items = List<Map<String, dynamic>>.from(data);
+          if (!more) _items.clear();
+          final ids = _items.map((n) => n['id']).toSet();
+          _items.addAll(data.where((n) => ids.add(n['id'])));
+          _hasMore = data.length == 30;
           _error = null;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && revision == _loadRevision) {
         setState(() => _error = _client.auth.currentUser == null
             ? '로그인 후 알림을 확인해주세요.'
             : '알림을 불러오지 못했어요. 다시 시도해주세요.');
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && revision == _loadRevision) {
+        setState(() {
+          _loading = false;
+          _loadingMore = false;
+        });
+      }
     }
   }
 
-  Future<void> _read(List<Map<String, dynamic>> items) async {
+  Future<void> _read(List<Map<String, dynamic>> items,
+      {bool all = false}) async {
     final user = _client.auth.currentUser;
-    if (user == null || items.isEmpty || _marking) return;
+    if (user == null || (!all && items.isEmpty) || _marking) return;
     setState(() => _marking = true);
     final ids = items.map((n) => n['id'].toString()).toList();
     try {
-      await _client
+      var query = _client
           .from('notifications')
-          .update({'is_read': true})
-          .eq('user_id', user.id)
-          .inFilter('id', ids);
+          .update({'is_read': true}).eq('user_id', user.id);
+      if (!all) query = query.inFilter('id', ids);
+      await query;
       if (mounted) {
         setState(() {
           for (final n in _items) {
-            if (ids.contains(n['id'])) n['is_read'] = true;
+            if (all || ids.contains(n['id'])) n['is_read'] = true;
           }
         });
       }
@@ -140,6 +174,16 @@ class _NotificationsViewState extends State<NotificationsView> {
                     onPressed: () =>
                         Navigator.pushNamed(context, '/notification_settings'),
                     icon: const Icon(Icons.settings_outlined)))),
+        bottomNavigationBar: _hasMore && !_loading
+            ? SafeArea(
+                child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: OutlinedButton(
+                        onPressed:
+                            _loadingMore ? null : () => _load(more: true),
+                        child: Text(_loadingMore ? '불러오는 중…' : '이전 알림 더 보기'))))
+            : null,
         body: SafeArea(
             top: false,
             child: Column(children: [
@@ -155,12 +199,9 @@ class _NotificationsViewState extends State<NotificationsView> {
                                       fontSize: 30,
                                       fontWeight: FontWeight.w800))),
                           TextButton(
-                              onPressed: _marking ||
-                                      !_items.any((n) => n['is_read'] != true)
+                              onPressed: _marking
                                   ? null
-                                  : () => _read(_items
-                                      .where((n) => n['is_read'] != true)
-                                      .toList()),
+                                  : () => _read(_items, all: true),
                               child: Text(_marking ? '처리 중' : '모두 읽음',
                                   style: const TextStyle(
                                       decoration: TextDecoration.underline,
@@ -191,8 +232,14 @@ class _NotificationsViewState extends State<NotificationsView> {
                                                     textAlign:
                                                         TextAlign.center)),
                                             selected: _filter == i,
-                                            onSelected: (_) =>
-                                                setState(() => _filter = i),
+                                            onSelected: (_) {
+                                              setState(() {
+                                                _filter = i;
+                                                _items.clear();
+                                                _hasMore = true;
+                                              });
+                                              _load();
+                                            },
                                             showCheckmark: false,
                                             selectedColor:
                                                 const Color(0xff222222),
@@ -204,7 +251,8 @@ class _NotificationsViewState extends State<NotificationsView> {
                                                 fontSize: 13,
                                                 color: _filter == i
                                                     ? Colors.white
-                                                    : const Color(0xff77777d)))))))
+                                                    : const Color(
+                                                        0xff77777d)))))))
                       ])),
               Expanded(
                   child: RefreshIndicator(
