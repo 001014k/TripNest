@@ -9,126 +9,63 @@ class ListViewModel extends ChangeNotifier {
     if (!_accountDisposed) super.notifyListeners();
   }
 
-  final SupabaseClient supabase = Supabase.instance.client;
+  final SupabaseClient supabase;
+  int _loadRevision = 0;
+  final _deletedIds = <String>{};
+  final _deletingIds = <String>{};
 
   List<ListModel> lists = [];
   bool isLoading = false; // 초기 false로 변경
   String? errorMessage;
 
   // 생성자에서 loadLists 호출 제거
-  ListViewModel();
+  ListViewModel({SupabaseClient? client})
+      : supabase = client ?? Supabase.instance.client;
 
   Future<void> loadLists() async {
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null || _accountDisposed) return;
+    final revision = ++_loadRevision;
 
     try {
       isLoading = true;
       notifyListeners();
 
-      final tempLists = <String, ListModel>{};
-
-      // 1️⃣ 내가 만든 리스트 조회 Future
-      final myListsFuture = supabase.from('lists').select('''
-          id, name, created_at, user_id,
-          list_bookmarks(id, title, lat, lng, keyword),
-          list_members(id, user_id)
-          ''').eq('user_id', user.id).order('created_at', ascending: false);
-
-      // 2️⃣ 내가 멤버로 초대받은 리스트 list_id 조회 Future
-      final invitedListMembersFuture = supabase
-          .from('list_members')
-          .select('list_id')
-          .eq('user_id', user.id);
-
-      // 두 Future 동시에 실행
-      final results =
-          await Future.wait([myListsFuture, invitedListMembersFuture]);
-
-      final myListsResponse = results[0] as List;
-      final invitedListMembers = results[1] as List;
-
-      // 1️⃣ 내가 만든 리스트 처리
-      for (final item in myListsResponse) {
-        final bookmarks = item['list_bookmarks'] as List<dynamic>? ?? [];
-        final members = item['list_members'] as List<dynamic>? ?? [];
-
-        tempLists[item['id']] = ListModel(
-          id: item['id'] as String,
-          name: item['name'] as String,
-          createdAt: DateTime.parse(item['created_at'] as String),
-          markerCount: bookmarks.length,
-          collaboratorCount: members
-              .map((member) => member['user_id'])
-              .where((id) => id != null && id != item['user_id'])
-              .toSet()
-              .length,
-          keywords: bookmarks
-              .map((entry) => entry['keyword']?.toString().trim() ?? '')
-              .where((keyword) => keyword.isNotEmpty)
-              .toSet()
-              .toList(),
-          isOwner: true,
-          coverTitle: bookmarks
-              .map((entry) => entry['title']?.toString().trim() ?? '')
-              .where((title) => title.isNotEmpty)
-              .firstOrNull,
-        );
+      errorMessage = null;
+      final response = await supabase.rpc('list_summaries');
+      if (_accountDisposed ||
+          revision != _loadRevision ||
+          supabase.auth.currentUser?.id != user.id) {
+        return;
       }
-
-      // 2️⃣ 초대받은 리스트 처리
-      // list_id별 리스트 정보를 동시에 조회
-      final invitedListsFutures = invitedListMembers.map((member) async {
-        final listId = member['list_id'] as String?;
-        if (listId == null) return null;
-
-        final listResponse = await supabase.from('lists').select('''
-            id, name, created_at, user_id,
-            list_bookmarks(id, title, lat, lng, keyword),
-            list_members(id, user_id)
-            ''').eq('id', listId).single();
-
-        final bookmarks =
-            listResponse['list_bookmarks'] as List<dynamic>? ?? [];
-        final members = listResponse['list_members'] as List<dynamic>? ?? [];
-
-        return ListModel(
-          id: listResponse['id'] as String,
-          name: listResponse['name'] as String,
-          createdAt: DateTime.parse(listResponse['created_at'] as String),
-          markerCount: bookmarks.length,
-          collaboratorCount: members
-              .map((member) => member['user_id'])
-              .where((id) => id != null && id != listResponse['user_id'])
-              .toSet()
-              .length,
-          keywords: bookmarks
-              .map((entry) => entry['keyword']?.toString().trim() ?? '')
-              .where((keyword) => keyword.isNotEmpty)
-              .toSet()
-              .toList(),
-          coverTitle: bookmarks
-              .map((entry) => entry['title']?.toString().trim() ?? '')
-              .where((title) => title.isNotEmpty)
-              .firstOrNull,
-        );
-      }).toList();
-
-      final invitedListsResults = await Future.wait(invitedListsFutures);
-
-      for (final listModel in invitedListsResults) {
-        if (listModel != null) {
-          tempLists.putIfAbsent(listModel.id, () => listModel); // 중복 자동 제거
-        }
-      }
-
-      // 최종 리스트
-      lists = tempLists.values.toList();
+      lists = [
+        for (final row in response as List)
+          if (!_deletedIds.contains(row['id']) &&
+              !_deletingIds.contains(row['id']))
+            ListModel(
+              id: row['id'],
+              name: row['name'],
+              createdAt: DateTime.parse(row['created_at']),
+              markerCount: (row['marker_count'] as num).toInt(),
+              collaboratorCount: (row['collaborator_count'] as num).toInt(),
+              keywords: List<String>.from(row['keywords'] ?? []),
+              isOwner: row['user_id'] == user.id,
+              coverTitle: row['cover_title'],
+            )
+      ];
     } catch (e) {
-      errorMessage = '리스트 불러오기 실패: $e';
+      if (!_accountDisposed &&
+          revision == _loadRevision &&
+          supabase.auth.currentUser?.id == user.id) {
+        errorMessage = '리스트를 불러오지 못했어요. 다시 시도해주세요.';
+      }
     } finally {
-      isLoading = false;
-      notifyListeners();
+      if (!_accountDisposed &&
+          revision == _loadRevision &&
+          supabase.auth.currentUser?.id == user.id) {
+        isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -161,18 +98,36 @@ class ListViewModel extends ChangeNotifier {
       return;
     }
 
+    if (_accountDisposed || !_deletingIds.add(listId)) return;
+    _loadRevision++;
+    isLoading = false;
+    errorMessage = null;
+    notifyListeners();
     try {
-      await supabase.from('list_bookmarks').delete().eq('list_id', listId);
-      await supabase
+      final deleted = await supabase
           .from('lists')
           .delete()
           .eq('id', listId)
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .select('id');
+      if (deleted.isEmpty) throw StateError('리스트를 삭제하지 못했습니다.');
+      if (_accountDisposed || supabase.auth.currentUser?.id != user.id) return;
+      _loadRevision++;
+      _deletedIds.add(listId);
       lists.removeWhere((list) => list.id == listId);
-      notifyListeners();
-    } catch (e) {
-      errorMessage = '리스트 삭제 중 오류: $e';
-      notifyListeners();
+      isLoading = false;
+    } catch (_) {
+      if (_accountDisposed || supabase.auth.currentUser?.id != user.id) return;
+      _deletingIds.remove(listId);
+      await loadLists();
+      if (!_accountDisposed && supabase.auth.currentUser?.id == user.id) {
+        errorMessage = '리스트를 삭제하지 못했어요. 다시 시도해주세요.';
+      }
+    } finally {
+      _deletingIds.remove(listId);
+      if (!_accountDisposed && supabase.auth.currentUser?.id == user.id) {
+        notifyListeners();
+      }
     }
   }
 
@@ -195,6 +150,7 @@ class ListViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _accountDisposed = true;
+    _loadRevision++;
     super.dispose();
   }
 }
