@@ -86,6 +86,19 @@ class _MarkerListScreenState extends State<MarkerListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: selectionMode
+          ? SafeArea(
+              child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: FilledButton.icon(
+                    onPressed: selectedMarkerIds.isEmpty
+                        ? null
+                        : () => _showBulkDeleteDialog(
+                            context.read<MarkerListViewModel>()),
+                    icon: const Icon(Icons.delete_outline),
+                    label: Text('선택한 장소 ${selectedMarkerIds.length}개 삭제'),
+                  )))
+          : null,
       body: Container(
         decoration: const BoxDecoration(gradient: AppDesign.backgroundGradient),
         child: SafeArea(
@@ -102,6 +115,15 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                   child: _buildSearchAndFilters(),
                 ),
 
+                Consumer<MarkerListViewModel>(
+                    builder: (context, vm, _) => SliverToBoxAdapter(
+                        child: vm.errorMessage == null
+                            ? const SizedBox.shrink()
+                            : TextButton.icon(
+                                onPressed:
+                                    vm.isLoading ? null : vm.fetchMarkers,
+                                icon: const Icon(Icons.refresh),
+                                label: Text('${vm.errorMessage} 다시 시도')))),
                 // 마커 리스트
                 _buildMarkersSliver(),
 
@@ -117,77 +139,28 @@ class _MarkerListScreenState extends State<MarkerListScreen>
     );
   }
 
-  Widget _buildEnhancedPremiumHeader() {
-    return SliverAppBar(
-      expandedHeight: 220, // 확장 높이 여유
-      toolbarHeight: kToolbarHeight, // 기본 툴바 높이 명시
-      floating: false,
+  Widget _buildEnhancedPremiumHeader() => SliverAppBar(
       pinned: true,
       elevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppDesign.primaryBg,
       leading: _buildStyledBackButton(),
+      title: Consumer<MarkerListViewModel>(
+          builder: (context, vm, _) => Row(children: [
+                const Flexible(
+                    child: Text('저장한 장소', style: AppDesign.headingMedium)),
+                if (!vm.isLoading) ...[
+                  const SizedBox(width: 8),
+                  Text('${_applyFilters(vm.markers).length}',
+                      style: AppDesign.bodyMedium),
+                ],
+              ])),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(48),
-        child: Container(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: AppDesign.spacing24),
-          height: 48,
-          color: Colors.transparent,
-          child: _buildActionButtonsRow(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: SizedBox(height: 48, child: _buildActionButtonsRow()),
         ),
-      ),
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: AppDesign.backgroundGradient,
-          ),
-          child: SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final double height = constraints.maxHeight;
-                final bool isExpanded = height > (kToolbarHeight + 100);
-                final double topPad =
-                    kToolbarHeight + (isExpanded ? 16 : 8); // 뒤로가기 버튼 아래에서 시작
-                final double bottomPad = 8;
-                return Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppDesign.spacing24,
-                    topPad,
-                    AppDesign.spacing24,
-                    bottomPad,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 첫 번째 라인: 상태 배지와 타이틀
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (isExpanded) _buildStatusBadge(),
-                                if (isExpanded)
-                                  const SizedBox(height: AppDesign.spacing6),
-                                _buildMainTitle(fontSize: isExpanded ? 26 : 20),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      // 버튼 행은 AppBar bottom으로 이동하여 오버플로우 방지
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+      ));
 
   Widget _buildStyledBackButton() {
     return Container(
@@ -224,140 +197,49 @@ class _MarkerListScreenState extends State<MarkerListScreen>
     );
   }
 
-  Widget _buildStatusBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDesign.spacing12,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppDesign.travelBlue.withValues(alpha: 0.1),
-            AppDesign.travelBlue.withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppDesign.travelBlue.withValues(alpha: 0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppDesign.travelBlue.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            selectionMode ? Icons.check_circle_outline : Icons.location_on,
-            size: 14,
-            color: AppDesign.travelBlue,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            selectionMode ? '선택 모드' : '나의 여행 컬렉션',
-            style: AppDesign.caption.copyWith(
-              color: AppDesign.travelBlue,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainTitle({double fontSize = 26}) {
-    return Text(
-      selectionMode ? '선택됨: ${selectedMarkerIds.length}개' : '저장한 장소',
-      style: AppDesign.headingLarge.copyWith(
-        fontSize: fontSize,
-        fontWeight: FontWeight.w800,
-      ),
-    );
-  }
-
   Widget _buildActionButtonsRow() {
-    return SizedBox(
-      height: 44, // 명시적 높이 설정
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // 정렬 버튼
-            _buildPremiumDropdownButton(
-              icon: Icons.sort,
-              label: selectedSort,
-              onTap: _showSortBottomSheet,
-            ),
-
-            const SizedBox(width: AppDesign.spacing10), // 간격 줄임
-
-            // 선택 모드 토글
-            _buildPremiumActionButton(
-              icon: selectionMode ? Icons.check_box : Icons.check_box_outlined,
-              label: selectionMode ? '선택중' : '선택',
-              onTap: () {
-                setState(() {
-                  selectionMode = !selectionMode;
-                  if (!selectionMode) selectedMarkerIds.clear();
-                });
-              },
-              isActive: selectionMode,
-            ),
-
-            if (selectionMode) ...[
-              const SizedBox(width: AppDesign.spacing10), // 간격 줄임
-
-              // 전체 선택/해제
-              Consumer<MarkerListViewModel>(
-                builder: (context, vm, _) {
-                  final visible = _applyFilters(vm.markers);
-                  final visibleIds =
-                      visible.map((m) => m['id'].toString()).toSet();
-                  final allSelected = visibleIds.isNotEmpty &&
-                      visibleIds.difference(selectedMarkerIds).isEmpty;
-
-                  return _buildPremiumActionButton(
-                    icon: allSelected ? Icons.deselect : Icons.select_all,
-                    label: allSelected ? '전체해제' : '전체선택',
-                    onTap: () {
-                      setState(() {
+    if (selectionMode) {
+      return Consumer<MarkerListViewModel>(builder: (context, vm, _) {
+        final visibleIds =
+            _applyFilters(vm.markers).map((m) => m['id'].toString()).toSet();
+        final allSelected = visibleIds.isNotEmpty &&
+            visibleIds.difference(selectedMarkerIds).isEmpty;
+        return Row(children: [
+          Expanded(
+              child: Text('${selectedMarkerIds.length}개 선택',
+                  style: AppDesign.bodyMedium)),
+          TextButton(
+              onPressed: visibleIds.isEmpty
+                  ? null
+                  : () => setState(() {
                         if (allSelected) {
                           selectedMarkerIds.removeAll(visibleIds);
                         } else {
                           selectedMarkerIds.addAll(visibleIds);
                         }
-                      });
-                    },
-                  );
-                },
-              ),
-
-              const SizedBox(width: AppDesign.spacing10), // 간격 줄임
-
-              // 삭제 버튼
-              Consumer<MarkerListViewModel>(
-                builder: (context, vm, _) {
-                  return _buildPremiumActionButton(
-                    icon: Icons.delete_forever,
-                    label: '삭제 (${selectedMarkerIds.length})',
-                    onTap: selectedMarkerIds.isEmpty
-                        ? null
-                        : () => _showBulkDeleteDialog(vm),
-                    isDestructive: true,
-                  );
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+                      }),
+              child: Text(allSelected ? '전체 해제' : '전체 선택')),
+          TextButton(
+              onPressed: () => setState(() {
+                    selectionMode = false;
+                    selectedMarkerIds.clear();
+                  }),
+              child: const Text('취소')),
+        ]);
+      });
+    }
+    return Row(children: [
+      Expanded(
+          child: _buildPremiumDropdownButton(
+              icon: Icons.sort,
+              label: selectedSort,
+              onTap: _showSortBottomSheet)),
+      const SizedBox(width: 10),
+      _buildPremiumActionButton(
+          icon: Icons.check_box_outlined,
+          label: '선택',
+          onTap: () => setState(() => selectionMode = true)),
+    ]);
   }
 
   Widget _buildPremiumActionButton({
@@ -535,10 +417,10 @@ class _MarkerListScreenState extends State<MarkerListScreen>
 
   Widget _buildSearchAndFilters() {
     return Padding(
-      padding: const EdgeInsets.all(AppDesign.spacing24),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Column(
         children: [
-          // 프리미엄 검색창
+          // 검색창
           Container(
             decoration: BoxDecoration(
               color: AppDesign.cardBg,
@@ -576,97 +458,64 @@ class _MarkerListScreenState extends State<MarkerListScreen>
             ),
           ),
 
-          const SizedBox(height: AppDesign.spacing20),
+          const SizedBox(height: AppDesign.spacing8),
 
-          // 프리미엄 카테고리 필터
+          // 카테고리 필터
           _buildCategoryFilters(),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryFilters() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: AppDesign.spacing12),
-          child: Text(
-            '카테고리',
-            style: AppDesign.headingSmall.copyWith(
-              color: AppDesign.primaryText,
-            ),
-          ),
+  Widget _buildCategoryFilters() => Row(children: [
+        Expanded(
+            child: Text(
+                selectedCategory == null || selectedCategory == '전체'
+                    ? '전체 카테고리'
+                    : selectedCategory!,
+                style: AppDesign.bodyMedium)),
+        TextButton.icon(
+          icon: const Icon(Icons.tune, size: 18),
+          label: const Text('필터'),
+          onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              showDragHandle: true,
+              isScrollControlled: true,
+              builder: (sheet) => SafeArea(
+                  child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('장소 카테고리',
+                                style: AppDesign.headingSmall),
+                            const SizedBox(height: 12),
+                            Wrap(spacing: 8, runSpacing: 8, children: [
+                              for (final label in [
+                                '전체',
+                                '카페',
+                                '호텔',
+                                '사진',
+                                '음식점',
+                                '전시회',
+                                '자연',
+                                '관광명소',
+                                '쇼핑',
+                                '체험'
+                              ])
+                                ChoiceChip(
+                                    label: Text(label),
+                                    selected:
+                                        (selectedCategory ?? '전체') == label,
+                                    onSelected: (_) {
+                                      setState(() => selectedCategory = label);
+                                      Navigator.pop(sheet);
+                                    }),
+                            ]),
+                          ])))),
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildCategoryChip('전체'),
-              _buildCategoryChip('카페'),
-              _buildCategoryChip('호텔'),
-              _buildCategoryChip('사진'),
-              _buildCategoryChip('음식점'),
-              _buildCategoryChip('전시회'),
-              _buildCategoryChip('자연'),
-              _buildCategoryChip('관광명소'),
-              _buildCategoryChip('쇼핑'),
-              _buildCategoryChip('체험'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryChip(String label) {
-    final isSelected = selectedCategory == label ||
-        (selectedCategory == null && label == '전체');
-
-    return Padding(
-      padding: const EdgeInsets.only(right: AppDesign.spacing12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          gradient: isSelected ? AppDesign.primaryGradient : null,
-          color: isSelected ? null : AppDesign.cardBg,
-          borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-          boxShadow: isSelected ? AppDesign.glowShadow : AppDesign.softShadow,
-          border: Border.all(
-            color: isSelected
-                ? Colors.transparent
-                : AppDesign.borderColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppDesign.radiusLarge),
-            onTap: () {
-              setState(() {
-                selectedCategory = label;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDesign.spacing20,
-                vertical: AppDesign.spacing12,
-              ),
-              child: Text(
-                label,
-                style: AppDesign.bodyMedium.copyWith(
-                  color:
-                      isSelected ? AppDesign.whiteText : AppDesign.primaryText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+      ]);
 
   Widget _buildMarkersSliver() {
     return Consumer<MarkerListViewModel>(
@@ -679,6 +528,9 @@ class _MarkerListScreenState extends State<MarkerListScreen>
         _sortMarkers(filteredMarkers);
 
         if (filteredMarkers.isEmpty) {
+          if (vm.errorMessage != null) {
+            return const SliverToBoxAdapter(child: SizedBox.shrink());
+          }
           return _buildEmptySliver();
         }
 
@@ -687,15 +539,13 @@ class _MarkerListScreenState extends State<MarkerListScreen>
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                if (index == 0) {
-                  return _buildResultsHeader(filteredMarkers.length);
-                } else if (index <= filteredMarkers.length) {
-                  final markerIndex = index - 1;
+                if (index < filteredMarkers.length) {
+                  final markerIndex = index;
                   final markerMap = filteredMarkers[markerIndex];
                   final marker = MarkerModel.fromMap(markerMap);
                   return Padding(
                     padding: EdgeInsets.only(
-                      top: markerIndex == 0 ? AppDesign.spacing16 : 0,
+                      top: 0,
                       bottom: AppDesign.spacing16,
                     ),
                     child: _buildPremiumMarkerCard(marker, markerMap, vm),
@@ -703,38 +553,11 @@ class _MarkerListScreenState extends State<MarkerListScreen>
                 }
                 return null;
               },
-              childCount: filteredMarkers.length + 1,
+              childCount: filteredMarkers.length,
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildResultsHeader(int count) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppDesign.spacing16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppDesign.spacing8),
-            decoration: BoxDecoration(
-              gradient: AppDesign.primaryGradient,
-              borderRadius: BorderRadius.circular(AppDesign.radiusSmall),
-            ),
-            child: Icon(
-              Icons.location_on,
-              color: AppDesign.whiteText,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: AppDesign.spacing12),
-          Text(
-            '$count개의 장소',
-            style: AppDesign.headingMedium,
-          ),
-        ],
-      ),
     );
   }
 
