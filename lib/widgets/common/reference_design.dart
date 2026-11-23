@@ -194,14 +194,18 @@ class _LogoPainter extends CustomPainter {
 }
 
 class ReferenceCalendar extends StatelessWidget {
+  final bool weekOnly;
   final DateTime? firstDate, lastDate;
   final DateTime month;
   final DateTime selected;
   final Set<int> eventDays;
+  final Set<DateTime>? eventDates;
   final ValueChanged<DateTime> onSelected;
   final ValueChanged<DateTime> onMonthChanged;
   const ReferenceCalendar(
       {super.key,
+      this.weekOnly = false,
+      this.eventDates,
       this.firstDate,
       this.lastDate,
       required this.month,
@@ -212,24 +216,30 @@ class ReferenceCalendar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final first = DateTime(month.year, month.month, 1);
-    final start = first.subtract(Duration(days: first.weekday % 7));
-    final count = ((first.weekday % 7 +
-                    DateUtils.getDaysInMonth(month.year, month.month)) /
-                7)
-            .ceil() *
-        7;
+    final start = weekOnly
+        ? DateUtils.dateOnly(selected)
+            .subtract(Duration(days: selected.weekday % 7))
+        : first.subtract(Duration(days: first.weekday % 7));
+    final count = weekOnly
+        ? 7
+        : ((first.weekday % 7 +
+                        DateUtils.getDaysInMonth(month.year, month.month)) /
+                    7)
+                .ceil() *
+            7;
     return ReferenceCard(
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
         child: Column(children: [
           Row(children: [
             IconButton(
-                tooltip: '이전 달',
+                tooltip: weekOnly ? '이전 주' : '이전 달',
                 onPressed: firstDate != null &&
                         !DateTime(month.year, month.month).isAfter(
                             DateTime(firstDate!.year, firstDate!.month))
                     ? null
-                    : () =>
-                        onMonthChanged(DateTime(month.year, month.month - 1)),
+                    : () => weekOnly
+                        ? onSelected(selected.subtract(const Duration(days: 7)))
+                        : onMonthChanged(DateTime(month.year, month.month - 1)),
                 icon: const Icon(Icons.chevron_left)),
             Expanded(
                 child: Text('${month.year}년 ${month.month}월',
@@ -237,13 +247,14 @@ class ReferenceCalendar extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 17, fontWeight: FontWeight.w700))),
             IconButton(
-                tooltip: '다음 달',
+                tooltip: weekOnly ? '다음 주' : '다음 달',
                 onPressed: lastDate != null &&
                         !DateTime(month.year, month.month)
                             .isBefore(DateTime(lastDate!.year, lastDate!.month))
                     ? null
-                    : () =>
-                        onMonthChanged(DateTime(month.year, month.month + 1)),
+                    : () => weekOnly
+                        ? onSelected(selected.add(const Duration(days: 7)))
+                        : onMonthChanged(DateTime(month.year, month.month + 1)),
                 icon: const Icon(Icons.chevron_right)),
           ]),
           const SizedBox(height: 8),
@@ -265,8 +276,10 @@ class ReferenceCalendar extends StatelessWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: count,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 7, mainAxisExtent: 37),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  mainAxisExtent: 48 *
+                      MediaQuery.textScalerOf(context).scale(1).clamp(1, 2)),
               itemBuilder: (context, index) {
                 final date = start.add(Duration(days: index));
                 final enabled = (firstDate == null ||
@@ -275,8 +288,12 @@ class ReferenceCalendar extends StatelessWidget {
                         !date.isAfter(DateUtils.dateOnly(lastDate!)));
                 final active = DateUtils.isSameDay(date, selected);
                 final inMonth = date.month == month.month;
+                final hasEvent =
+                    eventDates?.contains(DateUtils.dateOnly(date)) ??
+                        (inMonth && eventDays.contains(date.day));
                 return Semantics(
-                    label: '${date.month}월 ${date.day}일',
+                    label:
+                        '${date.month}월 ${date.day}일${hasEvent ? ', 일정 있음' : ''}',
                     selected: active,
                     enabled: enabled,
                     button: true,
@@ -326,8 +343,7 @@ class ReferenceCalendar extends StatelessWidget {
                                                                       0xFFE8BDC2)
                                                                   : const Color(
                                                                       0xFFB9B9BE)))),
-                                      if (inMonth &&
-                                          eventDays.contains(date.day))
+                                      if (hasEvent)
                                         Positioned(
                                             bottom: 3,
                                             child: Container(
