@@ -6,10 +6,12 @@ class HomeDateStrip extends StatelessWidget {
       required this.start,
       required this.selected,
       required this.onSelect,
-      required this.onPickMonth});
+      required this.onPickMonth,
+      this.onViewAll});
   final DateTime start, selected;
   final ValueChanged<DateTime> onSelect;
   final ValueChanged<int> onPickMonth;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) => Column(children: [
@@ -17,6 +19,8 @@ class HomeDateStrip extends StatelessWidget {
           const Expanded(
               child: Text('다가오는 일정',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 22))),
+          if (onViewAll != null)
+            TextButton(onPressed: onViewAll, child: const Text('전체 보기')),
           PopupMenuButton<int>(
             tooltip: '월 선택',
             position: PopupMenuPosition.under,
