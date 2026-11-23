@@ -218,7 +218,10 @@ class _CommunityPostDetailBodyState extends State<_CommunityPostDetailBody> {
                                     ])),
                               ]),
                               const SizedBox(height: 22),
-                              Text(post.placeTitle ?? post.title,
+                              if (post.sourceCaption != null)
+                                Text('출처 · ${post.sourceCaption}',
+                                    style: AppDesign.caption),
+                              Text(post.displayTitle,
                                   style: const TextStyle(
                                       fontSize: 27,
                                       height: 1.25,
