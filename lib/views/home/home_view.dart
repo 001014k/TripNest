@@ -157,7 +157,7 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                                           const TripNestHeader(
                                               trailing:
                                                   TripNestSocialActions()),
-                                          const SizedBox(height: 20),
+                                          const SizedBox(height: 12),
                                           Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
@@ -181,25 +181,11 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                                                     _scheduleDate = date;
                                                     _loadUpcoming();
                                                   }),
-                                              onPickMonth: _pickScheduleMonth),
+                                              onPickMonth: _pickScheduleMonth,
+                                              onViewAll: _openSchedule),
                                           const SizedBox(height: 12),
                                           _HomeGlassSurface(
                                               child: _scheduleCard()),
-                                          Center(
-                                              child: TextButton(
-                                            onPressed: _openSchedule,
-                                            style: TextButton.styleFrom(
-                                                foregroundColor:
-                                                    AppDesign.primaryText,
-                                                minimumSize: const Size(0, 48)),
-                                            child: const Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text('일정 전체보기'),
-                                                  Icon(Icons.chevron_right,
-                                                      size: 20),
-                                                ]),
-                                          )),
                                         ]))),
                             Padding(
                                 padding:
@@ -216,12 +202,24 @@ class _HomeDashboardViewState extends State<HomeDashboardView>
                             const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 20),
                                 child: _HomeSectionDivider()),
+                            if (viewModel.recentMarkersError != null)
+                              TextButton.icon(
+                                  onPressed: viewModel.loadRecentMarkers,
+                                  icon: const Icon(Icons.refresh),
+                                  label: Text(
+                                      '${viewModel.recentMarkersError} 다시 시도')),
                             RecentMarkersSection(
                                 markers: viewModel.recentMarkers,
                                 onViewAll: _navigateToList),
                             const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 20),
                                 child: _HomeSectionDivider()),
+                            if (viewModel.sharedLinksError != null)
+                              TextButton.icon(
+                                  onPressed: viewModel.loadSharedLinks,
+                                  icon: const Icon(Icons.refresh),
+                                  label: Text(
+                                      '${viewModel.sharedLinksError} 다시 시도')),
                             SharedLinksSection(
                                 sharedLinks: viewModel.sharedLinks,
                                 onViewAll: _navigateToSharedLinks),
@@ -610,6 +608,9 @@ class _RecentMarkersSectionState extends State<RecentMarkersSection> {
       return const HomePhotoSkeletons();
     }
     if (widget.markers.isEmpty) {
+      if (context.watch<HomeDashboardViewModel>().recentMarkersError != null) {
+        return const SizedBox.shrink();
+      }
       return _buildEmptyMarkersState();
     }
 
@@ -991,7 +992,10 @@ class _SharedLinksSectionState extends State<SharedLinksSection> {
                 _sourceLinks.isEmpty
             ? const HomePhotoSkeletons()
             : _sourceLinks.isEmpty
-                ? _buildEmptyLinksState()
+                ? context.watch<HomeDashboardViewModel>().sharedLinksError !=
+                        null
+                    ? const SizedBox.shrink()
+                    : _buildEmptyLinksState()
                 : _buildLinksList(),
         const SizedBox(height: 20),
       ],
