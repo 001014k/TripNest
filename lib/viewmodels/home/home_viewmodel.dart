@@ -1,5 +1,6 @@
 import '../../services/infrastructure/server_api_client.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/markers/marker_model.dart';
@@ -10,6 +11,20 @@ import '../../services/shared_links/link_preview_service.dart';
 import '../../services/shared_links/shared_link_service.dart';
 
 class HomeDashboardViewModel extends ChangeNotifier {
+  HomeDashboardViewModel(
+      {Future<List<Map<String, dynamic>>> Function()? markerLoader,
+      Future<double?> Function(String)? ratingLoader,
+      String? Function()? owner})
+      : _markerLoader =
+            markerLoader ?? (() => MarkerService().getRecentMarkers(limit: 5)),
+        _ratingLoader = ratingLoader,
+        _owner = owner ?? (() => Supabase.instance.client.auth.currentUser?.id);
+  final Future<List<Map<String, dynamic>>> Function() _markerLoader;
+  final Future<double?> Function(String)? _ratingLoader;
+  final String? Function() _owner;
+  final Map<String, Future<double?>> _ratingPending = {};
+  int _markerRevision = 0, _linkRevision = 0;
+  String? recentMarkersError, sharedLinksError;
   bool _disposed = false;
   bool loadingRecentMarkers = true;
   bool loadingSharedLinks = true;
@@ -103,29 +118,49 @@ class HomeDashboardViewModel extends ChangeNotifier {
 
   // loadRecentMarkers() 안에 _loadRatings() 호출 유지
   Future<void> loadRecentMarkers() async {
+    if (_disposed) return;
+    final revision = ++_markerRevision;
+    final owner = _owner();
+    loadingRecentMarkers = true;
+    notifyListeners();
     try {
-      final rawMarkers = await MarkerService().getRecentMarkers(limit: 5);
-      if (_disposed) return;
-      _recentMarkers.clear();
-      _recentMarkers.addAll(rawMarkers.map((e) => MarkerModel.fromMap(e)));
-      _loadRatings();
-    } catch (error) {
-      debugPrint('홈 장소 조회 실패: $error');
+      final raw = await _markerLoader();
+      if (_disposed || revision != _markerRevision || owner != _owner()) return;
+      _recentMarkers
+        ..clear()
+        ..addAll(raw.map(MarkerModel.fromMap));
+      recentMarkersError = null;
+      unawaited(_loadRatings(List.of(_recentMarkers), revision, owner));
+    } catch (_) {
+      if (!_disposed && revision == _markerRevision && owner == _owner()) {
+        recentMarkersError = '저장한 장소를 불러오지 못했어요.';
+      }
     } finally {
-      loadingRecentMarkers = false;
-      if (!_disposed) notifyListeners();
+      if (!_disposed && revision == _markerRevision && owner == _owner()) {
+        loadingRecentMarkers = false;
+        notifyListeners();
+      }
     }
   }
 
-  Future<void> _loadRatings() async {
-    for (final marker in _recentMarkers) {
+  Future<void> _loadRatings(
+      List<MarkerModel> markers, int revision, String? owner) async {
+    for (final marker in markers) {
+      if (_disposed || revision != _markerRevision || owner != _owner()) return;
       final key = _getQueryKey(marker);
       if (_ratingCache.containsKey(key)) continue;
-
-      final rating = await _getGoogleRating(key);
-      _ratingCache[key] = rating;
+      final pending = _ratingPending.putIfAbsent(
+          key, () => (_ratingLoader ?? _getGoogleRating)(key));
+      double? rating;
+      try {
+        rating = await pending;
+      } catch (_) {/* 다음 조회 때 다시 시도합니다. */} finally {
+        if (identical(_ratingPending[key], pending)) _ratingPending.remove(key);
+      }
+      if (_disposed || owner != _owner()) return;
+      if (rating != null) _ratingCache[key] = rating;
+      if (revision == _markerRevision) notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<double?> _getGoogleRating(String query) async {
@@ -168,16 +203,24 @@ class HomeDashboardViewModel extends ChangeNotifier {
 
   // 공유 링크 불러오는 함수 추가
   Future<void> loadSharedLinks() async {
+    if (_disposed) return;
+    final revision = ++_linkRevision;
+    final owner = _owner();
     try {
       final rawLinks = await SharedLinkService().loadSharedLinks();
-      if (_disposed) return;
+      if (_disposed || revision != _linkRevision || owner != _owner()) return;
+      sharedLinksError = null;
       _sharedLinks.clear();
       _sharedLinks.addAll(rawLinks);
     } catch (error) {
-      debugPrint('홈 공유 링크 조회 실패: $error');
+      if (!_disposed && revision == _linkRevision && owner == _owner()) {
+        sharedLinksError = '공유 링크를 불러오지 못했어요.';
+      }
     } finally {
-      loadingSharedLinks = false;
-      if (!_disposed) notifyListeners();
+      if (!_disposed && revision == _linkRevision && owner == _owner()) {
+        loadingSharedLinks = false;
+        notifyListeners();
+      }
     }
   }
 
