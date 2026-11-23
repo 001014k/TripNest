@@ -30,6 +30,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   DateTime _date = DateUtils.dateOnly(DateTime.now());
   late Future<List<ScheduleModel>> _items;
   DateTime _month = DateTime.now();
+  bool _weekOnly = false;
 
   @override
   void initState() {
@@ -58,19 +59,41 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   void _reload() {
+    final first = DateTime(_month.year, _month.month);
+    final start = first.subtract(Duration(days: first.weekday % 7));
+    // 월 경계에 걸친 주도 일정 유무를 표시할 수 있도록 달력 전체를 조회합니다.
     _items = _service.fetchByDateRange(
-        DateTime(_month.year, _month.month),
-        DateTime(_month.year, _month.month + 1)
+        start,
+        start
+            .add(const Duration(days: 42))
             .subtract(const Duration(microseconds: 1)));
   }
 
+  bool _owns(ScheduleModel item) =>
+      item.userId == Supabase.instance.client.auth.currentUser?.id;
   Future<void> _edit([ScheduleModel? item]) async {
+    if (item != null && !_owns(item)) {
+      await showDialog<void>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+                  title: Text(item.title),
+                  content:
+                      const Text('공유받은 일정은 읽기 전용입니다. 일정 소유자만 수정하거나 삭제할 수 있어요.'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(dialog),
+                        child: const Text('확인'))
+                  ]));
+      return;
+    }
     await Navigator.push<bool>(
         context,
         AppPageRoute(
           motion: AppMotion.editor,
           builder: (_) => ScheduleEditView(date: _date, schedule: item),
         ));
+    // 충돌하거나 다른 기기에서 수정된 일정도 다시 열기 전에 최신 상태로 갱신합니다.
+    if (mounted) setState(_reload);
   }
 
   @override
@@ -110,24 +133,35 @@ class _ScheduleViewState extends State<ScheduleView> {
                         const SizedBox(height: 7),
                         const Text('여행의 소중한 순간들을 일정으로 계획해보세요.',
                             style: AppDesign.bodySmall),
-                        const SizedBox(height: 18),
+                        Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  setState(() => _weekOnly = !_weekOnly),
+                              icon: Icon(_weekOnly
+                                  ? Icons.expand_more
+                                  : Icons.expand_less),
+                              label:
+                                  Text(_weekOnly ? '월간 달력 펼치기' : '주간 달력으로 접기'),
+                            )),
                         SoftGlassSurface(
                             child: ReferenceCalendar(
+                                weekOnly: _weekOnly,
                                 month: _month,
                                 selected: _date,
-                                eventDays: {
-                                  for (var day = 1;
-                                      day <=
-                                          DateUtils.getDaysInMonth(
-                                              _month.year, _month.month);
-                                      day++)
+                                eventDays: const {},
+                                eventDates: {
+                                  for (var offset = -6; offset < 38; offset++)
                                     if (all.any((item) =>
                                         item.startTime.toLocal().isBefore(
                                             DateTime(_month.year, _month.month,
-                                                day + 1)) &&
+                                                offset + 2)) &&
                                         item.endTime.toLocal().isAfter(DateTime(
-                                            _month.year, _month.month, day))))
-                                      day,
+                                            _month.year,
+                                            _month.month,
+                                            offset + 1))))
+                                      DateTime(_month.year, _month.month,
+                                          offset + 1),
                                 },
                                 onSelected: (date) => setState(() {
                                       _date = date;
@@ -159,11 +193,18 @@ class _ScheduleViewState extends State<ScheduleView> {
                               onPressed: () => setState(_reload),
                               child: const Text('일정을 불러오지 못했어요. 다시 시도'))
                         else if (items.isEmpty)
-                          const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Text('이날의 첫 일정을 추가해보세요.',
-                                  textAlign: TextAlign.center,
-                                  style: AppDesign.bodySmall))
+                          Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(children: [
+                                const Text('이날의 첫 일정을 추가해보세요.',
+                                    textAlign: TextAlign.center,
+                                    style: AppDesign.bodySmall),
+                                const SizedBox(height: 8),
+                                TextButton.icon(
+                                    onPressed: () => _edit(),
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('일정 추가')),
+                              ]))
                         else
                           for (final item in items)
                             Padding(
@@ -218,16 +259,17 @@ class _ScheduleViewState extends State<ScheduleView> {
                                                           ?.length ??
                                                       0),
                                             ])),
-                                        SizedBox(
-                                            width: 22,
-                                            child: IconButton(
-                                                padding: EdgeInsets.zero,
-                                                tooltip: '일정 편집',
-                                                onPressed: () => _edit(item),
-                                                icon: const Icon(
-                                                    Icons.more_horiz,
-                                                    color: AppDesign
-                                                        .secondaryText))),
+                                        if (_owns(item))
+                                          SizedBox(
+                                              width: 48,
+                                              child: IconButton(
+                                                  padding: EdgeInsets.zero,
+                                                  tooltip: '일정 편집',
+                                                  onPressed: () => _edit(item),
+                                                  icon: const Icon(
+                                                      Icons.more_horiz,
+                                                      color: AppDesign
+                                                          .secondaryText))),
                                       ])),
                                 )),
                       ]);
@@ -411,8 +453,12 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
       _error('로그인 후 일정을 저장해주세요.');
       return;
     }
-    setState(() => _saving = true);
     final old = widget.schedule;
+    if (old != null && old.userId != userId) {
+      _error('일정 소유자만 수정할 수 있어요.');
+      return;
+    }
+    setState(() => _saving = true);
     try {
       if (widget.initialPlaces.isNotEmpty) {
         await _service.addAll(buildListSchedules(
@@ -424,19 +470,23 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
             end: _end,
             participants: _participants));
       } else {
-        await _service.addOrUpdate(ScheduleModel(
-            id: _saveId,
-            userId: old?.userId ?? userId,
-            title: _title.text.trim(),
-            startTime: _start,
-            endTime: _end,
-            colorValue: old?.colorValue ?? 0xFF222222,
-            placeId: _placeId,
-            latitude: _latitude,
-            longitude: _longitude,
-            collaboratorIds: _participants));
+        await _service.addOrUpdate(
+            ScheduleModel(
+                id: _saveId,
+                userId: old?.userId ?? userId,
+                title: _title.text.trim(),
+                startTime: _start,
+                endTime: _end,
+                colorValue: old?.colorValue ?? 0xFF222222,
+                placeId: _placeId,
+                latitude: _latitude,
+                longitude: _longitude,
+                collaboratorIds: _participants),
+            expectedRevision: old?.revision);
       }
       if (mounted) Navigator.pop(context, true);
+    } on ScheduleConflict catch (error) {
+      _error(error.toString());
     } catch (_) {
       _error('저장하지 못했어요. 다시 시도해주세요.');
     } finally {
@@ -451,6 +501,11 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
   }
 
   Future<void> _delete() async {
+    if (widget.schedule?.userId !=
+        Supabase.instance.client.auth.currentUser?.id) {
+      _error('일정 소유자만 삭제할 수 있어요.');
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => const AppConfirmDialog(
@@ -608,18 +663,21 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                                       : '여행 일정을 자유롭게 수정해보세요.',
                                   style: AppDesign.bodySmall),
                             ])),
-                        const SizedBox(width: 12),
-                        ReferencePhoto(
-                            title: widget.initialPlaces.isNotEmpty
-                                ? widget.initialPlaces.first.title
-                                : _placeId != null
-                                    ? _placeLabel
-                                    : _title.text,
-                            address: widget.initialPlaces.isNotEmpty
-                                ? widget.initialPlaces.first.address
-                                : _placeAddress,
-                            width: 96,
-                            height: 96),
+                        if (widget.initialPlaces.isNotEmpty ||
+                            _placeId != null) ...[
+                          const SizedBox(width: 12),
+                          ReferencePhoto(
+                              title: widget.initialPlaces.isNotEmpty
+                                  ? widget.initialPlaces.first.title
+                                  : _placeId != null
+                                      ? _placeLabel
+                                      : _title.text,
+                              address: widget.initialPlaces.isNotEmpty
+                                  ? widget.initialPlaces.first.address
+                                  : _placeAddress,
+                              width: 96,
+                              height: 80),
+                        ],
                       ]),
                       const SizedBox(height: 18),
                       _sectionTitle('기본 정보'),
@@ -701,13 +759,26 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
                                         shape: const StadiumBorder()),
                                 ])),
                             const SizedBox(height: 12),
-                            _timeRow('시작 시간', _editTime(_start),
-                                () => _pickTime(true)),
-                            const SizedBox(height: 8),
-                            _timeRow(
-                                '종료 시간',
-                                '${DateUtils.isSameDay(_start, _end) ? '' : '${_end.month}월 ${_end.day}일 '}${_editTime(_end)}',
-                                () => _pickTime(false)),
+                            LayoutBuilder(builder: (context, constraints) {
+                              final start = _timeRow('시작 시간', _editTime(_start),
+                                  () => _pickTime(true));
+                              final end = _timeRow(
+                                  '종료 시간',
+                                  '${DateUtils.isSameDay(_start, _end) ? '' : '${_end.month}월 ${_end.day}일 '}${_editTime(_end)}',
+                                  () => _pickTime(false));
+                              if (constraints.maxWidth < 300 ||
+                                  MediaQuery.textScalerOf(context).scale(1) >
+                                      1.3) {
+                                return Column(children: [start, end]);
+                              }
+                              return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: start),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: end),
+                                  ]);
+                            }),
                           ])),
                       const SizedBox(height: 24),
                       _sectionTitle('장소'),
@@ -924,16 +995,22 @@ class _ScheduleEditViewState extends State<ScheduleEditView> {
         child: Text(title, style: AppDesign.headingSmall),
       );
 
-  Widget _timeRow(String label, String value, VoidCallback onTap) => ListTile(
-        contentPadding: EdgeInsets.zero,
-        enabled: !_saving,
-        onTap: onTap,
-        leading: _formIcon(Icons.access_time_rounded),
-        title: Text(label, style: AppDesign.caption),
-        subtitle:
-            Text(value, style: AppDesign.bodyMedium.copyWith(fontSize: 17)),
-        trailing: const Icon(Icons.chevron_right),
-      );
+  Widget _timeRow(String label, String value, VoidCallback onTap) => InkWell(
+      onTap: _saving ? null : onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: AppDesign.caption),
+            const SizedBox(height: 6),
+            Row(children: [
+              Expanded(
+                  child: Text(value,
+                      style: AppDesign.bodyMedium.copyWith(fontSize: 17))),
+              const Icon(Icons.expand_more, size: 18),
+            ]),
+          ])));
 
   Widget _formIcon(IconData icon) => Container(
       width: 44,
