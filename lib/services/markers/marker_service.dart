@@ -144,9 +144,8 @@ class MarkerService {
 
       // response는 List<Map<String, dynamic>> 타입임
       return (response as List).cast<Map<String, dynamic>>();
-    } catch (error) {
-      debugPrint('Supabase 마커 조회 오류: $error');
-      return [];
+    } catch (_) {
+      rethrow;
     }
   }
 }
