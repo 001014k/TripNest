@@ -1,4 +1,5 @@
 class ScheduleModel {
+  final int revision;
   final String id;
   final String userId;
   final String title;
@@ -11,6 +12,7 @@ class ScheduleModel {
   final List<String>? collaboratorIds; // 친구 협업 용
 
   ScheduleModel({
+    this.revision = 1,
     required this.id,
     required this.userId,
     required this.title,
@@ -24,6 +26,7 @@ class ScheduleModel {
   });
 
   factory ScheduleModel.fromJson(Map<String, dynamic> j) => ScheduleModel(
+        revision: (j['revision'] as num?)?.toInt() ?? 1,
         id: j['id'],
         userId: j['user_id'],
         title: j['title'],
