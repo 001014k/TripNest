@@ -31,6 +31,22 @@ class CommunityPost {
   final double? placeLongitude;
   final String? placeImagePath;
 
+  static bool _isSourceTitle(String value) =>
+      RegExp(r'^(Threads의|Instagram의)\s+.+님$').hasMatch(value.trim());
+
+  String? get sourceCaption => _isSourceTitle(placeTitle ?? '')
+      ? placeTitle!.trim()
+      : _isSourceTitle(title)
+          ? title.trim()
+          : null;
+
+  String get displayTitle {
+    final place = placeTitle?.trim() ?? '';
+    if (place.isNotEmpty && !_isSourceTitle(place)) return place;
+    if (title.trim().isNotEmpty && !_isSourceTitle(title)) return title.trim();
+    return isMarkerShare ? '공유된 장소' : '여행 이야기';
+  }
+
   bool get isMarkerShare => placeTitle != null && placeTitle!.isNotEmpty;
 
   factory CommunityPost.fromMap(Map<String, dynamic> data) {
