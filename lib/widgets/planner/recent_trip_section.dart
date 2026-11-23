@@ -80,7 +80,7 @@ class _TripRecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = record['title']?.toString().trim();
+    final title = _TripHistoryEntry(record).title;
     final date =
         DateTime.tryParse(record['created_at']?.toString() ?? '')?.toLocal();
     return Card(
@@ -97,7 +97,7 @@ class _TripRecordCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title == null || title.isEmpty ? '여행 계획' : title,
+              Text(title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: AppDesign.bodyMedium
@@ -603,8 +603,8 @@ class _TripHistoryScreenState extends State<_TripHistoryScreen> {
                                         style: AppDesign.bodyMedium.copyWith(
                                             fontWeight: FontWeight.w600))),
                               SizedBox(
-                                  width: 30,
-                                  height: 28,
+                                  width: 48,
+                                  height: 48,
                                   child: PopupMenuButton<String>(
                                       tooltip: '기록 관리',
                                       enabled: !busy,
@@ -706,10 +706,14 @@ class _TripHistoryEntry {
     if (menu == null) return rawTitle.isEmpty ? '여행 계획' : rawTitle;
     final details = rawTitle
         .split('\n')
-        .where((line) => RegExp(r'^(지역|테마|동행|숙소|분위기):').hasMatch(line))
+        .where((line) => RegExp(r'^(지역|테마|동행|숙소|분위기|기간):').hasMatch(line))
         .map((line) => line.substring(line.indexOf(':') + 1).trim())
         .where((value) => value.isNotEmpty);
-    return [menu, ...details].join(' · ');
+    final summary =
+        details.map((value) => value == 'Seoul' ? '서울' : value).join(' · ');
+    return summary.isEmpty
+        ? menu
+        : '$summary · ${menu == '테마 여행' ? '여행' : menu}';
   }
 
   String get category {
