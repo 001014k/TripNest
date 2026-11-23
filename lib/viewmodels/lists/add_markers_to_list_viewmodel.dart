@@ -9,12 +9,24 @@ import 'package:uuid/uuid.dart';
 import '../../services/notifications/notification_service.dart';
 
 class AddMarkersToListViewModel extends ChangeNotifier {
+  AddMarkersToListViewModel(
+      {SupabaseClient? client, Future<bool> Function(String)? canEdit})
+      : supabase = client ?? Supabase.instance.client,
+        _canEdit = canEdit ?? ListAccessService.canEditPlaces,
+        _notificationService =
+            NotificationService(supabase: client ?? Supabase.instance.client);
+  final Future<bool> Function(String) _canEdit;
   bool _accountDisposed = false;
   @override
   void notifyListeners() {
     if (!_accountDisposed) super.notifyListeners();
   }
 
+  final Set<String> _adding = {};
+  final Map<String, Set<String>> _added = {};
+  final Map<String, int> _listRevisions = {};
+  bool isAdding(Marker marker, String listId) =>
+      _adding.contains('$listId:${marker.markerId.value}');
   final Set<Marker> _markers = {};
   final Map<MarkerId, String> _markerKeywords = {};
   bool _isLoading = true;
@@ -38,8 +50,8 @@ class AddMarkersToListViewModel extends ChangeNotifier {
     '체험': 'activity',
   };
 
-  final supabase = Supabase.instance.client;
-  final NotificationService _notificationService = NotificationService();
+  final SupabaseClient supabase;
+  final NotificationService _notificationService;
 
   // 해당 리스트에 이미 추가된 마커인지 여부
   bool isMarkerInList(Marker marker, String listId) {
@@ -124,9 +136,15 @@ class AddMarkersToListViewModel extends ChangeNotifier {
       return '${marker.infoWindow.title ?? "이 장소"}는 이미 리스트에 있습니다.';
     }
 
+    final operation = '$listId:${marker.markerId.value}';
+    if (!_adding.add(operation)) return '장소를 추가하고 있어요.';
+    notifyListeners();
     try {
-      if (!await ListAccessService.canEditPlaces(listId)) {
+      if (!await _canEdit(listId)) {
         return '게스트는 읽기 전용입니다.';
+      }
+      if (_accountDisposed || supabase.auth.currentUser?.id != user.id) {
+        return '로그인 상태가 변경되었습니다.';
       }
       await supabase.rpc('add_marker_to_list', params: {
         'p_list_id': listId,
@@ -147,6 +165,10 @@ class AddMarkersToListViewModel extends ChangeNotifier {
         ),
       );
 
+      if (_accountDisposed || supabase.auth.currentUser?.id != user.id) {
+        return '로그인 상태가 변경되었습니다.';
+      }
+      _added.putIfAbsent(listId, () => <String>{}).add(marker.markerId.value);
       _markersInLists.putIfAbsent(listId, () => <String>{});
       _markersInLists[listId]!.add(marker.markerId.value);
 
@@ -163,10 +185,16 @@ class AddMarkersToListViewModel extends ChangeNotifier {
       _error = 'Failed to add marker to list: $e';
       notifyListeners();
       return '마커 추가 실패: $e';
+    } finally {
+      _adding.remove(operation);
+      notifyListeners();
     }
   }
 
   Future<void> loadMarkersInList(String listId) async {
+    final revision = (_listRevisions[listId] ?? 0) + 1;
+    _listRevisions[listId] = revision;
+    _added[listId] = {};
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
@@ -182,7 +210,10 @@ class AddMarkersToListViewModel extends ChangeNotifier {
           .whereType<String>()
           .toSet();
 
-      _markersInLists[listId] = markerIds;
+      if (_accountDisposed ||
+          _listRevisions[listId] != revision ||
+          supabase.auth.currentUser?.id != user.id) { return; }
+      _markersInLists[listId] = markerIds..addAll(_added[listId] ?? {});
       _error = null;
     } catch (e) {
       _error = 'Failed to load markers in list: $e';
