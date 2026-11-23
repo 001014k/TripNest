@@ -53,7 +53,8 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
             // 닉네임이 없다면 약관 동의 페이지로 이동
             Navigator.pushReplacement(
               context,
-              AppPageRoute(motion: AppMotion.editor,
+              AppPageRoute(
+                motion: AppMotion.editor,
                 builder: (context) => TermsAgreementPage(userId: userId),
               ),
             );
@@ -97,7 +98,8 @@ class _CombinedLoginViewState extends State<CombinedLoginView> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('계정이 삭제되었습니다. 이용해 주셔서 감사합니다!'),
+            content: Text(args?['deletionNotice'] as String? ??
+                '계정이 삭제되었습니다. 이용해 주셔서 감사합니다!'),
             backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 4),
