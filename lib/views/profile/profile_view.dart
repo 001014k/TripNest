@@ -383,7 +383,10 @@ class _ProfilePageState extends State<ProfilePage> {
         context,
         '/login_option',
         (route) => false,
-        arguments: {'showDeletedMessage': true},
+        arguments: {
+          'showDeletedMessage': true,
+          'deletionNotice': viewModel.deletionNotice
+        },
       );
       return;
     }
