@@ -302,16 +302,25 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                             MapPreviewView(initialListId: widget.listId)))),
             _listAction(
                 Icons.format_list_bulleted, '일정으로 추가', _addListToSchedule),
-            _listAction(Icons.link, '공유 링크',
-                () => Navigator.pushNamed(context, '/shared_link')),
-            _listAction(
-                Icons.group_outlined,
-                '협업 관리',
-                () => Navigator.push(
-                    context,
-                    AppPageRoute(
-                        builder: (_) =>
-                            ListCollaborationView(listId: widget.listId)))),
+            PopupMenuButton<String>(
+              tooltip: '리스트 추가 기능',
+              onSelected: (value) {
+                if (value == 'links') {
+                  Navigator.pushNamed(context, '/shared_link');
+                } else {
+                  Navigator.push(
+                      context,
+                      AppPageRoute(
+                          builder: (_) =>
+                              ListCollaborationView(listId: widget.listId)));
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'links', child: Text('공유 링크')),
+                PopupMenuItem(value: 'collaboration', child: Text('협업 관리')),
+              ],
+              icon: const Icon(Icons.more_horiz),
+            ),
           ]),
         ]),
       );
@@ -356,7 +365,7 @@ class _MarkerInfoPageState extends State<MarkerInfoPage> {
                             Icon(icon, size: 24),
                             const SizedBox(height: 7),
                             Text(text,
-                                style: const TextStyle(fontSize: 10),
+                                style: const TextStyle(fontSize: 13),
                                 textAlign: TextAlign.center)
                           ]))))));
 
