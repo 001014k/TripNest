@@ -137,6 +137,32 @@ class WeatherCardContent extends StatelessWidget {
         height: 112 * MediaQuery.textScalerOf(context).scale(1).clamp(1, 2),
       );
     }
+    if (data == null && error != null) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.cloud_off_outlined, size: 22),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Tooltip(
+                  message: error!,
+                  child: const Text('날씨를 불러오지 못했어요',
+                      style: TextStyle(fontSize: 13)))),
+          TextButton(
+              onPressed: loading ? null : onRetry, child: const Text('재시도')),
+        ]),
+        Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              TextButton.icon(
+                  onPressed: onRegion,
+                  icon: const Icon(Icons.location_on_outlined, size: 16),
+                  label: Text('$region ▾')),
+              if (onForecast != null)
+                TextButton(onPressed: onForecast, child: const Text('주간 예보')),
+            ]),
+      ]);
+    }
     final icon = data == null
         ? Icons.cloud_outlined
         : data.precipitation == 3 || data.precipitation == 7
