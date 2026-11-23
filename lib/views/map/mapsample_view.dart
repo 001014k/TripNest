@@ -782,10 +782,10 @@ class _MapSampleViewState extends State<MapSampleView> {
                     ScreenGuideTarget(
                         guide: FeatureGuide.keywords,
                         onTry: _showKeywordFilter,
-                        child: IconButton(
-                            tooltip: '키워드 필터',
+                        child: TextButton.icon(
                             onPressed: _showKeywordFilter,
-                            icon: const Icon(Icons.tune_rounded))),
+                            icon: const Icon(Icons.tune_rounded, size: 20),
+                            label: const Text('전체 필터'))),
                   ]),
                 ),
               ]),
@@ -892,14 +892,15 @@ class _MapSampleViewState extends State<MapSampleView> {
             right: 18,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 FloatingActionButton(
                   heroTag: 'btn_ai_chat',
+                  shape: const CircleBorder(),
                   elevation: 3,
                   tooltip: 'AI 여행 플래너',
                   backgroundColor: Colors.white,
                   foregroundColor: const Color(0xFF202020),
-                  shape: const CircleBorder(),
                   onPressed: () => Navigator.push(
                       context,
                       AppPageRoute(
@@ -914,11 +915,11 @@ class _MapSampleViewState extends State<MapSampleView> {
                     onTry: () => showUserLists(context, fromGuide: true),
                     child: FloatingActionButton(
                       heroTag: 'btn_list',
+                      shape: const CircleBorder(),
                       elevation: 3,
                       tooltip: '여행 리스트 선택 및 필터 초기화',
                       backgroundColor: Colors.white,
                       foregroundColor: const Color(0xFF202020),
-                      shape: const CircleBorder(),
                       onPressed: () => showUserLists(context),
                       child: const Icon(Icons.format_list_bulleted_rounded,
                           size: 27),
