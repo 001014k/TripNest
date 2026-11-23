@@ -360,7 +360,8 @@ class AddMarkersToListPage extends StatelessWidget {
                                       AppDesign.radiusLarge),
                                   // 이미 포함된 장소는 선택 완료 상태로만 보여주고
                                   // 다시 추가 요청을 보내지 않습니다.
-                                  onTap: isSelected
+                                  onTap: (isSelected ||
+                                          viewModel.isAdding(marker, listId))
                                       ? null
                                       : () async {
                                           final result = await viewModel
