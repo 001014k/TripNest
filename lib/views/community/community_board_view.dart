@@ -139,7 +139,7 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -160,7 +160,7 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
                   ]),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Container(
                 decoration: BoxDecoration(
                     color: const Color(0xfff4f4f5),
@@ -246,7 +246,6 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
                         if (_tab != 1)
                           SliverToBoxAdapter(
                               child: _TopicFilters(
-                                  posts: viewModel.posts,
                                   selected: _topic,
                                   onChanged: (topic) {
                                     setState(() => _topic = topic);
@@ -275,18 +274,18 @@ class _CommunityBoardBodyState extends State<_CommunityBoardBody> {
                                         childCount: posts.length),
                                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount:
-                                            MediaQuery.sizeOf(context).width < 360 || MediaQuery.textScalerOf(context).scale(1) > 1.3
+                                            MediaQuery.sizeOf(context).width <
+                                                        360 ||
+                                                    MediaQuery.textScalerOf(context)
+                                                            .scale(1) >
+                                                        1.3
                                                 ? 1
                                                 : 2,
-                                        mainAxisExtent: 290,
+                                        mainAxisExtent: 290 +
+                                            160 * (MediaQuery.textScalerOf(context).scale(1) - 1).clamp(0, 3),
                                         crossAxisSpacing: 10,
                                         mainAxisSpacing: 10))
-                                : SliverList(
-                                    delegate: SliverChildBuilderDelegate(
-                                        (context, i) => Padding(
-                                            padding: const EdgeInsets.only(bottom: 12),
-                                            child: _PostCard(key: ValueKey(posts[i].id), post: posts[i])),
-                                        childCount: posts.length))),
+                                : SliverList(delegate: SliverChildBuilderDelegate((context, i) => Padding(padding: const EdgeInsets.only(bottom: 12), child: _PostCard(key: ValueKey(posts[i].id), post: posts[i])), childCount: posts.length))),
                         if (viewModel.hasMorePosts)
                           SliverToBoxAdapter(
                               child: Center(
@@ -337,62 +336,61 @@ const _placeKeywords = [
   '체험'
 ];
 
-bool _matchesKeyword(CommunityPost post, String keyword) =>
-    keyword == '전체' || post.placeCategory?.trim() == keyword;
-
 class _TopicFilters extends StatelessWidget {
-  const _TopicFilters(
-      {required this.posts, required this.selected, required this.onChanged});
-  final List<CommunityPost> posts;
+  const _TopicFilters({required this.selected, required this.onChanged});
   final String selected;
   final ValueChanged<String> onChanged;
   @override
-  Widget build(BuildContext context) => SizedBox(
-      height: 96,
-      child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: _placeKeywords.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (_, i) {
-            final label = _placeKeywords[i];
-            final matches = posts.where((p) => _matchesKeyword(p, label));
-            return InkWell(
-                onTap: () => onChanged(label),
-                borderRadius: BorderRadius.circular(30),
-                child: SizedBox(
-                    width: 52,
-                    child: Column(children: [
-                      Container(
-                          width: 52,
-                          height: 52,
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: selected == label
-                                      ? Colors.black
-                                      : const Color(0xffeeeeef),
-                                  width: selected == label ? 1.5 : 1)),
-                          child: ClipOval(
-                              child: label != '전체' && matches.isNotEmpty
-                                  ? CommunityPostPhoto(post: matches.first)
-                                  : ColoredBox(
-                                      color: const Color(0xfff0f3f5),
-                                      child: Icon(
-                                          label == '전체'
-                                              ? Icons.flight
-                                              : placeKeywordIcon(label),
-                                          size: 23)))),
-                      const SizedBox(height: 7),
-                      Text(label,
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: selected == label
-                                  ? FontWeight.w700
-                                  : FontWeight.w400)),
-                    ])));
-          }));
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Wrap(spacing: 6, runSpacing: 4, children: [
+        for (final label in {'전체', selected == '전체' ? '카페' : selected})
+          ChoiceChip(
+            selected: selected == label,
+            showCheckmark: false,
+            avatar: Icon(
+                label == '전체' ? Icons.apps_rounded : placeKeywordIcon(label),
+                size: 16,
+                color:
+                    selected == label ? Colors.white : AppDesign.primaryText),
+            label: Text(label),
+            selectedColor: AppDesign.primary,
+            labelStyle: TextStyle(
+                fontSize: 12,
+                color:
+                    selected == label ? Colors.white : AppDesign.primaryText),
+            onSelected: (_) => onChanged(label),
+          ),
+        ActionChip(
+          avatar: const Icon(Icons.tune, size: 16),
+          label: const Text('전체 필터'),
+          onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              showDragHandle: true,
+              isScrollControlled: true,
+              builder: (sheet) => SafeArea(
+                  child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('이야기 카테고리',
+                                style: AppDesign.headingSmall),
+                            const SizedBox(height: 12),
+                            Wrap(spacing: 8, runSpacing: 8, children: [
+                              for (final label in _placeKeywords)
+                                ChoiceChip(
+                                    label: Text(label),
+                                    selected: selected == label,
+                                    onSelected: (_) {
+                                      onChanged(label);
+                                      Navigator.pop(sheet);
+                                    }),
+                            ]),
+                          ])))),
+        ),
+      ]));
 }
 
 class _PopularCard extends StatelessWidget {
@@ -450,7 +448,7 @@ class _PopularCard extends StatelessWidget {
                                   color: Colors.white),
                             ]),
                             const Spacer(),
-                            Text(post.placeTitle ?? post.title,
+                            Text(post.displayTitle,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -555,7 +553,9 @@ class _PostCard extends StatelessWidget {
                   )),
               const SizedBox(height: 12),
             ],
-            Text(post.placeTitle ?? post.title,
+            if (post.sourceCaption != null)
+              Text('출처 · ${post.sourceCaption}', style: AppDesign.caption),
+            Text(post.displayTitle,
                 style: AppDesign.headingSmall
                     .copyWith(fontWeight: FontWeight.w700)),
             if (location != null && location.trim().isNotEmpty) ...[
