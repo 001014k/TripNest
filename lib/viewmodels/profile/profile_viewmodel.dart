@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import '../../services/auth/provider_disconnect_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/profile/user_model.dart';
 import '../../services/profile/user_service.dart';
@@ -74,7 +74,10 @@ class ProfileViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  String? deletionNotice;
   Future<bool> deleteAccount() async {
+    if (_isLoading) return false;
+    deletionNotice = null;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -88,19 +91,10 @@ class ProfileViewModel extends ChangeNotifier {
         return false;
       }
 
-      // 소셜 연결 해제
-      final accessToken =
-          Supabase.instance.client.auth.currentSession?.accessToken;
-      final identities = user.identities ?? [];
-      for (final identity in identities) {
-        final provider = identity.provider;
-        if (provider == 'kakao' && accessToken != null) {
-          await _unlinkKakao(accessToken);
-        }
-        if (provider == 'google' && accessToken != null) {
-          await _revokeGoogleToken(accessToken);
-        }
-      }
+      final session = Supabase.instance.client.auth.currentSession;
+      final providerToken = session?.providerToken;
+      final providers =
+          (user.identities ?? []).map((identity) => identity.provider).toList();
 
       // Edge Function 호출
       final response = await Supabase.instance.client.functions.invoke(
@@ -132,7 +126,25 @@ class ProfileViewModel extends ChangeNotifier {
       // ====================================================
 
       if (isSuccess) {
-        await Supabase.instance.client.auth.signOut();
+        // 앱 계정 삭제가 확정된 뒤 공급자 토큰만 사용합니다.
+        final disconnect = ProviderDisconnectService();
+        try {
+          final complete = await disconnect.disconnect(
+              providers: providers, providerToken: providerToken);
+          if (!complete) {
+            deletionNotice =
+                '앱 계정은 삭제되었습니다. 외부 로그인 연결은 Google·카카오 등 해당 계정의 연결된 앱 설정에서 확인해주세요.';
+          }
+        } finally {
+          disconnect.dispose();
+        }
+        try {
+          await Supabase.instance.client.auth
+              .signOut(scope: SignOutScope.local);
+        } catch (_) {
+          // 서버에서 확정된 삭제를 실패로 되돌리지 않습니다.
+          deletionNotice ??= '앱 계정은 삭제되었습니다. 앱을 다시 실행해주세요.';
+        }
         debugPrint("회원탈퇴 성공!");
         _isLoading = false;
         notifyListeners();
@@ -148,34 +160,6 @@ class ProfileViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
-    }
-  }
-
-  Future<void> _unlinkKakao(String accessToken) async {
-    try {
-      final response = await http.post(
-        Uri.parse('https://kapi.kakao.com/v1/user/unlink'),
-        headers: {'Authorization': 'Bearer $accessToken'},
-      );
-      if (response.statusCode == 200) {
-        debugPrint("카카오 앱 완전 연동 해제 성공!");
-      }
-    } catch (e) {
-      debugPrint("카카오 unlink 실패: $e");
-    }
-  }
-
-  Future<void> _revokeGoogleToken(String accessToken) async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-            'https://accounts.google.com/o/oauth2/revoke?token=$accessToken'),
-      );
-      if (response.statusCode == 200) {
-        debugPrint("구글 앱 완전 연동 해제 성공!");
-      }
-    } catch (e) {
-      debugPrint("구글 revoke 실패: $e");
     }
   }
 
