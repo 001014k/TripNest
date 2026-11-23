@@ -1,3 +1,4 @@
+import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -192,20 +193,26 @@ class CommunityPostDetailViewModel extends ChangeNotifier {
     }
   }
 
+  final Map<String, String> _pendingComments = {};
   Future<bool> addComment(String content) async {
     final user = _client.auth.currentUser;
     if (isSubmittingComment || _disposed) return false;
     final trimmed = content.trim();
     if (user == null || trimmed.isEmpty) return false;
 
+    final operationKey = '${user.id}:$trimmed';
+    final commentId =
+        _pendingComments.putIfAbsent(operationKey, () => const Uuid().v4());
     isSubmittingComment = true;
     notifyListeners();
     try {
-      await _client.from('travel_post_comments').insert({
+      await _client.from('travel_post_comments').upsert({
+        'id': commentId,
         'post_id': postId,
         'author_id': user.id,
         'content': trimmed,
-      });
+      }, onConflict: 'id', ignoreDuplicates: true);
+      _pendingComments.remove(operationKey);
       await load();
       return true;
     } catch (_) {
