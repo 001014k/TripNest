@@ -11,6 +11,7 @@ class MarkerListViewModel extends ChangeNotifier {
 
   final SupabaseClient supabase;
   bool isLoading = false;
+  String? errorMessage;
   int _revision = 0;
   final Set<String> _deleted = {}, _deleting = {};
   List<Map<String, dynamic>> markers = [];
@@ -42,6 +43,7 @@ class MarkerListViewModel extends ChangeNotifier {
           supabase.auth.currentUser?.id != user.id) {
         return;
       }
+      errorMessage = null;
       markers = data
           .where((m) =>
               !_deleted.contains(m['id']) && !_deleting.contains(m['id']))
@@ -49,7 +51,9 @@ class MarkerListViewModel extends ChangeNotifier {
         ..sort((a, b) =>
             b['created_at'].toString().compareTo(a['created_at'].toString()));
     } catch (e) {
-      debugPrint('fetchMarkers error: $e');
+      if (!_accountDisposed && revision == _revision) {
+        errorMessage = '저장한 장소를 불러오지 못했어요.';
+      }
     } finally {
       if (revision == _revision) {
         isLoading = false;
